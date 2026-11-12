@@ -337,6 +337,16 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-ue tr.ts-ue-strong td { font-weight:600; } .ts-ue tr.ts-ue-strong td:first-child { color:var(--color-fg); }
 .ts-ue tr.ts-ue-total td { font-weight:700; font-size:13px; border-top:2px solid var(--color-border-line); } .ts-ue tr.ts-ue-total td:first-child { color:var(--color-fg); }
 .ts-spark { display:block; max-width:100%; height:auto; }
+.ts-strow { display:flex; flex-direction:column; gap:4px; padding:10px 0; border-bottom:1px solid var(--color-border-line); cursor:pointer; }
+.ts-strow:last-child { border-bottom:0; }
+.ts-strow.ts-on { background:linear-gradient(90deg, var(--color-bg), transparent); margin:0 -12px; padding-left:12px; padding-right:12px; }
+.ts-strow-top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.ts-strow-n { display:flex; align-items:center; gap:6px; min-width:0; }
+.ts-strow-n b { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ts-strow-top > b { font-size:15px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ts-strow-m { display:flex; flex-wrap:wrap; gap:2px 12px; font-size:12px; color:var(--color-fg-muted); font-variant-numeric:tabular-nums; }
+.ts-strow-m b { color:var(--color-fg); font-weight:500; }
+.ts-strow-m b.ts-good { color:var(--color-ok); } .ts-strow-m b.ts-bad, .ts-strow-m b.ts-neg { color:var(--color-bad); }
 .ts-empty { color:var(--color-fg-muted); font-size:12px; padding:10px 0; margin:0; }
 [data-dash-source-state=refreshing] { opacity:.5; }
 .ts-notes summary { cursor:pointer; color:var(--color-fg-muted); font-size:12px; }
@@ -487,7 +497,8 @@ th[aria-sort] { color:var(--color-fg); }
     <p class="ts-muted">Нажмите на карточку площадки или строку магазина, чтобы отфильтровать весь сайт.</p>
     <div class="ts-mpc-grid" data-draw="mpcards" data-source="sales"></div>
     <h2 id="stores">Магазины</h2>
-    <div class="ts-tablewrap">
+    <div class="ts-mlist ts-stlist" data-draw="storelist" data-source="sales"></div>
+    <div class="ts-tablewrap ts-desk">
       <table class="ts-table" data-source="sales">
         <thead><tr><th>Магазин</th><th>Выручка</th><th>Изменение</th><th>Чистая прибыль</th><th>Маржа</th><th>Продано, шт.</th><th>Возвраты</th><th>ДРР</th><th>Убыточных SKU</th></tr></thead>
         <tbody data-draw="storerows"></tbody>
@@ -1575,6 +1586,32 @@ dash.loader('sales', {
   });
 
   /* Stores */
+  dash.draw('storelist', (box) => {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const p = dash.params();
+    v.stores.forEach((s) => {
+      const row = el('div', 'ts-strow' + (p.store === s.store ? ' ts-on' : '')); row.tabIndex = 0;
+      const top = el('div', 'ts-strow-top');
+      const nm = el('div', 'ts-strow-n'); nm.append(T.mpChip(s.mp), el('b', null, s.store));
+      const pr = el('b', s.np < 0 ? 'ts-neg' : 'ts-good', (s.np > 0 ? '+' : '') + T.rub(s.np));
+      top.append(nm, pr);
+      const dl = el('div', 'ts-strow-m');
+      const item = (l, val, cls) => { const sp = el('span', null, l + ' '); sp.append(el('b', cls, val)); dl.append(sp); };
+      item('Выручка', T.rub(s.rev));
+      if (isFinite(s.drevp)) item('', T.signed(s.drevp, (x) => T.pct(x, 0)), s.drevp >= 0 ? 'ts-good' : 'ts-bad');
+      item('маржа', T.pct(s.margin), s.margin < 0 ? 'ts-neg' : null);
+      item('ДРР', T.pct(s.drr, 0), s.drr > T.TH.drr ? 'ts-bad' : null);
+      item('возвраты', T.pct(s.retr), s.retr > 0.05 ? 'ts-bad' : null);
+      item('убыточных', T.num(s.lossN), s.lossN ? 'ts-bad' : null);
+      row.append(top, dl);
+      const pick = () => dash.setParams({ store: p.store === s.store ? '' : s.store });
+      row.addEventListener('click', pick);
+      row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') pick(); });
+      box.append(row);
+    });
+    if (!v.stores.length) box.append(el('p', 'ts-empty', 'Нет продаж с такими фильтрами.'));
+  });
   dash.draw('storerows', (tb) => {
     const v = T.view(); tb.replaceChildren();
     if (!v) { const td = tb.insertRow().insertCell(); td.colSpan = 9; td.textContent = '—'; return; }
