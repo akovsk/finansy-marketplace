@@ -173,7 +173,9 @@ img { max-width:100%; }
 .ts-grid2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; align-items:start; }
 @media (max-width: 900px) { .ts-grid-main, .ts-grid2 { grid-template-columns:minmax(0,1fr); } }
 .ts-health { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
-.ts-hl { background:var(--color-panel); border-radius:var(--ts-r-sm); padding:8px 12px; display:flex; flex-direction:column; border:1px solid var(--color-border-line); }
+.ts-hl { font:inherit; color:inherit; text-align:left; cursor:pointer; background:var(--color-panel); border-radius:var(--ts-r-sm); padding:8px 12px; display:flex; flex-direction:column; border:1px solid var(--color-border-line); }
+.ts-hl:hover { border-color:var(--color-fg-muted); }
+.ts-hl span::after { content:" →"; opacity:.6; }
 .ts-hl b { font-size:18px; font-weight:650; font-variant-numeric:tabular-nums; }
 .ts-hl span { font-size:12px; color:var(--color-fg-muted); }
 .ts-hl.ts-hl-bad b { color:var(--color-bad); } .ts-hl.ts-hl-warn b { color:var(--color-warn); }
@@ -342,7 +344,9 @@ th[aria-sort] { color:var(--color-fg); }
 /* Phone-first adjustments */
 @media (max-width: 640px) {
   .ts { gap:14px; font-size:14px; }
-  .ts h1 { font-size:20px; }
+  .ts h1 { font-size:19px; }
+  .ts-brand p .ts-mp { display:none; }
+  .ts-brand { gap:2px; }
   .ts h2 { font-size:16px; }
   .ts-top { gap:6px; }
   .ts-bar { margin-inline:-4px; padding-inline:4px; gap:8px; }
@@ -517,10 +521,10 @@ th[aria-sort] { color:var(--color-fg); }
 
   <section class="ts-page" id="goods" role="tabpanel" hidden>
     <div class="ts-health" id="health" data-source="sales">
-      <div class="ts-hl"><b data-draw="health" data-k="sold">—</b><span>товаров с продажами</span></div>
-      <div class="ts-hl ts-hl-bad"><b data-draw="health" data-k="loss">—</b><span>убыточных</span></div>
-      <div class="ts-hl ts-hl-warn"><b data-draw="health" data-k="idle">—</b><span>без продаж, с расходами</span></div>
-      <div class="ts-hl ts-hl-bad"><b data-draw="health" data-k="out">—</b><span>кандидатов на вывод</span></div>
+      <button type="button" class="ts-hl" data-jump="all:"><b data-draw="health" data-k="sold">—</b><span>товаров с продажами</span></button>
+      <button type="button" class="ts-hl ts-hl-bad" data-jump="all:loss"><b data-draw="health" data-k="loss">—</b><span>убыточных</span></button>
+      <button type="button" class="ts-hl ts-hl-warn" data-jump="all:idle"><b data-draw="health" data-k="idle">—</b><span>без продаж, с расходами</span></button>
+      <button type="button" class="ts-hl ts-hl-bad" data-jump="abc:"><b data-draw="health" data-k="out">—</b><span>кандидатов на вывод</span></button>
     </div>
     <div class="ts-seg" role="tablist" aria-label="Товары">
       <button type="button" role="tab" data-sub="best" aria-selected="false">Лучшие</button>
@@ -550,8 +554,9 @@ th[aria-sort] { color:var(--color-fg); }
         <input type="search" class="ts-search" id="p-search" placeholder="Поиск по названию, артикулу, SKU" aria-label="Поиск товара">
         <select class="dash-select" id="p-show" aria-label="Какие товары показать">
           <option value="">Все товары</option>
-          <option value="loss">Убыточные</option>
+          <option value="loss">Убыточные (с продажами)</option>
           <option value="out">Кандидаты на вывод</option>
+          <option value="idle">Без продаж, с расходами</option>
           <option value="A">Класс A</option>
           <option value="B">Класс B</option>
           <option value="C">Класс C</option>
@@ -1157,6 +1162,18 @@ dash.loader('sales', {
     redrawIn(document.getElementById(id));
   }
   window.TS_showTab = showTab;
+  document.querySelectorAll('[data-jump]').forEach((b) => b.addEventListener('click', () => {
+    const [sub, show] = b.getAttribute('data-jump').split(':');
+    if (sub === 'all') {
+      T.state.show = show; T.state.q = ''; T.state.limit = 50;
+      if (show === 'loss') { T.state.sort = 'np'; T.state.dir = 1; } else if (show === 'idle') { T.state.sort = 'np'; T.state.dir = 1; } else { T.state.sort = 'rev'; T.state.dir = -1; }
+      document.querySelectorAll('#p-show').forEach((s) => { s.value = show; });
+      document.querySelectorAll('#p-search').forEach((s) => { s.value = ''; });
+      document.querySelectorAll('#p-sort').forEach((s) => { const val = T.state.sort + ':' + T.state.dir; if ([...s.options].some((o) => o.value === val)) s.value = val; });
+    }
+    showSub(sub);
+    const seg = document.querySelector('.ts-seg'); if (seg) seg.scrollIntoView({ block: 'nearest' });
+  }));
   T.state.chart = 'rev';
   document.querySelectorAll('[data-chart]').forEach((b) => b.addEventListener('click', () => {
     T.state.chart = b.getAttribute('data-chart');
@@ -1686,8 +1703,9 @@ dash.loader('sales', {
   window.TS_prodList = function (v) {
     const q = T.state.q, show = T.state.show;
     let rows = v.prods.filter((x) => x.rev !== 0 || x.np !== 0 || x.q !== 0 || x.prevRev);
-    if (show === 'loss') rows = rows.filter((x) => x.np < 0);
+    if (show === 'loss') rows = rows.filter((x) => x.np < 0 && x.rev > 0);
     else if (show === 'out') rows = rows.filter((x) => x.d.out);
+    else if (show === 'idle') rows = rows.filter((x) => x.rev <= 0 && x.np < 0);
     else if (show) rows = rows.filter((x) => x.abc === show);
     if (q) rows = rows.filter((r) => ((r.name || '') + ' ' + (r.article || '') + ' ' + r.sku + ' ' + (r.brand || '')).toLowerCase().includes(q));
     const k = T.state.sort, dir = T.state.dir;
