@@ -347,6 +347,18 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-strow-m { display:flex; flex-wrap:wrap; gap:2px 12px; font-size:12px; color:var(--color-fg-muted); font-variant-numeric:tabular-nums; }
 .ts-strow-m b { color:var(--color-fg); font-weight:500; }
 .ts-strow-m b.ts-good { color:var(--color-ok); } .ts-strow-m b.ts-bad, .ts-strow-m b.ts-neg { color:var(--color-bad); }
+.ts-mbars { display:flex; flex-direction:column; gap:2px; }
+.ts-mbar { font:inherit; color:inherit; background:transparent; border:0; border-radius:8px; padding:5px 6px; display:grid; grid-template-columns:2.4rem minmax(0,1fr) 7.8rem; gap:8px; align-items:center; cursor:pointer; text-align:left; }
+.ts-mbar:hover, .ts-mbar.ts-on { background:var(--color-bg); }
+.ts-mbar-n { font-size:12.5px; font-weight:600; color:var(--color-fg-muted); }
+.ts-mbar.ts-on .ts-mbar-n { color:var(--color-fg); }
+.ts-mbar-t { display:grid; grid-template-columns:1fr 1fr; height:12px; }
+.ts-mbar-h { display:flex; position:relative; }
+.ts-mbar-neg { justify-content:flex-end; border-right:1px solid var(--cds-chart-axis); }
+.ts-mbar-h i { display:block; height:100%; border-radius:3px; }
+.ts-mbar-neg i { background:var(--color-bad); } .ts-mbar-pos i { background:var(--color-ok); }
+.ts-mbar-v { text-align:right; font-variant-numeric:tabular-nums; line-height:1.2; }
+.ts-mbar-v b { font-size:13px; } .ts-mbar-v small { display:block; color:var(--color-fg-muted); font-size:10.5px; white-space:nowrap; }
 .ts-empty { color:var(--color-fg-muted); font-size:12px; padding:10px 0; margin:0; }
 [data-dash-source-state=refreshing] { opacity:.5; }
 .ts-notes summary { cursor:pointer; color:var(--color-fg-muted); font-size:12px; }
@@ -519,6 +531,10 @@ th[aria-sort] { color:var(--color-fg); }
       </div>
       <div class="ts-sec">
         <h2 id="pnl-months">По месяцам</h2>
+        <div class="ts-panel">
+          <div class="ts-panel-h"><h3>Чистая прибыль по месяцам</h3><span class="ts-muted">нажмите на месяц</span></div>
+          <div class="ts-mbars" data-draw="mbars" data-source="sales"></div>
+        </div>
         <p class="ts-muted">Нажмите на месяц, чтобы выбрать его периодом.</p>
         <div class="ts-tablewrap">
           <table class="ts-table" data-source="sales">
@@ -1556,6 +1572,28 @@ dash.loader('sales', {
     }
   });
   const MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+  dash.draw('mbars', (box) => {
+    const mv = T.monthly(); box.replaceChildren();
+    if (!mv) { box.append(el('p', 'ts-empty', '—')); return; }
+    const vals = mv.keys.map((k) => mv.months.get(k));
+    const mx = Math.max(1, ...vals.map((t) => Math.abs(t.np)));
+    const cur = dash.params().period || '30';
+    mv.keys.forEach((k, i) => {
+      const t = vals[i];
+      const row = el('button', 'ts-mbar' + (cur === 'm' + k ? ' ts-on' : '')); row.type = 'button';
+      const nm = MONTHS[Number(k.slice(5)) - 1] + (k === mv.keys[mv.keys.length - 1] ? '*' : '');
+      const track = el('span', 'ts-mbar-t');
+      const neg = el('span', 'ts-mbar-h ts-mbar-neg'), pos = el('span', 'ts-mbar-h ts-mbar-pos');
+      const bar = el('i'); bar.style.width = (Math.abs(t.np) / mx * 100) + '%';
+      (t.np < 0 ? neg : pos).append(bar);
+      track.append(neg, pos);
+      const val = el('span', 'ts-mbar-v'); val.append(el('b', t.np < 0 ? 'ts-neg' : 'ts-good', (t.np > 0 ? '+' : '') + T.rub(t.np)), el('small', null, 'выручка ' + T.rub(t.rev)));
+      row.append(el('span', 'ts-mbar-n', nm), track, val);
+      row.addEventListener('click', () => dash.setParams({ period: 'm' + k }));
+      box.append(row);
+    });
+    box.append(el('p', 'ts-muted', '* текущий месяц неполный'));
+  });
   dash.draw('pnlm-head', (th) => {
     const mv = T.monthly(); th.replaceChildren(); const tr = th.insertRow();
     const h0 = document.createElement('th'); h0.textContent = 'Статья'; tr.append(h0);
