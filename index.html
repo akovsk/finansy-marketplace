@@ -149,6 +149,9 @@ img { max-width:100%; }
 .ts-seg button span { color:var(--color-fg-muted); font-weight:500; margin-left:4px; }
 .ts-filters { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 .ts-filters select { max-width:13rem; border-radius:var(--ts-r-sm); font-size:12.5px; }
+.ts-chips { display:flex; gap:2px; background:var(--color-panel); border:1px solid var(--color-border-line); border-radius:999px; padding:2px; flex:none; }
+.ts-chips button { font:inherit; font-size:12.5px; font-weight:500; color:var(--color-fg-muted); background:transparent; border:0; border-radius:999px; padding:5px 11px; cursor:pointer; white-space:nowrap; }
+.ts-chips button[aria-pressed="true"] { background:var(--color-fg); color:var(--color-bg); font-weight:600; }
 .ts-btn { font:inherit; font-size:12.5px; font-weight:500; color:var(--color-fg-muted); background:transparent; border:1px solid var(--color-border-line); border-radius:999px; padding:5px 12px; cursor:pointer; }
 .ts-btn:hover { color:var(--color-fg); border-color:var(--color-fg-muted); }
 
@@ -377,6 +380,11 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-grow { grid-template-columns:40px minmax(0,1fr) auto; }
   .ts-grow .ts-ph-s { width:40px; height:40px; }
   .ts-acts { padding-left:18px; }
+  .ts-pnl th:nth-child(4), .ts-pnl td:nth-child(4) { display:none; }
+  .ts-pnl .ts-pctbar i { display:none; }
+  .ts-pnl td:first-child { white-space:normal; min-width:0; max-width:7.5rem; line-height:1.25; }
+  .ts-pnl th, .ts-pnl td { padding-left:7px; padding-right:7px; }
+  .ts-pnl td.ts-l, .ts-pnl tr.ts-sub td:first-child { padding-left:14px; }
   .ts-mlist { display:flex; }
   .ts-desk { display:none; }
   .ts-tools .ts-search { width:100%; }
@@ -400,6 +408,7 @@ th[aria-sort] { color:var(--color-fg); }
       <button type="button" role="tab" data-tab="goods" aria-selected="false">Товары</button>
     </nav>
     <div class="ts-filters" id="filters">
+      <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
       <select class="dash-select" id="f-period" aria-label="Период">
         <option value="7">7 дней</option>
         <option value="14">14 дней</option>
@@ -428,7 +437,7 @@ th[aria-sort] { color:var(--color-fg); }
   </div>
 
   <section class="ts-page" id="overview" role="tabpanel">
-    <p class="ts-lede" id="takeaway" data-source="sales">Выручка <b data-draw="tk-rev" data-source="sales" data-field="rev">—</b>, на счёт от площадок <b data-draw="tk-payout" data-source="sales" data-field="rev">—</b>, из них чистая прибыль <b data-draw="tk-np" data-source="sales" data-field="np">—</b> (<b data-draw="tk-margin" data-source="sales" data-field="np">—</b> выручки). Больше всего уходит на <b data-draw="tk-cost">—</b>: <b data-draw="tk-costpct" data-source="sales">—</b> выручки. В минусе <b data-draw="tk-loss" class="ts-hl-bad" data-source="sales" data-field="sku">—</b> из <b data-draw="tk-sold" data-source="sales" data-field="sku">—</b> товаров с продажами.</p>
+    <p class="ts-lede" id="takeaway" data-source="sales">На счёт пришло <b data-draw="tk-payout" data-source="sales" data-field="rev">—</b>, из них чистая прибыль <b data-draw="tk-np" data-source="sales" data-field="np">—</b>. В минусе <b data-draw="tk-loss" class="ts-hl-bad" data-source="sales" data-field="sku">—</b> из <b data-draw="tk-sold" data-source="sales" data-field="sku">—</b> товаров.</p>
     <div class="ts-kpis">
       <div class="ts-kpi" id="kpi-rev"><div class="ts-kpi-l">Выручка</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="rev" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="rev"></div></div>
       <div class="ts-kpi" id="kpi-payout"><div class="ts-kpi-l" title="Выручка минус комиссия, логистика, хранение, реклама и удержания площадок">Выплата на счёт</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="payout" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="payout"></div></div>
@@ -487,8 +496,8 @@ th[aria-sort] { color:var(--color-fg); }
       <div class="ts-sec">
         <h2>P&amp;L за период</h2>
         <div class="ts-tablewrap">
-          <table class="ts-table" data-source="sales">
-            <thead><tr><th>Статья</th><th>Сумма</th><th>% выручки</th><th>Пред. период</th><th>Изменение</th></tr></thead>
+          <table class="ts-table ts-pnl" data-source="sales">
+            <thead><tr><th>Статья</th><th>Сумма</th><th>%</th><th>Пред. период</th><th>Изм.</th></tr></thead>
             <tbody data-draw="pnl"></tbody>
           </table>
         </div>
@@ -1118,6 +1127,7 @@ dash.loader('sales', {
       el.addEventListener('change', () => { T.state.limit = 50; dash.setParams({ [map[id]]: el.value }); });
     });
   });
+  document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.addEventListener('click', () => { T.state.limit = 50; dash.setParams({ period: b.getAttribute('data-period') }); }));
   document.querySelectorAll('#f-reset').forEach((b) => b.addEventListener('click', () => {
     T.state.q = ''; T.state.show = ''; T.state.limit = 50;
     document.querySelectorAll('#p-search').forEach((i) => { i.value = ''; });
@@ -1191,6 +1201,7 @@ dash.loader('sales', {
         if ([...el.options].some((o) => o.value === val)) el.value = val;
       });
     });
+    document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '30') ? 'true' : 'false'));
     document.querySelectorAll('.ts-sw-rev').forEach((e) => { e.style.background = dash.colors[0]; });
     document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = dash.colors[1]; });
     const v = T.view();
@@ -1480,12 +1491,14 @@ dash.loader('sales', {
 
   /* P&L */
   const PNL = [
-    ['rev', 'Выручка', 'strong'], ['comm', 'Комиссия маркетплейса', 'sub'], ['log', 'Логистика', 'sub'], ['stor', 'Хранение', 'sub'], ['adv', 'Реклама', 'sub'],
-    ['other', 'Прочие удержания', 'sub'], ['payout', 'Выплата на счёт', 'strong'], ['cogs', 'Себестоимость (закупка)', 'sub'], ['tax', 'Налог', 'sub'], ['np', 'Чистая прибыль', 'strong'],
-    ['margin', 'Маржа', 'pct'], ['q', 'Продано, шт.', 'cnt'], ['avg', 'Средняя цена продажи', 'avg']
+    ['rev', 'Выручка', 'strong'], ['comm', 'Комиссия', 'sub'], ['log', 'Логистика', 'sub'], ['stor', 'Хранение', 'sub'], ['adv', 'Реклама', 'sub'],
+    ['other', 'Прочие удержания', 'sub'], ['payout', 'Выплата на счёт', 'strong'], ['cogs', 'Закупка (себестоимость)', 'sub'], ['tax', 'Налог', 'sub'], ['np', 'Чистая прибыль', 'strong'],
+    ['margin', 'Маржа', 'pct'], ['q', 'Продано, шт.', 'cnt'], ['avg', 'Средний чек', 'avg']
   ];
   const valOf = (t, k) => (k === 'avg' ? (t.q ? t.rev / t.q : NaN) : t[k]);
-  const fmtOf = (kind, x) => (kind === 'pct' ? T.pct(x) : kind === 'cnt' ? T.num(x) : T.rubFull(x));
+  const narrow = () => window.innerWidth < 640;
+  const money = (x) => (narrow() ? T.rub(x) : T.rubFull(x));
+  const fmtOf = (kind, x) => (kind === 'pct' ? T.pct(x) : kind === 'cnt' ? T.num(x) : money(x));
   dash.draw('pnl', (tb) => {
     const v = T.view(); tb.replaceChildren();
     if (!v) { const td = tb.insertRow().insertCell(); td.colSpan = 5; td.textContent = '—'; return; }
@@ -1508,7 +1521,7 @@ dash.loader('sales', {
         const p = valOf(v.prev, k); pr.textContent = fmtOf(kind, p);
         if (isFinite(c) && isFinite(p)) {
           const diff = c - p;
-          dc.textContent = kind === 'pct' ? T.signed(diff * 100, (x) => x.toLocaleString('ru-RU', { maximumFractionDigits: 1, minimumFractionDigits: 1 })) + ' п.п.' : kind === 'cnt' ? T.signed(diff, T.num) : T.signed(diff, T.rubFull);
+          dc.textContent = kind === 'pct' ? T.signed(diff * 100, (x) => x.toLocaleString('ru-RU', { maximumFractionDigits: 1, minimumFractionDigits: 1 })) + ' п.п.' : kind === 'cnt' ? T.signed(diff, T.num) : T.signed(diff, money);
           if (Math.abs(diff) > 0.5 || (kind === 'pct' && Math.abs(diff) > 0.0005)) dc.className = diff > 0 ? 'ts-good' : 'ts-bad';
         }
       } else { pr.textContent = '—'; dc.textContent = '—'; }
