@@ -326,6 +326,8 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-mrow .ts-mv b { font-size:14px; }
 .ts-mrow .ts-mv small { display:block; color:var(--color-fg-muted); font-size:11px; }
 .ts-mrow .ts-badges { grid-column:2 / 4; }
+.ts-be { margin:0; font-size:12px; color:var(--color-fg-muted); }
+.ts-be b { color:var(--color-fg); font-weight:600; }
 .ts-xp { cursor:pointer; }
 .ts-more { font-size:11.5px; color:var(--color-fg-muted); width:fit-content; }
 .ts-more::after { content:" ▾"; }
@@ -920,6 +922,8 @@ window.T = (function () {
     } else {
       b.append(badges(r, true));
       if (r.d.rec) b.append(el('p', 'ts-rec', r.d.rec));
+      const bk = breakEven(r);
+      if (bk && r.np < 0) { const p = el('p', 'ts-be'); p.append(document.createTextNode('В ноль при цене ≈ '), el('b', null, rubFull(Math.ceil(bk.be / 10) * 10)), document.createTextNode(' (сейчас ' + rubFull(bk.price) + ')')); b.append(p); }
     }
     b.append(el('span', 'ts-more', 'Юнит-экономика'));
     c.append(b);
@@ -927,6 +931,15 @@ window.T = (function () {
     return c;
   }
 
+  function breakEven(r) {
+    if (!(r.q > 0) || !(r.rev > 0)) return null;
+    const price = r.rev / r.q;
+    const pctShare = (-r.comm - r.tax) / r.rev;
+    const fixed = (-r.log - r.stor - r.adv - r.other - r.cogs) / r.q;
+    if (pctShare >= 0.95) return null;
+    const be = fixed / (1 - pctShare);
+    return { price, be, up: be / price - 1 };
+  }
   /* SKU detail: unit economics per piece + daily mini chart, built on first open */
   function unitDetail(r) {
     const v = view();
@@ -950,6 +963,13 @@ window.T = (function () {
     tb.append(body);
     wrap.append(el('div', 'ts-muted', q > 0 ? 'Юнит-экономика на 1 проданную штуку, ' + num(q) + ' шт. за период' : 'Продаж за период нет, показаны только расходы'));
     wrap.append(tb);
+    const bk = breakEven(r);
+    if (bk && r.np < 0) {
+      const p = el('p', 'ts-be');
+      p.append(document.createTextNode('Цена безубыточности ≈ '), el('b', null, rubFull(Math.ceil(bk.be / 10) * 10)), document.createTextNode(' (сейчас ' + rubFull(bk.price) + ', +' + pct(bk.up, 0) + ')'));
+      wrap.append(p);
+      if (bk.up > 0.5) wrap.append(el('p', 'ts-muted', 'Поднять цену так сильно вряд ли получится: выгоднее наборы, другая логистика или вывод.'));
+    }
     const s = dash.data('sales');
     if (v && s.status === 'ok') {
       const A = iso(v.r.a), B = iso(v.r.b), byDay = new Map();
