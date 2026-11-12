@@ -1,0 +1,1713 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Финансы маркетплейсы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root {
+  --color-fg:#1d2330; --color-fg-muted:#5f6878; --color-bg:#fbfbfa; --color-panel:#f2f3f1; --color-border-line:#e1e3df;
+  --color-ok:#2f7d4f; --color-warn:#a66a00; --color-bad:#c0392b;
+  --c1:#3b6fb6; --c2:#e08a2c;
+  --font-anthropic-sans:'Onest', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-anthropic-serif:'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --cds-font-size-caption:12.5px; --cds-font-size-body:14.5px; --cds-font-size-heading:16px; --cds-font-size-title:2rem;
+  --cds-font-weight-medium:600;
+  --cds-gap-xs:4px; --cds-gap-sm:8px; --cds-gap-md:12px; --cds-gap-lg:16px; --cds-gap-xl:24px;
+  --cds-pad-xs:4px; --cds-pad-sm:8px; --cds-pad-md:12px; --cds-pad-lg:16px; --cds-pad-xl:24px;
+  --cds-radius:10px;
+  --cds-chart-muted:#9aa2ae; --cds-chart-status-critical:#c0392b; --cds-chart-grid:#e6e8e4; --cds-chart-axis:#9aa2ae; --cds-chart-reference:#9aa2ae;
+  --cds-text-secondary:#5f6878; --cds-surface-popover:#ffffff; --cds-border:#d9dcd6; --cds-shadow-popover:0 6px 24px rgba(20,25,35,.12);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#14171c; --color-panel:#1c2027; --color-border-line:#2b313a;
+  --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
+  --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
+  --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.45);
+  color-scheme:dark; } }
+:root[data-theme="dark"] {
+  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#14171c; --color-panel:#1c2027; --color-border-line:#2b313a;
+  --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
+  --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
+  --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.45);
+  color-scheme:dark; }
+*, *::before, *::after { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; }
+body { margin:0; background:var(--color-bg); color:var(--color-fg); font-family:var(--font-anthropic-sans); font-size:var(--cds-font-size-body); line-height:1.45; }
+img { max-width:100%; }
+[hidden] { display:none !important; }
+#dash-root { max-width:1280px; margin:0 auto; padding-block:20px 40px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); }
+.dash-select { font:inherit; font-size:var(--cds-font-size-caption); color:var(--color-fg); background-color:var(--color-bg); border:1px solid var(--color-border-line); border-radius:8px; padding:6px 28px 6px 10px; appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23889' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; cursor:pointer; max-width:100%; }
+.dash-skeleton { color:transparent !important; background:var(--color-border-line); border-radius:6px; }
+@media (prefers-reduced-motion: no-preference) { .dash-skeleton { animation:sk 1.2s ease-in-out infinite alternate; } @keyframes sk { from { opacity:.5 } to { opacity:1 } } }
+.ts-loadmsg { position:fixed; bottom:16px; right:16px; background:var(--cds-surface-popover); border:1px solid var(--cds-border); box-shadow:var(--cds-shadow-popover); border-radius:8px; padding:8px 12px; font-size:12.5px; z-index:20; }
+
+/* Standalone phone: tabs become a bottom app bar */
+@media (max-width: 640px) {
+  #dash-root { padding-block:12px 96px; padding-left:max(12px, env(safe-area-inset-left, 0px)); padding-right:max(12px, env(safe-area-inset-right, 0px)); }
+  #dash-root .ts-tabs { position:fixed; left:0; right:0; bottom:0; z-index:30; width:auto; max-width:none; border-radius:16px 16px 0 0; margin:0; border:0; border-top:1px solid var(--color-border-line);
+    padding:6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); background:var(--color-panel);
+    box-shadow:0 -6px 20px rgba(0,0,0,.18); justify-content:space-between; gap:2px; overflow:visible; }
+  #dash-root .ts-tabs button { flex:1 1 0; padding:10px 0; font-size:11px; letter-spacing:-0.02em; border-radius:10px; min-width:0; overflow:hidden; text-overflow:clip; }
+}
+</style>
+<script>
+(function () {
+  const DEF = { period: '30', mp: '', store: '', brand: '', cat: '' };
+  const SOURCES = { sales: 'data.json', images: 'images.json' };
+  const S = { loaders: {}, drawers: {}, order: [], on: [], data: {}, params: Object.assign({}, DEF) };
+  Object.keys(SOURCES).forEach((k) => { S.data[k] = { status: 'loading', data: [] }; });
+  function safe(fn, label) { try { fn(); } catch (e) { console.error('[dash]', label || '', e); } }
+  function runDraw(name) {
+    const fn = S.drawers[name]; if (!fn) return;
+    document.querySelectorAll('[data-draw="' + name + '"]').forEach((el) => { if (el.closest('[hidden]')) return; safe(() => fn(el), name); });
+  }
+  let pending = false;
+  function render() {
+    if (pending) return; pending = true;
+    requestAnimationFrame(() => { pending = false; S.on.forEach((f) => safe(f, 'onData')); S.order.forEach(runDraw); });
+  }
+  window.dash = {
+    colors: ['var(--c1)', 'var(--c2)', 'var(--cds-chart-muted)'],
+    loader(id, o) { S.loaders[id] = o.fn; },
+    data(id) { const d = S.data[id]; if (!d) return { status: 'missing', data: [] }; return d; },
+    params() { return Object.assign({}, S.params); },
+    setParams(o) { Object.keys(o).forEach((k) => { S.params[k] = o[k] == null ? (DEF[k] || '') : o[k]; }); render(); },
+    resetParams() { S.params = Object.assign({}, DEF); render(); },
+    onData(fn) { S.on.push(fn); safe(fn, 'onData'); },
+    draw(name, fn) { if (typeof fn === 'function') { if (!S.drawers[name]) S.order.push(name); S.drawers[name] = fn; } else runDraw(name); },
+    refresh() {},
+    setLink(id) { try { history.replaceState(null, '', '#' + id); } catch (e) {} }
+  };
+  window.__dashStart = function () {
+    render();
+    let lastW = window.innerWidth;
+    window.addEventListener('resize', () => { if (window.innerWidth !== lastW) { lastW = window.innerWidth; render(); } });
+    const msg = document.createElement('div'); msg.className = 'ts-loadmsg'; msg.textContent = 'Загружаю данные…'; document.body.append(msg);
+    let left = Object.keys(SOURCES).length;
+    Object.entries(SOURCES).forEach(([id, url]) => {
+      fetch(url).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then((answer) => {
+          let out = S.loaders[id] ? S.loaders[id]({ answer }) : answer;
+          const rows = Array.isArray(out) ? out : out.rows || out.data || [];
+          S.data[id] = { status: 'ok', data: rows };
+        })
+        .catch((e) => { console.error(id, e); S.data[id] = { status: 'error', data: [], message: String(e) }; })
+        .finally(() => { if (--left === 0) msg.remove(); render(); });
+    });
+  };
+})();
+</script>
+</head>
+<body>
+<div id="dash-root">
+<style>
+/* Layout: sticky header with tabs + filters; one tab visible at a time; soft panels; marketplace colors as the only bright accents */
+.ts {
+  --ts-wb:#8b46d6; --ts-oz:#2b6cff; --ts-ym:#e6b400;
+  --ts-c1:#56657c; --ts-c2:#8494aa; --ts-c3:#b1bccb; --ts-c4:#e3a24b; --ts-c5:#d3d9e1;
+  --ts-r:14px; --ts-r-sm:9px;
+  --ts-shadow:0 1px 2px rgba(15,20,30,.04), 0 4px 14px rgba(15,20,30,.05);
+  display:flex; flex-direction:column; gap:18px; color:var(--color-fg);
+  font-family:var(--font-anthropic-sans); font-size:13.5px; line-height:1.5;
+  font-feature-settings:"tnum" 1, "cv11" 1;
+}
+.ts h1, .ts h2, .ts h3 { font-family:var(--font-anthropic-sans); margin:0; text-wrap:balance; letter-spacing:-0.01em; }
+.ts h1 { font-size:24px; font-weight:700; line-height:1.15; }
+.ts h2 { font-size:17px; font-weight:650; line-height:1.3; }
+.ts h3 { font-size:14px; font-weight:600; line-height:1.3; }
+.ts b, .ts strong { font-weight:600; }
+.ts-muted { color:var(--color-fg-muted); font-size:12px; margin:0; line-height:1.5; }
+.ts-good { color:var(--color-ok); } .ts-bad, .ts-neg { color:var(--color-bad); }
+.ts-hl-good { color:var(--color-ok); } .ts-hl-bad { color:var(--color-bad); }
+.ts :focus-visible { outline:2px solid var(--color-fg); outline-offset:2px; }
+
+.ts-top { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:12px 24px; }
+.ts-brand { display:flex; flex-direction:column; gap:6px; }
+.ts-brand p { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.ts-bar { position:sticky; top:0; z-index:5; background:var(--color-bg); padding-block:8px; display:flex; flex-direction:column; gap:10px; border-bottom:1px solid var(--color-border-line); }
+.ts-tabs { display:flex; gap:4px; flex-wrap:wrap; background:var(--color-panel); padding:4px; border-radius:12px; width:fit-content; max-width:100%; border:1px solid var(--color-border-line); }
+.ts-tabs button, .ts-seg button { font:inherit; font-size:13px; font-weight:500; color:var(--color-fg-muted); background:transparent; border:0; border-radius:9px; padding:6px 14px; cursor:pointer; white-space:nowrap; }
+.ts-tabs button:hover, .ts-seg button:hover { color:var(--color-fg); }
+.ts-tabs button[aria-selected="true"], .ts-seg button[aria-selected="true"] { background:var(--color-bg); color:var(--color-fg); font-weight:600; box-shadow:0 1px 3px rgba(15,20,30,.12); }
+.ts-seg { display:flex; gap:4px; flex-wrap:wrap; background:var(--color-panel); padding:3px; border-radius:10px; width:fit-content; max-width:100%; border:1px solid var(--color-border-line); }
+.ts-seg button { font-size:12.5px; padding:5px 12px; border-radius:8px; }
+.ts-seg-sm button { padding:3px 10px; font-size:12px; }
+.ts-seg button span { color:var(--color-fg-muted); font-weight:500; margin-left:4px; }
+.ts-filters { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.ts-filters select { max-width:13rem; border-radius:var(--ts-r-sm); font-size:12.5px; }
+.ts-btn { font:inherit; font-size:12.5px; font-weight:500; color:var(--color-fg-muted); background:transparent; border:1px solid var(--color-border-line); border-radius:999px; padding:5px 12px; cursor:pointer; }
+.ts-btn:hover { color:var(--color-fg); border-color:var(--color-fg-muted); }
+
+.ts-page { display:flex; flex-direction:column; gap:16px; min-width:0; }
+.ts-page[hidden], .ts-subpage[hidden] { display:none !important; }
+.ts-subpage { display:flex; flex-direction:column; gap:12px; min-width:0; }
+.ts-sec { display:flex; flex-direction:column; gap:10px; min-width:0; }
+.ts-panel { background:var(--color-panel); border:1px solid var(--color-border-line); border-radius:var(--ts-r); padding:16px 18px; box-shadow:var(--ts-shadow); display:flex; flex-direction:column; gap:10px; min-width:0; }
+.ts-panel-h { display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.ts-lede { margin:0; max-width:90ch; line-height:1.6; font-size:14px; }
+.ts-lede b { font-variant-numeric:tabular-nums; }
+
+.ts-kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }
+.ts-kpi { background:var(--color-panel); border:1px solid var(--color-border-line); border-radius:var(--ts-r); padding:12px 14px; display:flex; flex-direction:column; gap:2px; min-width:0; box-shadow:var(--ts-shadow); }
+.ts-kpi-l { font-size:12px; color:var(--color-fg-muted); font-weight:500; }
+.ts-kpi-v { font-size:22px; font-weight:650; line-height:1.2; font-variant-numeric:tabular-nums; white-space:nowrap; letter-spacing:-0.02em; }
+.ts-kpi-d { font-size:11.5px; font-variant-numeric:tabular-nums; min-height:1.2em; color:var(--color-fg-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ts-grid-main { display:grid; grid-template-columns:minmax(0,1.75fr) minmax(0,1fr); gap:14px; align-items:start; }
+.ts-grid2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; align-items:start; }
+@media (max-width: 900px) { .ts-grid-main, .ts-grid2 { grid-template-columns:minmax(0,1fr); } }
+.ts-health { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
+.ts-hl { background:var(--color-panel); border-radius:var(--ts-r-sm); padding:8px 12px; display:flex; flex-direction:column; border:1px solid var(--color-border-line); }
+.ts-hl b { font-size:18px; font-weight:650; font-variant-numeric:tabular-nums; }
+.ts-hl span { font-size:12px; color:var(--color-fg-muted); }
+.ts-hl.ts-hl-bad b { color:var(--color-bad); } .ts-hl.ts-hl-warn b { color:var(--color-warn); }
+
+.ts-legend { display:flex; gap:12px; font-size:12px; color:var(--color-fg-muted); flex-wrap:wrap; }
+.ts-legend span { display:inline-flex; align-items:center; gap:5px; }
+.ts-sw { width:9px; height:9px; border-radius:3px; display:inline-block; }
+.ts-sw-line { height:3px; width:14px; border-radius:2px; }
+.ts-sw-wb { background:var(--ts-wb); } .ts-sw-oz { background:var(--ts-oz); } .ts-sw-ym { background:var(--ts-ym); } .ts-sw-np { background:var(--color-fg); }
+.ts-chart { position:relative; min-height:250px; }
+.ts-chart .ts-tick { fill:var(--cds-text-secondary); font-size:11px; font-variant-numeric:tabular-nums; }
+.ts-chart .ts-gridl { stroke:var(--cds-chart-grid); stroke-dasharray:2 3; }
+.ts-chart .ts-zero { stroke:var(--cds-chart-axis); }
+.ts-chart .ts-hit { fill:transparent; cursor:crosshair; }
+.ts-chart .ts-hit:hover { fill:var(--cds-chart-grid); fill-opacity:.4; }
+.ts-chart-msg { color:var(--color-fg-muted); padding-top:90px; text-align:center; margin:0; }
+.ts-tip { position:absolute; top:0; pointer-events:none; background:var(--cds-surface-popover); border:1px solid var(--cds-border); box-shadow:var(--cds-shadow-popover); border-radius:var(--ts-r-sm); padding:8px 11px; font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; z-index:2; display:flex; flex-direction:column; gap:2px; }
+.ts-tip-h { color:var(--cds-text-secondary); }
+
+.ts-cash-top { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px; }
+.ts-cash-lines { display:flex; flex-direction:column; gap:3px; margin-top:4px; }
+.ts-cash-line { display:grid; grid-template-columns:10px minmax(0,1fr) auto 3.4rem; gap:8px; align-items:center; font-size:12.5px; font-variant-numeric:tabular-nums; }
+.ts-cash-line b { font-weight:600; text-align:right; }
+.ts-cash-line small { color:var(--color-fg-muted); text-align:right; }
+.ts-share { display:flex; height:10px; border-radius:6px; overflow:hidden; background:var(--cds-chart-grid); gap:2px; }
+.ts-share i { display:block; height:100%; }
+.ts-mprows { display:flex; flex-direction:column; }
+.ts-mprow { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:4px 12px; align-items:center; padding:8px 0; border-bottom:1px solid var(--color-border-line); font-variant-numeric:tabular-nums; cursor:pointer; }
+.ts-mprow:last-child { border-bottom:0; }
+.ts-mprow:hover .ts-mp { filter:brightness(1.08); }
+.ts-mprow .ts-mprow-n { display:flex; align-items:center; gap:6px; min-width:0; }
+.ts-mprow .ts-mprow-r { text-align:right; font-weight:600; }
+.ts-mprow .ts-mprow-r small { display:block; font-weight:400; color:var(--color-fg-muted); font-size:11px; }
+.ts-mprow .ts-mprow-p { text-align:right; min-width:5.5rem; }
+.ts-mprow .ts-mprow-p small { display:block; color:var(--color-fg-muted); font-size:11px; }
+
+.ts-acts { margin:0; padding:0 0 0 20px; list-style:decimal; display:flex; flex-direction:column; gap:9px; line-height:1.45; }
+.ts-acts li::marker { font-weight:700; color:var(--color-fg-muted); }
+.ts-acts .ts-pot { color:var(--color-ok); font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ts-acts small { color:var(--color-fg-muted); font-size:12px; display:block; }
+
+.ts-ins { display:flex; flex-direction:column; gap:10px; }
+.ts-in { border:1px solid var(--color-border-line); border-left:4px solid var(--cds-chart-muted); border-radius:var(--ts-r-sm) var(--ts-r) var(--ts-r) var(--ts-r-sm); padding:11px 14px; display:flex; flex-direction:column; gap:5px; background:var(--color-panel); min-width:0; box-shadow:var(--ts-shadow); cursor:pointer; }
+.ts-in-wb { border-left-color:var(--ts-wb); } .ts-in-oz { border-left-color:var(--ts-oz); } .ts-in-ym { border-left-color:var(--ts-ym); }
+.ts-in-top { display:flex; gap:6px; align-items:center; flex-wrap:wrap; min-height:18px; }
+.ts-in-t { font-weight:600; line-height:1.35; margin:0; font-size:14px; }
+.ts-in-x { margin:0; color:var(--color-fg-muted); font-size:12.5px; line-height:1.5; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+.ts-in.ts-open .ts-in-x { -webkit-line-clamp:unset; display:block; }
+.ts-in-a { margin:0; font-size:12.5px; line-height:1.45; }
+.ts-in-a::before { content:"→ "; color:var(--color-fg-muted); }
+.ts-in-pot { margin-left:auto; font-size:11.5px; font-weight:600; color:var(--color-ok); font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+.ts-mp { display:inline-block; font-size:10.5px; line-height:1.65; padding:0 7px; border-radius:999px; font-weight:600; color:#fff; background:var(--cds-chart-muted); white-space:nowrap; letter-spacing:.01em; }
+.ts-mp-wb { background:var(--ts-wb); } .ts-mp-oz { background:var(--ts-oz); } .ts-mp-ym { background:var(--ts-ym); color:#1d1d1d; }
+.ts-table td.ts-l .ts-mp, .ts-card-s .ts-mp, .ts-grow .ts-mp { margin-right:5px; }
+
+.ts-mpc-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:12px; }
+.ts-mpc { border:1px solid var(--color-border-line); border-radius:var(--ts-r); padding:0 16px 14px; background:var(--color-panel); display:flex; flex-direction:column; gap:9px; cursor:pointer; min-width:0; box-shadow:var(--ts-shadow); overflow:hidden; }
+.ts-mpc::before { content:""; display:block; height:5px; margin:0 -16px 4px; background:var(--cds-chart-muted); }
+.ts-mpc-wb::before { background:var(--ts-wb); } .ts-mpc-oz::before { background:var(--ts-oz); } .ts-mpc-ym::before { background:var(--ts-ym); }
+.ts-mpc:hover { border-color:var(--color-fg-muted); }
+.ts-mpc.ts-on { outline:2px solid var(--color-fg); outline-offset:1px; }
+.ts-mpc-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.ts-mpc-big { font-size:22px; font-weight:650; line-height:1.15; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+.ts-mpc dl, .ts-abcc dl { margin:0; display:grid; grid-template-columns:1fr auto 1fr auto; gap:3px 10px; font-size:12.5px; font-variant-numeric:tabular-nums; }
+.ts-abcc dl { grid-template-columns:1fr auto; }
+.ts-mpc dt, .ts-abcc dt { color:var(--color-fg-muted); } .ts-mpc dd, .ts-abcc dd { margin:0; text-align:right; font-weight:500; }
+.ts-stack { display:flex; height:14px; border-radius:7px; overflow:hidden; background:var(--cds-chart-grid); position:relative; }
+.ts-stack i { display:block; height:100%; }
+.ts-stack .ts-stack-mark { position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--color-bad); }
+.ts-stack-legend { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:2px 12px; font-size:11.5px; font-variant-numeric:tabular-nums; color:var(--color-fg-muted); }
+.ts-stack-legend span { display:flex; align-items:center; gap:5px; }
+.ts-stack-legend b { margin-left:auto; color:var(--color-fg); font-weight:500; }
+
+.ts-tablewrap { overflow:auto; border:1px solid var(--color-border-line); border-radius:var(--ts-r); box-shadow:var(--ts-shadow); background:var(--color-bg); }
+.ts-tablewrap.ts-tall { max-height:620px; }
+.ts-table { width:100%; border-collapse:collapse; font-size:12.5px; font-variant-numeric:tabular-nums; }
+.ts-table th, .ts-table td { padding:7px 11px; text-align:right; border-bottom:1px solid var(--color-border-line); white-space:nowrap; vertical-align:middle; }
+.ts-table th:first-child, .ts-table td:first-child, .ts-table .ts-l { text-align:left; }
+.ts-table th { color:var(--color-fg-muted); font-weight:600; font-size:11.5px; background:var(--color-panel); position:sticky; top:0; z-index:1; }
+.ts-table tbody tr:last-child td { border-bottom:0; }
+.ts-table tbody tr:hover td { background:var(--color-panel); }
+.ts-table tr.ts-strong td { font-weight:600; background:var(--color-panel); }
+.ts-table tr.ts-sub td:first-child { padding-left:24px; color:var(--color-fg-muted); }
+.ts-table td.ts-name { white-space:normal; min-width:14rem; max-width:22rem; }
+.ts-table td.ts-name a, .ts-card a, .ts-grow a { color:var(--color-fg); text-decoration:none; }
+.ts-table td.ts-name a:hover, .ts-card a:hover, .ts-grow a:hover { text-decoration:underline; }
+.ts-table td.ts-name small { display:block; color:var(--color-fg-muted); font-size:11px; }
+.ts-table td.ts-wrap { white-space:normal; text-align:left; min-width:11rem; }
+.ts-table th.ts-click { cursor:pointer; }
+.ts-table th.ts-click:hover { color:var(--color-fg); }
+.ts-pctbar { display:inline-flex; align-items:center; gap:8px; justify-content:flex-end; }
+.ts-pctbar i { display:inline-block; height:7px; border-radius:4px; min-width:1px; }
+.ts-store-row { cursor:pointer; }
+.ts-store-row.ts-on td { background:var(--color-panel); font-weight:600; }
+.ts-sort { font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; font-weight:600; }
+.ts-sort::after { content:""; display:inline-block; width:1em; }
+th[aria-sort=descending] .ts-sort::after { content:"↓"; }
+th[aria-sort=ascending] .ts-sort::after { content:"↑"; }
+th[aria-sort] { color:var(--color-fg); }
+.ts-tools { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.ts-search { font:inherit; font-size:12.5px; color:var(--color-fg); background:var(--color-bg); border:1px solid var(--color-border-line); border-radius:999px; padding:6px 13px; width:min(100%, 18rem); }
+
+.ts-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:10px; }
+.ts-card { display:grid; grid-template-columns:84px minmax(0,1fr); gap:12px; background:var(--color-panel); border:1px solid var(--color-border-line); border-radius:var(--ts-r); padding:11px; align-items:start; box-shadow:var(--ts-shadow); }
+.ts-ph { width:84px; height:84px; border-radius:10px; object-fit:cover; background:#fff; display:block; border:1px solid var(--color-border-line); }
+.ts-ph-s { width:44px; height:44px; border-radius:8px; }
+.ts-card-b { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.ts-card-t { font-weight:600; font-size:13px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.ts-card-s { font-size:11.5px; color:var(--color-fg-muted); display:flex; flex-wrap:nowrap; align-items:center; gap:4px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ts-card-big { font-size:17px; font-weight:650; font-variant-numeric:tabular-nums; letter-spacing:-0.01em; line-height:1.2; }
+.ts-card-n { display:flex; flex-wrap:wrap; gap:0 10px; font-size:11.5px; font-variant-numeric:tabular-nums; color:var(--color-fg-muted); }
+.ts-card-n b { color:var(--color-fg); font-weight:500; }
+.ts-card-n b.ts-neg { color:var(--color-bad); } .ts-card-n b.ts-good { color:var(--color-ok); }
+.ts-badges { display:flex; flex-wrap:wrap; gap:4px; }
+.ts-badge { font-size:10.5px; line-height:1.55; padding:0 7px; border-radius:999px; background:var(--color-bg); border:1px solid var(--color-border-line); color:var(--color-fg-muted); white-space:nowrap; }
+.ts-badge.ts-b-bad { border-color:var(--color-bad); color:var(--color-bad); }
+.ts-badge.ts-b-warn { border-color:var(--color-warn); color:var(--color-warn); }
+.ts-badge.ts-b-ok { border-color:var(--color-ok); color:var(--color-ok); }
+.ts-rec { margin:0; font-size:12px; line-height:1.4; color:var(--color-fg); }
+.ts-rec::before { content:"→ "; color:var(--color-fg-muted); }
+.ts-abc { display:inline-block; min-width:1.7em; text-align:center; font-size:10.5px; font-weight:700; padding:0 5px; border-radius:5px; border:1px solid var(--color-border-line); line-height:1.6; }
+.ts-abc-A { color:var(--color-ok); border-color:var(--color-ok); }
+.ts-abc-B { color:var(--color-fg); }
+.ts-abc-C { color:var(--color-warn); border-color:var(--color-warn); }
+.ts-abcgrid { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px; }
+.ts-abcc { background:var(--color-panel); border:1px solid var(--color-border-line); border-radius:var(--ts-r); padding:12px 14px; display:flex; flex-direction:column; gap:7px; box-shadow:var(--ts-shadow); }
+.ts-abcc h3 { display:flex; align-items:center; gap:8px; }
+
+.ts-glist { display:flex; flex-direction:column; background:var(--color-panel); border:1px solid var(--color-border-line); border-radius:var(--ts-r); padding:2px 12px; box-shadow:var(--ts-shadow); }
+.ts-grow { display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid var(--color-border-line); font-size:12.5px; }
+.ts-grow:last-child { border-bottom:0; }
+.ts-grow .ts-gn { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.ts-grow .ts-gn a { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+.ts-grow .ts-gn small { color:var(--color-fg-muted); font-size:11px; display:flex; align-items:center; gap:4px; white-space:nowrap; overflow:hidden; }
+.ts-grow .ts-gv { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ts-grow .ts-gv small { display:block; color:var(--color-fg-muted); font-size:11px; }
+.ts-mlist { display:none; flex-direction:column; background:var(--color-panel); border:1px solid var(--color-border-line); border-radius:var(--ts-r); padding:2px 12px; box-shadow:var(--ts-shadow); }
+.ts-mrow { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:4px 10px; align-items:start; padding:10px 0; border-bottom:1px solid var(--color-border-line); font-size:12.5px; }
+.ts-mrow:last-child { border-bottom:0; }
+.ts-mrow .ts-ph-s { width:48px; height:48px; grid-row:span 2; }
+.ts-mrow .ts-mn { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.ts-mrow .ts-mn a, .ts-mrow .ts-mn > span:first-child { color:var(--color-fg); text-decoration:none; font-weight:500; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.ts-mrow .ts-mn small { color:var(--color-fg-muted); font-size:11px; display:flex; align-items:center; gap:4px; white-space:nowrap; overflow:hidden; }
+.ts-mrow .ts-mv { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ts-mrow .ts-mv b { font-size:14px; }
+.ts-mrow .ts-mv small { display:block; color:var(--color-fg-muted); font-size:11px; }
+.ts-mrow .ts-badges { grid-column:2 / 4; }
+.ts-xp { cursor:pointer; }
+.ts-more { font-size:11.5px; color:var(--color-fg-muted); width:fit-content; }
+.ts-more::after { content:" ▾"; }
+.ts-open .ts-more::after { content:" ▴"; }
+.ts-detail { grid-column:1 / -1; display:flex; flex-direction:column; gap:8px; padding:10px 12px; margin-top:4px; border-radius:var(--ts-r-sm); background:var(--color-bg); border:1px solid var(--color-border-line); cursor:default; }
+.ts-detail[hidden] { display:none; }
+.ts-ue { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+.ts-ue th { font-weight:500; color:var(--color-fg-muted); text-align:right; padding:3px 4px; font-size:11px; }
+.ts-ue td { text-align:right; padding:3px 4px; border-top:1px solid var(--color-border-line); white-space:nowrap; }
+.ts-ue td:first-child, .ts-ue th:first-child { text-align:left; color:var(--color-fg-muted); }
+.ts-ue tr.ts-ue-strong td { font-weight:600; } .ts-ue tr.ts-ue-strong td:first-child { color:var(--color-fg); }
+.ts-ue tr.ts-ue-total td { font-weight:700; font-size:13px; border-top:2px solid var(--color-border-line); } .ts-ue tr.ts-ue-total td:first-child { color:var(--color-fg); }
+.ts-spark { display:block; max-width:100%; height:auto; }
+.ts-empty { color:var(--color-fg-muted); font-size:12px; padding:10px 0; margin:0; }
+[data-dash-source-state=refreshing] { opacity:.5; }
+.ts-notes summary { cursor:pointer; color:var(--color-fg-muted); font-size:12px; }
+.ts-notes ul { margin:8px 0 0; padding-left:1.2em; line-height:1.6; font-size:12px; color:var(--color-fg-muted); max-width:90ch; }
+/* Phone-first adjustments */
+@media (max-width: 640px) {
+  .ts { gap:14px; font-size:14px; }
+  .ts h1 { font-size:20px; }
+  .ts h2 { font-size:16px; }
+  .ts-top { gap:6px; }
+  .ts-bar { margin-inline:-4px; padding-inline:4px; gap:8px; }
+  .ts-tabs { flex-wrap:nowrap; overflow-x:auto; width:100%; scrollbar-width:none; }
+  .ts-tabs::-webkit-scrollbar, .ts-filters::-webkit-scrollbar, .ts-seg::-webkit-scrollbar { display:none; }
+  .ts-tabs button { padding:8px 12px; }
+  .ts-filters { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .ts-filters select { flex:none; max-width:11.5rem; font-size:13px; padding-top:7px; padding-bottom:7px; }
+  .ts-filters .ts-btn { flex:none; }
+  .ts-filters > .ts-muted { flex:none; white-space:nowrap; }
+  .ts-lede { font-size:13.5px; }
+  .ts-kpis { grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; }
+  .ts-kpi { padding:10px 12px; border-radius:12px; }
+  .ts-kpi-v { font-size:19px; }
+  .ts-was { display:none; }
+  .ts-panel { padding:12px 13px; border-radius:12px; }
+  .ts-chart { min-height:210px; }
+  .ts-health, .ts-abcgrid { grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; }
+  .ts-cards { grid-template-columns:minmax(0,1fr); }
+  .ts-card { grid-template-columns:76px minmax(0,1fr); }
+  .ts-card .ts-ph { width:76px; height:76px; }
+  .ts-seg { flex-wrap:nowrap; overflow-x:auto; width:100%; scrollbar-width:none; }
+  .ts-seg button { padding:7px 12px; }
+  .ts-mpc dl { font-size:12px; gap:3px 8px; }
+  .ts-in { padding:11px 12px; }
+  .ts-in-x { -webkit-line-clamp:2; }
+  .ts-table { font-size:12px; }
+  .ts-table th, .ts-table td { padding:7px 9px; }
+  .ts-table th:first-child, .ts-table td:first-child { position:sticky; left:0; z-index:1; background:var(--color-bg); box-shadow:1px 0 0 var(--color-border-line); }
+  .ts-table th:first-child { z-index:2; background:var(--color-panel); }
+  .ts-table tr.ts-strong td:first-child { background:var(--color-panel); }
+  .ts-table td.ts-name { min-width:10.5rem; max-width:12.5rem; }
+  .ts-table td.ts-name .ts-ph-s { width:36px; height:36px; }
+  .ts-tablewrap.ts-tall { max-height:70vh; }
+  .ts-grow { grid-template-columns:40px minmax(0,1fr) auto; }
+  .ts-grow .ts-ph-s { width:40px; height:40px; }
+  .ts-acts { padding-left:18px; }
+  .ts-mlist { display:flex; }
+  .ts-desk { display:none; }
+  .ts-tools .ts-search { width:100%; }
+}
+</style>
+
+<div class="ts">
+  <header class="ts-top" id="top">
+    <div class="ts-brand">
+      <h1>Финансы маркетплейсы</h1>
+      <p class="ts-muted"><span class="ts-mp ts-mp-wb">Wildberries</span><span class="ts-mp ts-mp-oz">Ozon</span><span class="ts-mp ts-mp-ym">Яндекс Маркет</span> 5 магазинов · данные Торгстат 01.06–12.11.2026</p>
+    </div>
+  </header>
+
+  <div class="ts-bar" id="bar">
+    <nav class="ts-tabs" role="tablist" aria-label="Разделы">
+      <button type="button" role="tab" data-tab="overview" aria-selected="true">Обзор</button>
+      <button type="button" role="tab" data-tab="insights" aria-selected="false">Советы</button>
+      <button type="button" role="tab" data-tab="mps" aria-selected="false">Площадки</button>
+      <button type="button" role="tab" data-tab="pnl" aria-selected="false">P&amp;L</button>
+      <button type="button" role="tab" data-tab="goods" aria-selected="false">Товары</button>
+    </nav>
+    <div class="ts-filters" id="filters">
+      <select class="dash-select" id="f-period" aria-label="Период">
+        <option value="7">7 дней</option>
+        <option value="14">14 дней</option>
+        <option value="30">30 дней</option>
+        <option value="90">90 дней</option>
+        <option value="m2026-06">Июнь</option>
+        <option value="m2026-07">Июль</option>
+        <option value="m2026-08">Август</option>
+        <option value="m2026-09">Сентябрь</option>
+        <option value="m2026-10">Октябрь</option>
+        <option value="m2026-11">Ноябрь (по 12.11)</option>
+        <option value="all">Весь период</option>
+      </select>
+      <select class="dash-select" id="f-mp" aria-label="Маркетплейс">
+        <option value="">Все площадки</option>
+        <option value="WB">Wildberries</option>
+        <option value="Ozon">Ozon</option>
+        <option value="Яндекс">Яндекс Маркет</option>
+      </select>
+      <select class="dash-select" id="f-store" aria-label="Магазин" data-draw="opt-store" data-source="sales" data-field="store"></select>
+      <select class="dash-select" id="f-brand" aria-label="Бренд" data-draw="opt-brand" data-source="sales" data-field="brand"></select>
+      <select class="dash-select" id="f-cat" aria-label="Категория" data-draw="opt-cat" data-source="sales" data-field="category"></select>
+      <button type="button" class="ts-btn" id="f-reset">Сбросить</button>
+      <span class="ts-muted"><span data-draw="tk-period">—</span><span class="ts-cmp-yes"> · сравнение с <span data-draw="cmp-period">—</span></span></span>
+    </div>
+  </div>
+
+  <section class="ts-page" id="overview" role="tabpanel">
+    <p class="ts-lede" id="takeaway" data-source="sales">Выручка <b data-draw="tk-rev" data-source="sales" data-field="rev">—</b>, на счёт от площадок <b data-draw="tk-payout" data-source="sales" data-field="rev">—</b>, из них чистая прибыль <b data-draw="tk-np" data-source="sales" data-field="np">—</b> (<b data-draw="tk-margin" data-source="sales" data-field="np">—</b> выручки). Больше всего уходит на <b data-draw="tk-cost">—</b>: <b data-draw="tk-costpct" data-source="sales">—</b> выручки. В минусе <b data-draw="tk-loss" class="ts-hl-bad" data-source="sales" data-field="sku">—</b> из <b data-draw="tk-sold" data-source="sales" data-field="sku">—</b> товаров с продажами.</p>
+    <div class="ts-kpis">
+      <div class="ts-kpi" id="kpi-rev"><div class="ts-kpi-l">Выручка</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="rev" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="rev"></div></div>
+      <div class="ts-kpi" id="kpi-payout"><div class="ts-kpi-l" title="Выручка минус комиссия, логистика, хранение, реклама и удержания площадок">Выплата на счёт</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="payout" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="payout"></div></div>
+      <div class="ts-kpi" id="kpi-np"><div class="ts-kpi-l">Чистая прибыль</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="np" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="np"></div></div>
+      <div class="ts-kpi" id="kpi-margin"><div class="ts-kpi-l">Маржа</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="margin" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="margin"></div></div>
+      <div class="ts-kpi" id="kpi-drr"><div class="ts-kpi-l" title="Доля рекламных расходов: реклама ÷ выручка">ДРР</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="drr" data-source="sales" data-field="adv">—</div><div class="ts-kpi-d" data-draw="delta" data-k="drr"></div></div>
+      <div class="ts-kpi" id="kpi-ret"><div class="ts-kpi-l">Возвраты</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="retr" data-source="sales" data-field="ret">—</div><div class="ts-kpi-d" data-draw="delta" data-k="retr"></div></div>
+    </div>
+    <div class="ts-grid-main">
+      <div class="ts-panel" id="trend">
+        <div class="ts-panel-h"><h3><span class="ts-mode-rev">Выручка</span><span class="ts-mode-pay" hidden>Выплаты на счёт</span> и прибыль, <span data-draw="trend-gran">—</span></h3>
+          <div class="ts-seg ts-seg-sm" role="tablist" aria-label="Что показывать на графике"><button type="button" role="tab" data-chart="rev" aria-selected="true">Выручка</button><button type="button" role="tab" data-chart="pay" aria-selected="false">Выплаты</button></div>
+          <div class="ts-legend"><span><i class="ts-sw ts-sw-wb"></i>WB</span><span><i class="ts-sw ts-sw-oz"></i>Ozon</span><span><i class="ts-sw ts-sw-ym"></i>Яндекс</span><span><i class="ts-sw ts-sw-line ts-sw-np"></i>Прибыль</span></div></div>
+        <div class="ts-chart" data-draw="trend" data-source="sales"></div>
+      </div>
+      <div class="ts-sec">
+        <div class="ts-panel" id="cash">
+          <div class="ts-panel-h"><h3>Деньги на счёт</h3><span class="ts-muted">расчёт</span></div>
+          <div data-draw="cash" data-source="sales"></div>
+        </div>
+        <div class="ts-panel" id="mpshare">
+          <h3>Площадки</h3>
+          <div class="ts-mprows" data-draw="mpshare" data-source="sales"></div>
+        </div>
+        <div class="ts-panel" id="todo">
+          <h3>Сделать в первую очередь</h3>
+          <ol class="ts-acts" data-draw="topacts" data-source="sales"></ol>
+          <button type="button" class="ts-btn" data-goto="insights" style="width:fit-content">Все рекомендации</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ts-page" id="insights" role="tabpanel" hidden>
+    <p class="ts-muted">Выводы пересчитываются под выбранный период и фильтры. Нажмите на карточку, чтобы раскрыть подробности. «До +…» означает, сколько прибыли вернётся, если убыток убрать полностью; пункты частично пересекаются.</p>
+    <div class="ts-grid2">
+      <div class="ts-sec"><h2 class="ts-bad">Что исправить</h2><div class="ts-ins" data-draw="ins-bad" data-source="sales"></div></div>
+      <div class="ts-sec"><h2 class="ts-good">Что работает</h2><div class="ts-ins" data-draw="ins-good" data-source="sales"></div></div>
+    </div>
+  </section>
+
+  <section class="ts-page" id="mps" role="tabpanel" hidden>
+    <p class="ts-muted">Нажмите на карточку площадки или строку магазина, чтобы отфильтровать весь сайт.</p>
+    <div class="ts-mpc-grid" data-draw="mpcards" data-source="sales"></div>
+    <h2 id="stores">Магазины</h2>
+    <div class="ts-tablewrap">
+      <table class="ts-table" data-source="sales">
+        <thead><tr><th>Магазин</th><th>Выручка</th><th>Изменение</th><th>Чистая прибыль</th><th>Маржа</th><th>Продано, шт.</th><th>Возвраты</th><th>ДРР</th><th>Убыточных SKU</th></tr></thead>
+        <tbody data-draw="storerows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ts-page" id="pnl" role="tabpanel" hidden>
+    <div class="ts-sec" style="gap:18px">
+      <div class="ts-sec">
+        <h2>P&amp;L за период</h2>
+        <div class="ts-tablewrap">
+          <table class="ts-table" data-source="sales">
+            <thead><tr><th>Статья</th><th>Сумма</th><th>% выручки</th><th>Пред. период</th><th>Изменение</th></tr></thead>
+            <tbody data-draw="pnl"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="ts-sec">
+        <h2 id="pnl-months">По месяцам</h2>
+        <p class="ts-muted">Нажмите на месяц, чтобы выбрать его периодом.</p>
+        <div class="ts-tablewrap">
+          <table class="ts-table" data-source="sales">
+            <thead data-draw="pnlm-head"></thead>
+            <tbody data-draw="pnlm-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ts-page" id="goods" role="tabpanel" hidden>
+    <div class="ts-health" id="health" data-source="sales">
+      <div class="ts-hl"><b data-draw="health" data-k="sold">—</b><span>товаров с продажами</span></div>
+      <div class="ts-hl ts-hl-bad"><b data-draw="health" data-k="loss">—</b><span>убыточных</span></div>
+      <div class="ts-hl ts-hl-warn"><b data-draw="health" data-k="idle">—</b><span>без продаж, с расходами</span></div>
+      <div class="ts-hl ts-hl-bad"><b data-draw="health" data-k="out">—</b><span>кандидатов на вывод</span></div>
+    </div>
+    <div class="ts-seg" role="tablist" aria-label="Товары">
+      <button type="button" role="tab" data-sub="best" aria-selected="false">Лучшие</button>
+      <button type="button" role="tab" data-sub="problems" aria-selected="true">Проблемные</button>
+      <button type="button" role="tab" data-sub="growth" aria-selected="false">Рост и падение</button>
+      <button type="button" role="tab" data-sub="all" aria-selected="false">Все товары</button>
+      <button type="button" role="tab" data-sub="abc" aria-selected="false">ABC и вывод</button>
+    </div>
+    <div class="ts-subpage" id="best" hidden>
+      <p class="ts-muted">8 товаров с наибольшей чистой прибылью за период.</p>
+      <div class="ts-cards" data-draw="bestcards" data-source="sales images"></div>
+    </div>
+    <div class="ts-subpage" id="problems">
+      <p class="ts-muted">Самые убыточные товары: что съедает прибыль и что делать. Показано <span data-draw="probcount">—</span>.</p>
+      <div class="ts-cards" data-draw="probcards" data-source="sales images"></div>
+    </div>
+    <div class="ts-subpage" id="growth" hidden>
+      <p class="ts-muted ts-cmp-yes">Изменение выручки к периоду <span data-draw="cmp-period">—</span>.</p>
+      <p class="ts-muted ts-cmp-no" hidden>Выберите месяц или последние N дней, чтобы сравнить с предыдущим периодом.</p>
+      <div class="ts-grid2">
+        <div class="ts-sec"><h3 class="ts-good">Растут</h3><div class="ts-glist" data-draw="growup" data-source="sales images"></div></div>
+        <div class="ts-sec"><h3 class="ts-bad">Падают</h3><div class="ts-glist" data-draw="growdown" data-source="sales images"></div></div>
+      </div>
+    </div>
+    <div class="ts-subpage" id="all" hidden>
+      <div class="ts-tools">
+        <input type="search" class="ts-search" id="p-search" placeholder="Поиск по названию, артикулу, SKU" aria-label="Поиск товара">
+        <select class="dash-select" id="p-show" aria-label="Какие товары показать">
+          <option value="">Все товары</option>
+          <option value="loss">Убыточные</option>
+          <option value="out">Кандидаты на вывод</option>
+          <option value="A">Класс A</option>
+          <option value="B">Класс B</option>
+          <option value="C">Класс C</option>
+        </select>
+        <select class="dash-select" id="p-sort" aria-label="Сортировка">
+          <option value="rev:-1">По выручке</option>
+          <option value="np:1">Сначала убыточные</option>
+          <option value="np:-1">Сначала прибыльные</option>
+          <option value="margin:1">По марже, худшие</option>
+          <option value="drev:1">Сильнее всего упали</option>
+          <option value="drev:-1">Сильнее всего выросли</option>
+          <option value="drr:-1">По ДРР, высокий</option>
+        </select>
+        <span class="ts-muted">Показано <span data-draw="prodcount">—</span></span>
+      </div>
+      <div class="ts-mlist" data-draw="prodlist" data-source="sales images"></div>
+      <div class="ts-tablewrap ts-tall ts-desk">
+        <table class="ts-table" data-source="sales images">
+          <thead><tr>
+            <th>Товар</th><th class="ts-l">Магазин</th>
+            <th data-sort="abcn"><button type="button" class="ts-sort" data-sort="abcn">Класс</button></th>
+            <th data-sort="q"><button type="button" class="ts-sort" data-sort="q">Шт.</button></th>
+            <th data-sort="rev" aria-sort="descending"><button type="button" class="ts-sort" data-sort="rev">Выручка</button></th>
+            <th data-sort="drev"><button type="button" class="ts-sort" data-sort="drev">Изм.</button></th>
+            <th data-sort="np"><button type="button" class="ts-sort" data-sort="np">Прибыль</button></th>
+            <th data-sort="margin"><button type="button" class="ts-sort" data-sort="margin">Маржа</button></th>
+            <th data-sort="drr"><button type="button" class="ts-sort" data-sort="drr">ДРР</button></th>
+            <th data-sort="retr"><button type="button" class="ts-sort" data-sort="retr">Возвр.</button></th>
+            <th class="ts-l">Диагноз</th>
+          </tr></thead>
+          <tbody data-draw="prodrows"></tbody>
+        </table>
+      </div>
+      <div><button type="button" class="ts-btn" id="p-more">Показать ещё 50</button></div>
+    </div>
+    <div class="ts-subpage" id="abc" hidden>
+    <p class="ts-muted">Товары с продажами отсортированы по выручке: A дают первые 80% выручки, B следующие 15%, C последние 5%.</p>
+    <div class="ts-abcgrid" data-source="sales">
+      <div class="ts-abcc"><h3><span class="ts-abc ts-abc-A">A</span>Основа оборота</h3><dl><dt>Товаров</dt><dd data-draw="abcstat" data-k="A:n">—</dd><dt>Доля</dt><dd data-draw="abcstat" data-k="A:share">—</dd><dt>Прибыль</dt><dd data-draw="abcstat" data-k="A:np">—</dd><dt>Убыточных</dt><dd data-draw="abcstat" data-k="A:loss">—</dd></dl></div>
+      <div class="ts-abcc"><h3><span class="ts-abc ts-abc-B">B</span>Середина</h3><dl><dt>Товаров</dt><dd data-draw="abcstat" data-k="B:n">—</dd><dt>Доля</dt><dd data-draw="abcstat" data-k="B:share">—</dd><dt>Прибыль</dt><dd data-draw="abcstat" data-k="B:np">—</dd><dt>Убыточных</dt><dd data-draw="abcstat" data-k="B:loss">—</dd></dl></div>
+      <div class="ts-abcc"><h3><span class="ts-abc ts-abc-C">C</span>Хвост</h3><dl><dt>Товаров</dt><dd data-draw="abcstat" data-k="C:n">—</dd><dt>Доля</dt><dd data-draw="abcstat" data-k="C:share">—</dd><dt>Прибыль</dt><dd data-draw="abcstat" data-k="C:np">—</dd><dt>Убыточных</dt><dd data-draw="abcstat" data-k="C:loss">—</dd></dl></div>
+      <div class="ts-abcc"><h3><span class="ts-abc">—</span>Без продаж</h3><dl><dt>Товаров</dt><dd data-draw="abcstat" data-k="X:n">—</dd><dt>Расходы</dt><dd data-draw="abcstat" data-k="X:np">—</dd></dl></div>
+    </div>
+    <h3 id="delist">Кандидаты на вывод из ассортимента</h3>
+    <p class="ts-muted">Убыточные товары класса C и товары без продаж с расходами, по размеру убытка.</p>
+    <div class="ts-mlist" data-draw="delistm" data-source="sales images"></div>
+    <div class="ts-tablewrap ts-tall ts-desk">
+      <table class="ts-table" data-source="sales images">
+        <thead><tr><th>Товар</th><th class="ts-l">Магазин</th><th>Класс</th><th>Выручка</th><th>Прибыль</th><th>Шт.</th><th class="ts-l">Почему</th></tr></thead>
+        <tbody data-draw="delist"></tbody>
+      </table>
+    </div>
+  </div>
+  </section>
+
+
+  <details class="ts-notes" id="notes">
+    <summary>Как считаются показатели</summary>
+    <ul>
+      <li>Данные: выгрузка Торгстат по каждому товару за каждый день. Расходы показаны со знаком минус.</li>
+      <li>Маржа: чистая прибыль ÷ выручка. ДРР: реклама ÷ выручка. Возвраты: возвращённые штуки ÷ проданные.</li>
+      <li>«Прочие удержания»: разница между чистой прибылью в выгрузке и выручкой за вычетом перечисленных статей (штрафы, корректировки).</li>
+      <li>Выплата на счёт: выручка минус комиссия, логистика, хранение, реклама и прочие удержания площадок. Это расчёт по данным Торгстат: реальные переводы приходят по графику площадки, поэтому суммы за конкретную неделю могут отличаться. Если реклама оплачивается отдельно, а не из выплат, на счёт придёт больше на её сумму.</li>
+      <li>Сравнение: для «N дней» берутся N дней перед ними, для месяца те же дни предыдущего месяца.</li>
+      <li>Пороги: ДРР выше 15%, возвраты выше 10% (от 2 шт.), логистика выше 25% выручки, себестоимость выше 50%, хранение выше 5%, падение выручки больше 30%. Дешёвые товары: до 600 ₽, дорогие: от 2000 ₽.</li>
+      <li>Кандидат на вывод: убыточный товар класса C или товар без продаж с расходами.</li>
+      <li>«Упущенная выручка» в выгрузке везде нулевая. Бренды как в выгрузке («SEA PLUS» и «SEA Plus» отдельно). У 10 товаров нет фото.</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+window.T = (function () {
+  const DAY = 864e5;
+  const KEYS = ['q', 'ret', 'rev', 'comm', 'log', 'stor', 'adv', 'cogs', 'tax', 'np'];
+  const COST_LABELS = { comm: 'комиссию маркетплейсов', cogs: 'себестоимость', log: 'логистику', adv: 'рекламу', tax: 'налог', stor: 'хранение', other: 'прочие удержания' };
+  const TH = { drr: 0.15, ret: 0.10, log: 0.25, cogs: 0.5, stor: 0.05, drop: -0.3 };
+  const nf0 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
+  const MINUS = '−';
+  function rub(v) {
+    if (v == null || !isFinite(v)) return '—';
+    const a = Math.abs(v), s = v < 0 ? MINUS : '';
+    if (a >= 1e6) return s + (a / 1e6).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + ' млн ₽';
+    if (a >= 1e5) return s + nf0.format(Math.round(a / 1e3)) + ' тыс ₽';
+    return s + nf0.format(a) + ' ₽';
+  }
+  function rubFull(v) { return (v < 0 ? MINUS : '') + nf0.format(Math.abs(Math.round(v))) + ' ₽'; }
+  function short(v) {
+    const a = Math.abs(v), s = v < 0 ? MINUS : '';
+    if (a >= 1e6) return s + (a / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' млн';
+    if (a >= 1e3) return s + nf0.format(a / 1e3) + ' тыс';
+    return s + nf0.format(a);
+  }
+  function pct(x, d) {
+    if (x == null || !isFinite(x)) return '—';
+    d = d == null ? 1 : d;
+    return (x < 0 ? MINUS : '') + (Math.abs(x) * 100).toLocaleString('ru-RU', { minimumFractionDigits: d, maximumFractionDigits: d }) + '%';
+  }
+  function num(v) { return (v < 0 ? MINUS : '') + nf0.format(Math.abs(v)); }
+  function signed(v, f) { return (v > 0 ? '+' : v < 0 ? MINUS : '') + f(Math.abs(v)); }
+
+  let s0 = null;
+  const idxOf = (ms) => Math.round((ms - s0) / DAY);
+  const iso = (i) => new Date(s0 + i * DAY).toISOString().slice(0, 10);
+  const dm = (i) => d3.utcFormat('%d.%m')(new Date(s0 + i * DAY));
+  const dmy = (i) => d3.utcFormat('%d.%m.%Y')(new Date(s0 + i * DAY));
+
+  let metaCache = { data: null };
+  function meta() {
+    const s = dash.data('sales');
+    if (s.status !== 'ok' || !s.data.length) return null;
+    if (metaCache.data === s.data) return metaCache.m;
+    let min = '9999', max = '0000';
+    const stores = new Map(), brands = new Set(), cats = new Set();
+    for (const o of s.data) {
+      if (o.date < min) min = o.date;
+      if (o.date > max) max = o.date;
+      if (!stores.has(o.store)) stores.set(o.store, o.mp);
+      if (o.brand) brands.add(o.brand);
+      if (o.category) cats.add(o.category);
+    }
+    s0 = Date.parse(min + 'T00:00:00Z');
+    const coll = (a, b) => a.localeCompare(b, 'ru');
+    const m = { last: idxOf(Date.parse(max + 'T00:00:00Z')), stores: [...stores].map(([name, mp]) => ({ name, mp })), brands: [...brands].sort(coll), cats: [...cats].sort(coll) };
+    metaCache = { data: s.data, m };
+    return m;
+  }
+
+  function range(period, last) {
+    period = period || '30';
+    if (/^\d+$/.test(period)) {
+      const n = Number(period), a = Math.max(0, last - n + 1);
+      return { a, b: last, prev: a - n >= 0 ? { a: a - n, b: a - 1 } : null };
+    }
+    const m = /^m(\d{4})-(\d{2})$/.exec(period);
+    if (m) {
+      const y = Number(m[1]), mo = Number(m[2]);
+      const a = Math.max(0, idxOf(Date.UTC(y, mo - 1, 1))), b = Math.min(last, idxOf(Date.UTC(y, mo, 0)));
+      const pa = idxOf(Date.UTC(y, mo - 2, 1)), pend = idxOf(Date.UTC(y, mo - 1, 0));
+      return { a, b, prev: pa >= 0 ? { a: pa, b: Math.min(pend, pa + (b - a)) } : null };
+    }
+    return { a: 0, b: last, prev: null };
+  }
+  const zero = () => { const t = {}; for (const k of KEYS) t[k] = 0; return t; };
+  function add(t, o) { for (const k of KEYS) t[k] += Number(o[k]) || 0; }
+  function fin(t) {
+    t.other = t.np - (t.rev + t.comm + t.log + t.stor + t.adv + t.cogs + t.tax);
+    t.margin = t.rev ? t.np / t.rev : NaN;
+    t.retr = t.q ? t.ret / t.q : NaN;
+    t.drr = t.rev ? -t.adv / t.rev : NaN;
+    t.payout = t.rev + t.comm + t.log + t.stor + t.adv + t.other;
+    return t;
+  }
+  function passDims(o, p) {
+    return !(p.mp && o.mp !== p.mp) && !(p.store && o.store !== p.store) && !(p.brand && o.brand !== p.brand) && !(p.cat && o.category !== p.cat);
+  }
+
+  function diagnose(r) {
+    const issues = [];
+    const rev = r.rev;
+    if (rev <= 0 && r.np < 0) issues.push(['Нет продаж, только расходы', 'bad']);
+    else if (r.np < 0) issues.push(['Убыток ' + rub(r.np), 'bad']);
+    if (rev > 0) {
+      if (r.drr > TH.drr) issues.push(['ДРР ' + pct(r.drr, 0), 'warn']);
+      if (r.retr > TH.ret && r.ret >= 2) issues.push(['Возвраты ' + pct(r.retr, 0), 'warn']);
+      if (-r.log / rev > TH.log) issues.push(['Логистика ' + pct(-r.log / rev, 0), 'warn']);
+      if (-r.cogs / rev > TH.cogs) issues.push(['Себестоимость ' + pct(-r.cogs / rev, 0), 'warn']);
+      if (-r.stor / rev > TH.stor) issues.push(['Хранение ' + pct(-r.stor / rev, 0), 'warn']);
+    } else {
+      if (r.adv < 0) issues.push(['Реклама ' + rub(r.adv), 'warn']);
+      if (r.stor < 0) issues.push(['Хранение ' + rub(r.stor), 'warn']);
+    }
+    if (r.prevRev > 0 && isFinite(r.drevp) && r.drevp < TH.drop) issues.push(['Выручка ' + pct(r.drevp, 0), 'warn']);
+    let rec = null;
+    if (rev <= 0 && r.np < 0) rec = r.adv < 0 ? 'Отключить рекламу; если остатки есть, распродать и вывести' : 'Распродать остатки и вывести, платим за хранение без продаж';
+    else if (r.np < 0 && r.abc === 'C') rec = 'Кандидат на вывод: мало продаж и работает в минус';
+    else if (r.np < 0 && r.drr > TH.drr) rec = 'Снизить ставки или отключить рекламные кампании';
+    else if (r.np < 0 && -r.cogs / rev > TH.cogs) rec = 'Поднять цену или снизить закупочную стоимость';
+    else if (r.np < 0 && -r.log / rev > TH.log) rec = 'Проверить габариты и распределение поставок по складам';
+    else if (r.np < 0 && r.retr > TH.ret) rec = 'Разобрать причины возвратов: карточка, размер, качество';
+    else if (r.np < 0) rec = 'Пересчитать юнит-экономику: цена не покрывает расходы';
+    const out = (rev <= 0 && r.np < 0) || (r.np < 0 && r.abc === 'C');
+    return { issues, rec, out };
+  }
+
+  let cache = { data: null, key: null };
+  function view() {
+    const s = dash.data('sales');
+    const m = meta();
+    if (s.status !== 'ok' || !m) return null;
+    const p = dash.params();
+    const key = [p.period, p.mp, p.store, p.brand, p.cat].join('|');
+    if (cache.data === s.data && cache.key === key) return cache.v;
+    const r = range(p.period, m.last);
+    const A = iso(r.a), B = iso(r.b), PA = r.prev ? iso(r.prev.a) : null, PB = r.prev ? iso(r.prev.b) : null;
+    const cur = zero(), prev = zero();
+    const daily = new Map(), stores = new Map(), prods = new Map(), pprods = new Map(), pstores = new Map(), mps = new Map(), pmps = new Map();
+    const getP = (map, o, pk) => {
+      let pr = map.get(pk);
+      if (!pr) map.set(pk, pr = Object.assign(zero(), { key: pk, store: o.store, mp: o.mp, sku: o.sku, article: o.article, name: o.name, brand: o.brand, category: o.category, url: o.url }));
+      return pr;
+    };
+    for (const o of s.data) {
+      if (!passDims(o, p)) continue;
+      const pk = o.store + '|' + o.sku;
+      if (o.date >= A && o.date <= B) {
+        add(cur, o);
+        let d = daily.get(o.date); if (!d) daily.set(o.date, d = zero()); add(d, o);
+        d['r_' + o.mp] = (d['r_' + o.mp] || 0) + (Number(o.rev) || 0);
+        d['p_' + o.mp] = (d['p_' + o.mp] || 0) + (Number(o.np) || 0) - (Number(o.cogs) || 0) - (Number(o.tax) || 0);
+        let st = stores.get(o.store); if (!st) stores.set(o.store, st = Object.assign(zero(), { store: o.store, mp: o.mp })); add(st, o);
+        let mm = mps.get(o.mp); if (!mm) mps.set(o.mp, mm = Object.assign(zero(), { mp: o.mp })); add(mm, o);
+        add(getP(prods, o, pk), o);
+      } else if (PA && o.date >= PA && o.date <= PB) {
+        add(prev, o);
+        let pm = pmps.get(o.mp); if (!pm) pmps.set(o.mp, pm = zero()); add(pm, o);
+        let st = pstores.get(o.store); if (!st) pstores.set(o.store, st = zero()); add(st, o);
+        add(getP(pprods, o, pk), o);
+      }
+    }
+    pprods.forEach((pp, k) => { if (!prods.has(k)) prods.set(k, Object.assign(zero(), { key: k, store: pp.store, mp: pp.mp, sku: pp.sku, article: pp.article, name: pp.name, brand: pp.brand, category: pp.category, url: pp.url })); });
+    fin(cur); fin(prev);
+    stores.forEach((st) => { fin(st); const ps = pstores.get(st.store); st.prevRev = ps ? ps.rev : 0; st.drevp = r.prev && st.prevRev ? st.rev / st.prevRev - 1 : NaN; });
+    const list = [...prods.values()];
+    list.forEach((pr) => {
+      fin(pr);
+      const pp = pprods.get(pr.key);
+      pr.prevRev = pp ? pp.rev : 0; pr.prevNp = pp ? pp.np : 0;
+      pr.drev = r.prev ? pr.rev - pr.prevRev : NaN;
+      pr.drevp = r.prev && pr.prevRev > 0 ? pr.rev / pr.prevRev - 1 : NaN;
+      pr.abc = ''; pr.abcn = 4;
+    });
+    const sold = list.filter((x) => x.rev > 0).sort((a, b) => b.rev - a.rev);
+    const tot = sold.reduce((acc, x) => acc + x.rev, 0);
+    let cum = 0;
+    for (const x of sold) { const sh = tot ? cum / tot : 0; x.abc = sh < 0.8 ? 'A' : sh < 0.95 ? 'B' : 'C'; x.abcn = { A: 1, B: 2, C: 3 }[x.abc]; cum += x.rev; }
+    const active = list.filter((x) => x.rev !== 0 || x.np !== 0 || x.q !== 0);
+    active.forEach((x) => { x.d = diagnose(x); });
+    list.forEach((x) => { if (!x.d) x.d = { issues: [], rec: null, out: false }; });
+    stores.forEach((st) => { st.lossN = active.filter((x) => x.store === st.store && x.np < 0 && x.rev > 0).length; });
+    mps.forEach((mm) => { fin(mm); const pm = pmps.get(mm.mp); mm.prev = r.prev && pm ? fin(pm) : null; });
+    const brands = new Map();
+    list.forEach((x) => { const bk = x.brand || '—'; let b = brands.get(bk); if (!b) brands.set(bk, b = Object.assign(zero(), { brand: bk })); add(b, x); });
+    brands.forEach(fin);
+    const v = { r, cur, prev: r.prev ? prev : null, daily, stores: [...stores.values()].sort((a, b) => b.rev - a.rev), prods: list, active, sold, totRev: tot,
+      mps: [...mps.values()].sort((a, b) => b.rev - a.rev), brands: [...brands.values()],
+      label: dm(r.a) + '–' + dmy(r.b), prevLabel: r.prev ? dm(r.prev.a) + '–' + dmy(r.prev.b) : null };
+    cache = { data: s.data, key, v };
+    return v;
+  }
+
+  let mcache = { data: null, key: null };
+  function monthly() {
+    const s = dash.data('sales');
+    if (s.status !== 'ok' || !meta()) return null;
+    const p = dash.params();
+    const key = [p.mp, p.store, p.brand, p.cat].join('|');
+    if (mcache.data === s.data && mcache.key === key) return mcache.v;
+    const months = new Map(), total = zero();
+    for (const o of s.data) {
+      if (!passDims(o, p)) continue;
+      const mk = o.date.slice(0, 7);
+      let t = months.get(mk); if (!t) months.set(mk, t = zero());
+      add(t, o); add(total, o);
+    }
+    const keys = [...months.keys()].sort();
+    keys.forEach((k) => fin(months.get(k))); fin(total);
+    const v = { keys, months, total };
+    mcache = { data: s.data, key, v };
+    return v;
+  }
+
+  let icache = { data: null, map: new Map() };
+  function img(key) {
+    const s = dash.data('images');
+    if (s.status !== 'ok') return null;
+    if (icache.data !== s.data) { icache = { data: s.data, map: new Map(s.data.map((x) => [x.key, x.img])) }; }
+    return icache.map.get(key) || null;
+  }
+  function photo(key, small) {
+    const src = img(key);
+    if (src && /^data:image\//.test(src)) {
+      const im = document.createElement('img'); im.className = 'ts-ph' + (small ? ' ts-ph-s' : ''); im.alt = ''; im.loading = 'lazy'; im.src = src; return im;
+    }
+    const d = document.createElement('div'); d.className = 'ts-ph' + (small ? ' ts-ph-s' : ''); return d;
+  }
+  function link(r) {
+    const a = document.createElement(r.url ? 'a' : 'span');
+    a.textContent = r.name || r.article || r.sku;
+    if (r.url) { a.href = r.url; a.target = '_blank'; a.rel = 'noopener'; }
+    return a;
+  }
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function abcChip(r) { return el('span', 'ts-abc' + (r.abc ? ' ts-abc-' + r.abc : ''), r.abc || '—'); }
+  const MP = { WB: { name: 'Wildberries', short: 'WB', cls: 'wb', color: 'var(--ts-wb)' }, Ozon: { name: 'Ozon', short: 'Ozon', cls: 'oz', color: 'var(--ts-oz)' }, 'Яндекс': { name: 'Яндекс Маркет', short: 'Яндекс', cls: 'ym', color: 'var(--ts-ym)' } };
+  const MP_ORDER = ['WB', 'Ozon', 'Яндекс'];
+  function mpChip(mp, full) { const i = MP[mp]; return el('span', 'ts-mp' + (i ? ' ts-mp-' + i.cls : ''), i ? (full ? i.name : i.short) : mp); }
+  function storeCell(td, r) { td.append(mpChip(r.mp), document.createTextNode(r.store)); }
+  function badges(r, skipLoss) {
+    const w = el('div', 'ts-badges');
+    r.d.issues.filter(([t]) => !(skipLoss && t.startsWith('Убыток'))).slice(0, skipLoss ? 3 : 9).forEach(([t, lvl]) => w.append(el('span', 'ts-badge ts-b-' + lvl, t)));
+    return w;
+  }
+  function card(r, kind) {
+    const c = el('article', 'ts-card ' + (kind === 'good' ? 'ts-card-good' : 'ts-card-bad'));
+    c.setAttribute('data-key', encodeURIComponent(r.key));
+    c.append(photo(r.key));
+    const b = el('div', 'ts-card-b');
+    const t = el('div', 'ts-card-t'); t.append(link(r)); b.append(t);
+    const sub = el('div', 'ts-card-s'); sub.append(mpChip(r.mp), abcChip(r), document.createTextNode(r.store + ' · ' + (r.article || r.sku))); b.append(sub);
+    b.append(el('div', 'ts-card-big ' + (r.np < 0 ? 'ts-neg' : 'ts-good'), (r.np > 0 ? '+' : '') + rub(r.np)));
+    const n = el('div', 'ts-card-n');
+    const kv = (label, val, neg) => { const sp = el('span', null, label + ' '); const bb = el('b', neg ? 'ts-neg' : null, val); sp.append(bb); n.append(sp); };
+    kv('Выручка', rub(r.rev));
+    kv('Маржа', pct(r.margin, 0), r.margin < 0);
+    kv('Продано', num(r.q) + ' шт.');
+    if (isFinite(r.drevp)) kv('Выручка к пред.', signed(r.drevp, (x) => pct(x, 0)), r.drevp < 0);
+    b.append(n);
+    if (kind === 'good') {
+      const w = el('div', 'ts-badges');
+      if (r.drr <= TH.drr || !isFinite(r.drr)) w.append(el('span', 'ts-badge ts-b-ok', 'ДРР ' + pct(r.drr, 0)));
+      if (r.abc === 'A') w.append(el('span', 'ts-badge ts-b-ok', 'Класс A'));
+      r.d.issues.filter(([, l]) => l === 'warn').forEach(([tt]) => w.append(el('span', 'ts-badge ts-b-warn', tt)));
+      b.append(w);
+    } else {
+      b.append(badges(r, true));
+      if (r.d.rec) b.append(el('p', 'ts-rec', r.d.rec));
+    }
+    b.append(el('span', 'ts-more', 'Юнит-экономика'));
+    c.append(b);
+    expandable(c, r);
+    return c;
+  }
+
+  /* SKU detail: unit economics per piece + daily mini chart, built on first open */
+  function unitDetail(r) {
+    const v = view();
+    const wrap = el('div', 'ts-detail');
+    const q = r.q;
+    const rows = [['Цена продажи', r.rev, 'strong'], ['Комиссия', r.comm], ['Логистика', r.log], ['Хранение', r.stor], ['Реклама', r.adv], ['Прочие удержания', r.other],
+      ['Выплата на счёт', r.payout, 'strong'], ['Закупка', r.cogs], ['Налог', r.tax], [r.np < 0 ? 'Убыток' : 'Прибыль', r.np, 'total']];
+    const tb = el('table', 'ts-ue');
+    const hr = el('tr'); ['', 'на 1 шт.', 'всего', '% цены'].forEach((x) => hr.append(el('th', null, x)));
+    const th = el('thead'); th.append(hr); tb.append(th);
+    const body = el('tbody');
+    rows.forEach(([l, val, kind]) => {
+      const tr = el('tr', kind ? 'ts-ue-' + kind : null);
+      const tone = kind === 'total' ? (val < 0 ? 'ts-neg' : 'ts-good') : null;
+      tr.append(el('td', null, l));
+      tr.append(el('td', tone, q > 0 ? rubFull(val / q) : '—'));
+      tr.append(el('td', tone, rub(val)));
+      tr.append(el('td', null, r.rev ? pct(val / r.rev, 0) : '—'));
+      body.append(tr);
+    });
+    tb.append(body);
+    wrap.append(el('div', 'ts-muted', q > 0 ? 'Юнит-экономика на 1 проданную штуку, ' + num(q) + ' шт. за период' : 'Продаж за период нет, показаны только расходы'));
+    wrap.append(tb);
+    const s = dash.data('sales');
+    if (v && s.status === 'ok') {
+      const A = iso(v.r.a), B = iso(v.r.b), byDay = new Map();
+      for (const o of s.data) {
+        if (o.sku !== r.sku || o.store !== r.store || o.date < A || o.date > B) continue;
+        const d = byDay.get(o.date) || { rev: 0, np: 0 }; d.rev += Number(o.rev) || 0; d.np += Number(o.np) || 0; byDay.set(o.date, d);
+      }
+      const days = []; for (let i = v.r.a; i <= v.r.b; i++) { const d = byDay.get(iso(i)) || { rev: 0, np: 0 }; days.push({ i, rev: d.rev, np: d.np }); }
+      if (days.length > 1) {
+        const W = 320, H = 70;
+        const mx = Math.max(1, d3.max(days, (d) => Math.max(d.rev, d.np)) || 1), mn = Math.min(0, d3.min(days, (d) => d.np) || 0);
+        const x = d3.scaleBand().domain(days.map((d) => d.i)).range([0, W]).padding(0.2), y = d3.scaleLinear().domain([mn, mx]).range([H - 2, 4]);
+        const color = MP[r.mp] ? MP[r.mp].color : 'var(--cds-chart-muted)';
+        const svg = d3.create('svg').attr('viewBox', '0 0 ' + W + ' ' + H).attr('width', '100%').attr('class', 'ts-spark').attr('role', 'img').attr('aria-label', 'Выручка и прибыль товара по дням');
+        svg.append('line').attr('x1', 0).attr('x2', W).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--cds-chart-axis)');
+        svg.selectAll('rect').data(days).join('rect').attr('x', (d) => x(d.i)).attr('width', x.bandwidth())
+          .attr('y', (d) => y(Math.max(0, d.rev))).attr('height', (d) => Math.abs(y(d.rev) - y(0))).style('fill', color).style('opacity', 0.75);
+        svg.append('path').datum(days).attr('d', d3.line().x((d) => x(d.i) + x.bandwidth() / 2).y((d) => y(d.np)))
+          .style('fill', 'none').style('stroke', 'var(--color-fg)').style('stroke-width', 1.5);
+        const lg = el('div', 'ts-legend'); lg.style.fontSize = '11px';
+        const a = el('span'); const sw = el('i', 'ts-sw'); sw.style.background = color; a.append(sw, document.createTextNode('выручка по дням'));
+        const b2 = el('span'); b2.append(el('i', 'ts-sw ts-sw-line ts-sw-np'), document.createTextNode('прибыль')); lg.append(a, b2);
+        wrap.append(svg.node(), lg);
+      }
+    }
+    return wrap;
+  }
+  function expandable(node, r) {
+    node.classList.add('ts-xp'); node.tabIndex = 0;
+    const tog = () => {
+      let d = node.querySelector(':scope > .ts-detail');
+      if (!d) { d = unitDetail(r); node.append(d); node.classList.add('ts-open'); return; }
+      d.hidden = !d.hidden; node.classList.toggle('ts-open', !d.hidden);
+    };
+    node.addEventListener('click', (ev) => { if (ev.target.closest('a, .ts-detail')) return; tog(); });
+    node.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target === node) tog(); });
+  }
+
+  return { KEYS, expandable, COST_LABELS, TH, MP, MP_ORDER, mpChip, storeCell, rub, rubFull, short, pct, num, signed, meta, view, monthly, buckets: null, photo, link, el, abcChip, badges, card,
+    iso: (i) => iso(i), dm: (i) => dm(i), dmy: (i) => dmy(i), dayDow: (i) => new Date(s0 + i * DAY).getUTCDay(),
+    state: { sort: 'rev', dir: -1, q: '', show: '', limit: 50 } };
+})();
+
+T.buckets = function (v) {
+  const days = v.r.b - v.r.a + 1, weekly = days > 45, out = [], map = new Map();
+  for (let i = v.r.a; i <= v.r.b; i++) {
+    const k = weekly ? i - ((T.dayDow(i) + 6) % 7) : i;
+    let bk = map.get(k);
+    if (!bk) { bk = { a: Math.max(k, v.r.a), b: i, rev: 0, np: 0, pay: 0, by: {}, byp: {} }; map.set(k, bk); out.push(bk); }
+    bk.b = i;
+    const d = v.daily.get(T.iso(i));
+    if (d) {
+      bk.rev += d.rev; bk.np += d.np;
+      Object.keys(d).forEach((key) => {
+        if (key.startsWith('r_')) { const mp = key.slice(2); bk.by[mp] = (bk.by[mp] || 0) + d[key]; }
+        if (key.startsWith('p_')) { const mp = key.slice(2); bk.byp[mp] = (bk.byp[mp] || 0) + d[key]; bk.pay += d[key]; }
+      });
+    }
+  }
+  out.forEach((bk) => { bk.label = bk.a === bk.b ? T.dmy(bk.a) : T.dm(bk.a) + '–' + T.dmy(bk.b); bk.tick = T.dm(bk.a); });
+  return { weekly, out };
+};
+
+/* Выводы: правила поверх данных выбранного периода. Каждый пункт: заголовок с выделенной цифрой, пояснение, действие. */
+T.insights = function (v) {
+  if (v._ins) return v._ins;
+  const { rub, pct } = T;
+  const NAME = (mp) => (T.MP[mp] ? T.MP[mp].name : mp);
+  const LOC = (mp) => (mp === 'Яндекс' ? 'Яндекс Маркете' : NAME(mp));
+  const share = (t, k) => (t.rev ? -t[k] / t.rev : 0);
+  const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
+  const tot = (arr) => { const t = {}; T.KEYS.forEach((k) => { t[k] = sum(arr, (x) => x[k]); }); return t; };
+  const plural = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return n + ' ' + (m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c); };
+  const domMp = (arr) => { const by = {}; arr.forEach((x) => { by[x.mp] = (by[x.mp] || 0) + Math.abs(x.np); }); const all = sum(Object.values(by), (x) => x); const top = Object.entries(by).sort((a, b) => b[1] - a[1])[0]; return top && all && top[1] / all >= 0.6 ? top[0] : null; };
+  const shortName = (x) => (x.name || x.article || x.sku).split(/[,(]/)[0].trim().slice(0, 42);
+  const COST = {
+    log: ['логистика', 'Поднять минимальную цену, продавать наборами, поставлять на склады ближе к покупателям'],
+    adv: ['реклама', 'Урезать рекламу на товарах, где ДРР выше маржи'],
+    cogs: ['себестоимость', 'Поднять цены или найти закупку дешевле: наценки не хватает'],
+    comm: ['комиссия', 'Заложить комиссию в цену, проверить тарифы категорий']
+  };
+  const out = [];
+  const mps = v.mps.filter((m) => m.rev > 0);
+
+  mps.forEach((m) => {
+    const others = mps.filter((x) => x !== m), oRev = sum(others, (x) => x.rev);
+    let drv = null;
+    if (oRev > 0) Object.keys(COST).forEach((k) => {
+      const o = sum(others, (x) => -x[k]) / oRev, diff = share(m, k) - o;
+      if (diff > 0.03 && (!drv || diff > drv.diff)) drv = { k, diff, o };
+    });
+    const chg = m.prev && m.prev.rev ? ' Выручка ' + T.signed(m.rev / m.prev.rev - 1, (x) => pct(x, 0)) + ' к прошлому периоду.' : '';
+    if (m.np < 0) {
+      out.push({ mp: m.mp, tone: 'bad', pot: -m.np, t: NAME(m.mp) + ' работает в минус:', val: rub(m.np),
+        x: 'Маржа ' + pct(m.margin) + ' при выручке ' + rub(m.rev) + '.' + (drv ? ' Главная причина: ' + COST[drv.k][0] + ' ' + pct(share(m, drv.k), 0) + ' выручки, на других площадках ' + pct(drv.o, 0) + '.' : '') + chg,
+        a: drv ? COST[drv.k][1] : 'Разобрать убыточные товары этой площадки в разделе «Проблемные товары»' });
+    } else {
+      out.push({ mp: m.mp, tone: 'good', w: m.np, t: NAME(m.mp) + ' приносит', val: '+' + rub(m.np),
+        x: 'Маржа ' + pct(m.margin) + ', это ' + pct(m.rev / (v.cur.rev || 1), 0) + ' всей выручки.' + chg + (drv ? ' Слабое место: ' + COST[drv.k][0] + ' ' + pct(share(m, drv.k), 0) + ' выручки.' : ''),
+        a: m.margin >= 0.08 ? 'Расширять ассортимент и рекламу на этой площадке' : (drv ? COST[drv.k][1] : 'Держать курс, следить за ДРР и комиссией') });
+    }
+  });
+
+  mps.forEach((m) => {
+    const cheap = v.active.filter((x) => x.mp === m.mp && x.q > 0 && x.rev / x.q < 600);
+    const t = tot(cheap);
+    if (cheap.length >= 3 && t.np < -Math.max(20000, 0.01 * m.rev)) {
+      out.push({ mp: m.mp, tone: 'bad', pot: -t.np, t: 'Дешёвые товары на ' + LOC(m.mp) + ' теряют', val: rub(t.np),
+        x: plural(cheap.length, 'товар', 'товара', 'товаров') + ' дешевле 600 ₽: логистика ' + pct(-t.log / t.rev, 0) + ' и комиссия ' + pct(-t.comm / t.rev, 0) + ' выручки. Минус ' + rub(Math.abs(t.np / t.q)) + ' с каждой продажи.',
+        a: 'Продавать наборами по 2–3 шт., поднять цену или вывести' });
+    }
+  });
+
+  const adOnly = v.active.filter((x) => x.np < 0 && x.np - x.adv > 0);
+  if (adOnly.length) {
+    out.push({ mp: domMp(adOnly), tone: 'bad', pot: -sum(adOnly, (x) => x.np), t: plural(adOnly.length, 'товар', 'товара', 'товаров') + ' в минусе только из-за рекламы:', val: rub(sum(adOnly, (x) => x.np)),
+      x: 'На них потрачено ' + rub(-sum(adOnly, (x) => x.adv)) + ' рекламы. Без неё они дали бы ' + rub(sum(adOnly, (x) => x.np - x.adv)) + ' прибыли.',
+      a: 'Снизить ставки или отключить кампании на этих товарах' });
+  }
+  const ue = v.active.filter((x) => x.rev > 0 && x.np - x.adv < 0);
+  if (ue.length) {
+    const worst = ue.slice().sort((a, b) => a.np - b.np).slice(0, 3).map(shortName);
+    out.push({ mp: domMp(ue), tone: 'bad', pot: -sum(ue, (x) => x.np), t: plural(ue.length, 'товар', 'товара', 'товаров') + ' убыточны даже без рекламы:', val: rub(sum(ue, (x) => x.np)),
+      x: 'Цена не покрывает себестоимость, комиссию и логистику. Больше всего теряют: ' + worst.join('; ') + '.',
+      a: 'Поднять цену до безубыточной или вывести из ассортимента' });
+  }
+  const idle = v.active.filter((x) => x.rev <= 0 && x.np < 0);
+  if (idle.length) {
+    out.push({ mp: domMp(idle), tone: 'bad', pot: -sum(idle, (x) => x.np), t: plural(idle.length, 'товар', 'товара', 'товаров') + ' без продаж тратят', val: rub(sum(idle, (x) => x.np)),
+      x: 'Платим за хранение и рекламу, а продаж за период нет.', a: 'Отключить рекламу, распродать остатки и убрать с витрины' });
+  }
+
+  v.stores.forEach((s) => {
+    if (s.rev > 0 && s.drr > 0.15) out.push({ mp: s.mp, tone: s.np < 0 ? 'bad' : 'warn', pot: s.np < 0 ? -s.np : 0, t: s.store + ': реклама съедает', val: pct(s.drr, 0) + ' выручки',
+      x: 'Прибыль магазина ' + rub(s.np) + '. Без рекламы было бы ' + rub(s.np - s.adv) + '.', a: 'Оставить рекламу только товарам с маржой выше ДРР, остальные кампании выключить' });
+  });
+  v.stores.forEach((s) => {
+    if (s.q >= 50 && s.retr > 0.05) {
+      const others = v.stores.filter((x) => x !== s), oq = sum(others, (x) => x.q), oret = sum(others, (x) => x.ret);
+      const cats = new Map();
+      v.active.filter((x) => x.store === s.store && x.ret > 0).forEach((x) => { const c = cats.get(x.category) || { ret: 0, q: 0 }; c.ret += x.ret; c.q += x.q; cats.set(x.category, c); });
+      const topc = [...cats.entries()].sort((a, b) => b[1].ret - a[1].ret).slice(0, 2).map(([c, t]) => c + ' (' + pct(t.q ? t.ret / t.q : NaN, 0) + ')');
+      out.push({ mp: s.mp, tone: 'warn', pot: 0, t: s.store + ': возвращают', val: pct(s.retr, 0) + ' проданного',
+        x: (oq ? 'В других магазинах ' + pct(oret / oq, 1) + '. ' : '') + (topc.length ? 'Больше всего возвратов: ' + topc.join(', ') + '.' : ''),
+        a: 'Проверить упаковку, сроки доставки и описание в карточках этих категорий' });
+    }
+  });
+  mps.forEach((m) => {
+    if (m.prev && m.prev.rev > 0) {
+      const c = share(m, 'comm'), p = share(m.prev, 'comm');
+      if (c - p > 0.02) out.push({ mp: m.mp, tone: 'warn', pot: 0, t: 'Комиссия ' + NAME(m.mp) + ' выросла:', val: pct(p, 0) + ' → ' + pct(c, 0),
+        x: 'Это ' + rub((c - p) * m.rev) + ' дополнительных расходов за период.', a: 'Заложить рост комиссии в цены, проверить смену тарифов' });
+    }
+  });
+
+  const minLoss = Math.max(30000, 0.005 * (v.cur.rev || 0));
+  const bl = v.brands.filter((b) => b.rev > 0 && b.np < -minLoss).sort((a, b) => a.np - b.np).slice(0, 4);
+  if (bl.length) out.push({ mp: null, tone: 'bad', pot: 0, t: 'Бренды в минусе:', val: bl.map((b) => b.brand).join(', '),
+    x: bl.map((b) => b.brand + ' ' + rub(b.np) + ' (ДРР ' + pct(b.drr, 0) + ', логистика ' + pct(-b.log / b.rev, 0) + ')').join('; ') + '.',
+    a: 'Пересчитать цены и рекламу по этим брендам, слабые позиции выводить' });
+  const bg = v.brands.filter((b) => b.np >= minLoss && b.margin >= 0.08).sort((a, b) => b.np - a.np).slice(0, 3);
+  if (bg.length) out.push({ mp: null, tone: 'good', w: sum(bg, (b) => b.np), t: 'Зарабатывают бренды:', val: bg.map((b) => b.brand).join(', '),
+    x: bg.map((b) => b.brand + ' +' + rub(b.np) + ', маржа ' + pct(b.margin, 0)).join('; ') + '.', a: 'Расширять линейки этих брендов и держать их в наличии' });
+
+  mps.forEach((m) => {
+    const pr = v.active.filter((x) => x.mp === m.mp && x.q > 0 && x.rev / x.q >= 2000), t = tot(pr);
+    if (pr.length >= 3 && t.np > 0 && t.rev && t.np / t.rev >= 0.08) out.push({ mp: m.mp, tone: 'good', w: t.np, t: 'На ' + LOC(m.mp) + ' зарабатывают товары дороже 2000 ₽:', val: '+' + rub(t.np),
+      x: plural(pr.length, 'товар', 'товара', 'товаров') + ', маржа ' + pct(t.np / t.rev) + '.', a: 'Делать упор на дорогие позиции и наборы' });
+  });
+  if (v.sold.length > 20 && v.totRev > 0) {
+    const top = sum(v.sold.slice(0, 10), (x) => x.rev) / v.totRev;
+    out.push({ mp: null, tone: 'info', w: 0, t: '10 товаров дают', val: pct(top, 0) + ' выручки',
+      x: top > 0.4 ? 'Сильная зависимость от нескольких позиций: перебои с ними ударят по всему обороту.' : 'Выручка распределена по ассортименту, сильной зависимости от отдельных позиций нет.',
+      a: top > 0.4 ? 'Держать запас по лидерам и развивать следующие за ними товары' : 'Растить прибыльность лидеров, а не количество позиций' });
+  }
+  if (v.cur.payout > 0) {
+    const cg = -v.cur.cogs / v.cur.payout;
+    if (cg > 0.7) out.push({ mp: null, tone: cg > 0.85 ? 'bad' : 'warn', pot: 0, t: 'Из каждых 100 ₽ на счёте на закупку уходит', val: Math.round(cg * 100) + ' ₽',
+      x: 'Выплата ' + rub(v.cur.payout) + ', себестоимость проданного ' + rub(-v.cur.cogs) + '. После налога остаётся ' + rub(v.cur.np) + '.',
+      a: 'Поднимать цены на товары с низкой наценкой или снижать закупочную стоимость' });
+  }
+  const rank = { bad: 0, warn: 1, good: 2, info: 3 };
+  out.sort((a, b) => rank[a.tone] - rank[b.tone] || (b.pot || 0) - (a.pot || 0) || (b.w || 0) - (a.w || 0));
+  v._ins = out;
+  return out;
+};
+</script>
+
+<script>
+dash.loader('sales', {
+  description: 'Разворачивает выгрузку Торгстат: одна строка на товар в магазине за день, с названием магазина и маркетплейсом.',
+  fn: ({ answer }) => {
+    const j = answer;
+    if (!j || !Array.isArray(j.products)) throw new Error('В файле нет списка товаров (products).');
+    const s0 = Date.parse(j.start + 'T00:00:00Z');
+    const cols = j.cols;
+    const rows = [];
+    for (const p of j.products) {
+      const st = j.stores[p.s] || {};
+      for (const r of p.d) {
+        const o = { date: new Date(s0 + r[0] * 864e5).toISOString().slice(0, 10), store: st.name, mp: st.mp, sku: String(p.sku), article: p.a, name: p.n, category: p.c, brand: p.b, url: p.u };
+        for (let i = 1; i < cols.length; i++) o[cols[i]] = r[i];
+        rows.push(o);
+      }
+    }
+    return { columns: ['date', 'store', 'mp', 'sku', 'article', 'name', 'category', 'brand', 'url'].concat(cols.slice(1)), rows };
+  }
+});
+</script>
+
+<script>
+(function () {
+  const map = { 'f-period': 'period', 'f-mp': 'mp', 'f-store': 'store', 'f-brand': 'brand', 'f-cat': 'cat' };
+  Object.keys(map).forEach((id) => {
+    document.querySelectorAll('#' + id).forEach((el) => {
+      el.addEventListener('change', () => { T.state.limit = 50; dash.setParams({ [map[id]]: el.value }); });
+    });
+  });
+  document.querySelectorAll('#f-reset').forEach((b) => b.addEventListener('click', () => {
+    T.state.q = ''; T.state.show = ''; T.state.limit = 50;
+    document.querySelectorAll('#p-search').forEach((i) => { i.value = ''; });
+    document.querySelectorAll('#p-show').forEach((i) => { i.value = ''; });
+    dash.resetParams();
+  }));
+  function redrawIn(root) {
+    if (!root) return;
+    const names = new Set();
+    root.querySelectorAll('[data-draw]').forEach((e) => names.add(e.getAttribute('data-draw')));
+    names.forEach((n) => dash.draw(n));
+  }
+  const PAGES = ['overview', 'insights', 'mps', 'pnl', 'goods'];
+  const SUBS = ['best', 'problems', 'growth', 'all', 'abc'];
+  function showTab(id, link) {
+    if (!PAGES.includes(id)) return;
+    document.querySelectorAll('.ts-page').forEach((p) => { p.hidden = p.id !== id; });
+    document.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', b.getAttribute('data-tab') === id ? 'true' : 'false'));
+    if (link !== false) dash.setLink(id);
+    redrawIn(document.getElementById(id));
+  }
+  function showSub(id, link) {
+    if (!SUBS.includes(id)) return;
+    document.querySelectorAll('.ts-subpage').forEach((p) => { p.hidden = p.id !== id; });
+    document.querySelectorAll('[data-sub]').forEach((b) => b.setAttribute('aria-selected', b.getAttribute('data-sub') === id ? 'true' : 'false'));
+    if (link !== false) dash.setLink(id);
+    redrawIn(document.getElementById(id));
+  }
+  window.TS_showTab = showTab;
+  T.state.chart = 'rev';
+  document.querySelectorAll('[data-chart]').forEach((b) => b.addEventListener('click', () => {
+    T.state.chart = b.getAttribute('data-chart');
+    document.querySelectorAll('[data-chart]').forEach((x) => x.setAttribute('aria-selected', x === b ? 'true' : 'false'));
+    document.querySelectorAll('.ts-mode-rev').forEach((x) => { x.hidden = T.state.chart !== 'rev'; });
+    document.querySelectorAll('.ts-mode-pay').forEach((x) => { x.hidden = T.state.chart !== 'pay'; });
+    dash.draw('trend');
+  }));
+  document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { showTab(b.getAttribute('data-tab')); const top = document.getElementById('bar'); if (top && top.getBoundingClientRect().top < 0) top.scrollIntoView({ block: 'start' }); }));
+  document.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => { showTab(b.getAttribute('data-goto')); window.scrollTo({ top: 0 }); }));
+  document.querySelectorAll('[data-sub]').forEach((b) => b.addEventListener('click', () => showSub(b.getAttribute('data-sub'))));
+  const redrawProds = () => { dash.draw('prodrows'); dash.draw('prodlist'); dash.draw('prodcount'); };
+  document.querySelectorAll('#p-search').forEach((inp) => inp.addEventListener('input', () => { T.state.q = inp.value.trim().toLowerCase(); T.state.limit = 50; redrawProds(); }));
+  document.querySelectorAll('#p-show').forEach((sel) => sel.addEventListener('change', () => { T.state.show = sel.value; T.state.limit = 50; redrawProds(); }));
+  document.querySelectorAll('#p-more').forEach((b) => b.addEventListener('click', () => { T.state.limit += 50; redrawProds(); }));
+  const syncSortHeads = () => document.querySelectorAll('th[data-sort]').forEach((th) => {
+    if (th.getAttribute('data-sort') === T.state.sort) th.setAttribute('aria-sort', T.state.dir < 0 ? 'descending' : 'ascending');
+    else th.removeAttribute('aria-sort');
+  });
+  document.querySelectorAll('#p-sort').forEach((sel) => sel.addEventListener('change', () => {
+    const [k, d] = sel.value.split(':'); T.state.sort = k; T.state.dir = Number(d) || -1; T.state.limit = 50; syncSortHeads(); redrawProds();
+  }));
+  document.querySelectorAll('button.ts-sort').forEach((b) => b.addEventListener('click', () => {
+    const k = b.getAttribute('data-sort');
+    if (T.state.sort === k) T.state.dir = -T.state.dir; else { T.state.sort = k; T.state.dir = k === 'abcn' ? 1 : -1; }
+    document.querySelectorAll('th[data-sort]').forEach((th) => {
+      if (th.getAttribute('data-sort') === T.state.sort) th.setAttribute('aria-sort', T.state.dir < 0 ? 'descending' : 'ascending');
+      else th.removeAttribute('aria-sort');
+    });
+    dash.draw('prodrows'); dash.draw('prodlist');
+    document.querySelectorAll('#p-sort').forEach((sel) => { const val = T.state.sort + ':' + T.state.dir; sel.value = [...sel.options].some((o) => o.value === val) ? val : sel.value; });
+  }));
+  const gotoHash = () => { const id = (location.hash || '').slice(1); if (PAGES.includes(id)) showTab(id, false); else if (SUBS.includes(id)) { showTab('goods', false); showSub(id, false); } };
+  setTimeout(gotoHash, 0);
+
+  dash.onData(() => {
+    const p = dash.params();
+    Object.keys(map).forEach((id) => {
+      document.querySelectorAll('select#' + id).forEach((el) => {
+        if (document.activeElement === el) return;
+        const val = p[map[id]] || (id === 'f-period' ? '30' : '');
+        if ([...el.options].some((o) => o.value === val)) el.value = val;
+      });
+    });
+    document.querySelectorAll('.ts-sw-rev').forEach((e) => { e.style.background = dash.colors[0]; });
+    document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = dash.colors[1]; });
+    const v = T.view();
+    const hasPrev = !v || !!v.prev;
+    document.querySelectorAll('.ts-cmp-yes').forEach((e) => { e.hidden = !hasPrev; });
+    document.querySelectorAll('.ts-cmp-no').forEach((e) => { e.hidden = hasPrev; });
+    document.querySelectorAll('#p-more').forEach((b) => { b.hidden = !v || !window.TS_prodList || window.TS_prodList(v).length <= T.state.limit; });
+  });
+})();
+</script>
+
+<script>
+(function () {
+  const { el } = T;
+  function dashOr(e, s) { e.textContent = '—'; e.classList.toggle('dash-skeleton', s.status === 'loading'); }
+  function opts(sel, all, items, param) {
+    const s = dash.data('sales'); const p = dash.params();
+    const list = s.status === 'ok' && T.meta() ? items(T.meta()) : [];
+    sel.replaceChildren(new Option(all, ''), ...list.map((x) => (typeof x === 'string' ? new Option(x, x) : new Option(x.label, x.value))));
+    const val = p[param] || '';
+    if (val && !list.some((x) => (typeof x === 'string' ? x : x.value) === val)) sel.append(new Option(val, val));
+    sel.value = val;
+  }
+  dash.draw('opt-store', (sel) => opts(sel, 'Все магазины', (m) => m.stores.map((s) => ({ value: s.name, label: s.name + ' · ' + s.mp })), 'store'));
+  dash.draw('opt-brand', (sel) => opts(sel, 'Все бренды', (m) => m.brands, 'brand'));
+  dash.draw('opt-cat', (sel) => opts(sel, 'Все категории', (m) => m.cats, 'cat'));
+
+  /* KPI */
+  const KPI = {
+    rev: { val: (t) => t.rev, fmt: T.rub, good: 1, kind: 'rel' },
+    payout: { val: (t) => t.payout, fmt: T.rub, good: 1, kind: 'rel' },
+    np: { val: (t) => t.np, fmt: T.rub, good: 1, kind: 'abs' },
+    margin: { val: (t) => t.margin, fmt: (x) => T.pct(x), good: 1, kind: 'pp' },
+    q: { val: (t) => t.q, fmt: T.num, good: 1, kind: 'rel' },
+    retr: { val: (t) => t.retr, fmt: (x) => T.pct(x), good: -1, kind: 'pp' },
+    drr: { val: (t) => t.drr, fmt: (x) => T.pct(x), good: -1, kind: 'pp' }
+  };
+  function deltaText(kind, c, p) {
+    const diff = c - p;
+    if (kind === 'rel') return p ? T.signed(diff / Math.abs(p), (x) => T.pct(x, 0)) : null;
+    if (kind === 'pp') return T.signed(diff * 100, (x) => x.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })) + ' п.п.';
+    return T.signed(diff, T.rub);
+  }
+  dash.draw('kpi', (e) => {
+    const s = dash.data('sales'); const v = T.view(); const k = KPI[e.dataset.k];
+    if (!v || !k) return dashOr(e, s);
+    e.classList.remove('dash-skeleton');
+    e.textContent = k.fmt(k.val(v.cur));
+    e.classList.toggle('ts-neg', e.dataset.k === 'np' && v.cur.np < 0);
+  });
+  dash.draw('delta', (e) => {
+    const v = T.view(); const k = KPI[e.dataset.k];
+    e.classList.remove('ts-good', 'ts-bad');
+    if (!v || !k || !v.prev) { e.textContent = ''; return; }
+    const c = k.val(v.cur), p = k.val(v.prev);
+    if (!isFinite(c) || !isFinite(p)) { e.textContent = ''; return; }
+    const txt = deltaText(k.kind, c, p);
+    if (!txt) { e.textContent = ''; return; }
+    const diff = c - p;
+    e.textContent = (diff >= 0 ? '▲ ' : '▼ ') + txt;
+    e.append(el('span', 'ts-was', ' (было ' + k.fmt(p) + ')'));
+    if (Math.abs(diff) > 1e-9) e.classList.add(diff * k.good > 0 ? 'ts-good' : 'ts-bad');
+  });
+  dash.draw('cmp-period', (e) => { const v = T.view(); e.textContent = v && v.prevLabel ? v.prevLabel : '—'; });
+
+  /* Takeaway */
+  const topCost = (v) => Object.keys(T.COST_LABELS).reduce((best, k) => (best == null || v.cur[k] < v.cur[best] ? k : best), null);
+  const lossList = (v) => v.active.filter((x) => x.np < 0 && x.rev > 0);
+  dash.draw('tk-period', (e) => { const v = T.view(); e.textContent = v ? v.label : '—'; });
+  dash.draw('tk-rev', (e) => { const v = T.view(); e.textContent = v ? T.rub(v.cur.rev) : '—'; });
+  dash.draw('tk-np', (e) => { const v = T.view(); e.textContent = v ? T.rub(v.cur.np) : '—'; e.classList.toggle('ts-neg', !!v && v.cur.np < 0); e.classList.toggle('ts-hl-good', !!v && v.cur.np > 0); });
+
+  /* Insights */
+  const TONE = { bad: 'Проблема', warn: 'Риск', good: 'Сильная сторона', info: 'Наблюдение' };
+  const VALCLS = { bad: 'ts-hl-bad', warn: 'ts-hl-bad', good: 'ts-hl-good', info: '' };
+  function insCard(it) {
+    const c = el('article', 'ts-in' + (it.mp && T.MP[it.mp] ? ' ts-in-' + T.MP[it.mp].cls : ''));
+    c.tabIndex = 0;
+    const top = el('div', 'ts-in-top');
+    if (it.mp) top.append(T.mpChip(it.mp, true));
+    if (it.pot > 0) top.append(el('span', 'ts-in-pot', 'до +' + T.rub(it.pot)));
+    const t = el('p', 'ts-in-t', it.t + ' '); t.append(el('span', VALCLS[it.tone] || null, it.val));
+    if (top.childNodes.length) c.append(top);
+    c.append(t, el('p', 'ts-in-a', it.a), el('p', 'ts-in-x', it.x));
+    const tog = () => c.classList.toggle('ts-open');
+    c.addEventListener('click', (ev) => { if (!ev.target.closest('a')) tog(); });
+    c.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') tog(); });
+    return c;
+  }
+  function insList(box, tones, empty) {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const list = T.insights(v).filter((it) => tones.includes(it.tone));
+    if (!list.length) { box.append(el('p', 'ts-empty', empty)); return; }
+    list.forEach((it) => box.append(insCard(it)));
+  }
+  dash.draw('ins-bad', (box) => insList(box, ['bad', 'warn'], 'Серьёзных проблем за этот период нет.'));
+  dash.draw('ins-good', (box) => insList(box, ['good', 'info'], 'Явных сильных сторон за этот период не найдено.'));
+  dash.draw('topacts', (ol) => {
+    const v = T.view(); ol.replaceChildren();
+    if (!v) { ol.append(el('li', null, '—')); return; }
+    const list = T.insights(v).filter((it) => it.pot > 0).slice(0, 3);
+    if (!list.length) { ol.append(el('li', null, 'Крупных потерь за этот период нет: держите текущий курс.')); return; }
+    list.forEach((it) => {
+      const li = el('li'); li.append(el('b', null, it.a), document.createTextNode(' '), el('span', 'ts-pot', 'до +' + T.rub(it.pot)), el('br'), el('small', null, it.t + ' ' + it.val));
+      ol.append(li);
+    });
+  });
+
+  /* Marketplaces */
+  const COSTS = [['comm', 'Комиссия', 'var(--ts-c1)'], ['cogs', 'Себестоимость', 'var(--ts-c2)'], ['log', 'Логистика', 'var(--ts-c3)'], ['adv', 'Реклама', 'var(--ts-c4)'], ['rest', 'Налог и прочее', 'var(--ts-c5)']];
+  function costStack(m) {
+    const parts = COSTS.map(([k, l, c]) => [l, c, k === 'rest' ? -(m.tax + m.stor + m.other) : -m[k]]);
+    const costSum = parts.reduce((a, p) => a + Math.max(0, p[2]), 0);
+    const total = costSum + Math.max(0, m.np);
+    const wrap = el('div', 'ts-sec'); wrap.style.gap = '6px';
+    const bar = el('div', 'ts-stack');
+    if (total > 0) {
+      parts.forEach(([l, c, val]) => { if (val > 0) { const i = el('i'); i.style.width = (val / total * 100) + '%'; i.style.background = c; i.title = l; bar.append(i); } });
+      if (m.np > 0) { const i = el('i'); i.style.width = (m.np / total * 100) + '%'; i.style.background = 'var(--color-ok)'; i.title = 'Прибыль'; bar.append(i); }
+      else if (m.np < 0 && m.rev > 0) { const mk = el('i', 'ts-stack-mark'); mk.style.left = Math.min(100, m.rev / total * 100) + '%'; mk.title = 'Выручка заканчивается здесь'; bar.append(mk); }
+    }
+    const lg = el('div', 'ts-stack-legend');
+    const per = (x) => (m.rev ? (x / m.rev * 100).toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽' : '—');
+    parts.forEach(([l, c, val]) => { const sp = el('span'); const sw = el('i', 'ts-sw'); sw.style.background = c; sp.append(sw, document.createTextNode(l), el('b', null, per(val))); lg.append(sp); });
+    const sp = el('span'); const sw = el('i', 'ts-sw'); sw.style.background = m.np < 0 ? 'var(--color-bad)' : 'var(--color-ok)';
+    sp.append(sw, document.createTextNode(m.np < 0 ? 'Убыток' : 'Прибыль'), el('b', m.np < 0 ? 'ts-neg' : 'ts-good', per(Math.abs(m.np)))); lg.append(sp);
+    wrap.append(el('div', 'ts-muted', 'Из каждых 100 ₽ выручки'), bar, lg);
+    return wrap;
+  }
+  const mpList = (v) => T.MP_ORDER.map((mp) => v.mps.find((x) => x.mp === mp)).filter(Boolean).concat(v.mps.filter((x) => !T.MP_ORDER.includes(x.mp)));
+  dash.draw('mpcards', (box) => {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const p = dash.params();
+    const list = mpList(v);
+    if (!list.length) { box.append(el('p', 'ts-empty', 'Нет продаж с такими фильтрами.')); return; }
+    list.forEach((m) => {
+      const info = T.MP[m.mp] || { name: m.mp, cls: '', color: 'var(--cds-chart-muted)' };
+      const c = el('article', 'ts-mpc ts-mpc-' + info.cls + (p.mp === m.mp ? ' ts-on' : '')); c.tabIndex = 0; c.setAttribute('data-key', encodeURIComponent(m.mp));
+      const head = el('div', 'ts-mpc-head'); head.append(el('h3', null, info.name), el('span', 'ts-muted', T.pct(v.cur.rev ? m.rev / v.cur.rev : NaN, 0) + ' выручки'));
+      c.append(head);
+      const big = el('div', 'ts-mpc-big', T.rub(m.rev));
+      c.append(big);
+      if (m.prev && m.prev.rev) c.append(el('span', 'ts-muted ' + (m.rev >= m.prev.rev ? 'ts-good' : 'ts-bad'), T.signed(m.rev / m.prev.rev - 1, (x) => T.pct(x, 0)) + ' к пред. периоду'));
+      const dl = el('dl');
+      [['Прибыль', (m.np > 0 ? '+' : '') + T.rub(m.np), m.np < 0 ? 'ts-neg' : 'ts-good'], ['Маржа', T.pct(m.margin), m.margin < 0 ? 'ts-neg' : null],
+        ['ДРР', T.pct(m.drr, 0), m.drr > T.TH.drr ? 'ts-bad' : null], ['Возвраты', T.pct(m.retr), m.retr > 0.05 ? 'ts-bad' : null],
+        ['Выплата', T.rub(m.payout), null], ['Ср. чек', m.q ? T.rubFull(m.rev / m.q) : '—', null]]
+        .forEach(([a, b, cls]) => { dl.append(el('dt', null, a), el('dd', cls, b)); });
+      c.append(dl, costStack(m));
+      const pick = () => dash.setParams({ mp: p.mp === m.mp ? '' : m.mp });
+      c.addEventListener('click', (ev) => { if (!ev.target.closest('a')) pick(); });
+      c.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); } });
+      box.append(c);
+    });
+  });
+  dash.draw('mpshare', (box) => {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const list = mpList(v).filter((m) => m.rev > 0);
+    if (!list.length) { box.append(el('p', 'ts-empty', 'Нет продаж с такими фильтрами.')); return; }
+    const bar = el('div', 'ts-share');
+    list.forEach((m) => { const i = el('i'); i.style.width = (m.rev / v.cur.rev * 100) + '%'; i.style.background = T.MP[m.mp] ? T.MP[m.mp].color : 'var(--cds-chart-muted)'; i.title = (T.MP[m.mp] ? T.MP[m.mp].name : m.mp) + ': ' + T.pct(m.rev / v.cur.rev, 0); bar.append(i); });
+    box.append(bar);
+    const p = dash.params();
+    list.forEach((m) => {
+      const row = el('div', 'ts-mprow'); row.tabIndex = 0;
+      const n = el('div', 'ts-mprow-n'); n.append(T.mpChip(m.mp, true));
+      const r = el('div', 'ts-mprow-r', T.rub(m.rev)); r.append(el('small', null, T.pct(m.rev / v.cur.rev, 0) + ' выручки'));
+      const pr = el('div', 'ts-mprow-p'); pr.append(el('b', m.np < 0 ? 'ts-neg' : 'ts-good', (m.np > 0 ? '+' : '') + T.rub(m.np)), el('small', null, 'маржа ' + T.pct(m.margin)));
+      row.append(n, r, pr);
+      const pick = () => dash.setParams({ mp: p.mp === m.mp ? '' : m.mp });
+      row.addEventListener('click', pick);
+      row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') pick(); });
+      box.append(row);
+    });
+  });
+  dash.draw('tk-payout', (e) => { const v = T.view(); e.textContent = v ? T.rub(v.cur.payout) : '—'; });
+  dash.draw('cash', (box) => {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const m = v.cur, pay = m.payout;
+    const top = el('div', 'ts-cash-top');
+    top.append(el('div', 'ts-mpc-big', T.rub(pay)));
+    const sub = el('p', 'ts-muted', T.pct(m.rev ? pay / m.rev : NaN, 0) + ' от выручки');
+    if (v.prev && v.prev.payout) { sub.append(document.createTextNode(' · ')); sub.append(el('span', pay >= v.prev.payout ? 'ts-good' : 'ts-bad', T.signed(pay / v.prev.payout - 1, (x) => T.pct(x, 0)) + ' к пред.')); }
+    top.append(sub);
+    box.append(top);
+    const parts = [['Закупка', 'var(--ts-c2)', -m.cogs], ['Налог', 'var(--ts-c5)', -m.tax]];
+    const costSum = Math.max(0, -m.cogs) + Math.max(0, -m.tax);
+    const total = Math.max(pay, costSum);
+    const bar = el('div', 'ts-stack');
+    if (total > 0) {
+      parts.forEach(([l, c, val]) => { if (val > 0) { const i = el('i'); i.style.width = (val / total * 100) + '%'; i.style.background = c; i.title = l; bar.append(i); } });
+      if (m.np > 0) { const i = el('i'); i.style.width = (m.np / total * 100) + '%'; i.style.background = 'var(--color-ok)'; i.title = 'Прибыль'; bar.append(i); }
+      else if (m.np < 0 && pay > 0) { const mk = el('i', 'ts-stack-mark'); mk.style.left = Math.min(100, pay / total * 100) + '%'; mk.title = 'Выплата заканчивается здесь'; bar.append(mk); }
+    }
+    const per = (x) => (pay > 0 ? (x / pay * 100).toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽' : '—');
+    const lg = el('div', 'ts-cash-lines');
+    const line = (sw, label, amount, per100, cls) => { const r = el('div', 'ts-cash-line'); const s = el('i', 'ts-sw'); s.style.background = sw; r.append(s, el('span', null, label), el('b', cls, T.rub(amount)), el('small', null, per100)); lg.append(r); };
+    line('var(--ts-c2)', 'Закупка (себестоимость)', m.cogs, per(-m.cogs));
+    line('var(--ts-c5)', 'Налог', m.tax, per(-m.tax));
+    line(m.np < 0 ? 'var(--color-bad)' : 'var(--color-ok)', m.np < 0 ? 'Убыток' : 'Чистая прибыль', m.np, per(Math.abs(m.np)), m.np < 0 ? 'ts-neg' : 'ts-good');
+    box.append(el('p', 'ts-muted', 'Из каждых 100 ₽ на счёте'), bar, lg);
+  });
+  dash.draw('tk-margin', (e) => { const v = T.view(); e.textContent = v ? T.pct(v.cur.margin) : '—'; });
+  dash.draw('tk-cost', (e) => { const v = T.view(); e.textContent = v ? T.COST_LABELS[topCost(v)] : '—'; });
+  dash.draw('tk-costpct', (e) => { const v = T.view(); e.textContent = v && v.cur.rev ? T.pct(-v.cur[topCost(v)] / v.cur.rev) : '—'; });
+  dash.draw('tk-sold', (e) => { const v = T.view(); e.textContent = v ? T.num(v.sold.length) : '—'; });
+  dash.draw('tk-loss', (e) => { const v = T.view(); e.textContent = v ? T.num(lossList(v).length) : '—'; });
+  dash.draw('tk-lossamt', (e) => { const v = T.view(); e.textContent = v ? T.rub(lossList(v).reduce((a, x) => a + x.np, 0)) : '—'; e.classList.add('ts-neg'); });
+  dash.draw('health', (e) => {
+    const v = T.view(); if (!v) { e.textContent = '—'; return; }
+    const k = e.dataset.k;
+    const n = k === 'sold' ? v.sold.length : k === 'loss' ? lossList(v).length : k === 'idle' ? v.active.filter((x) => x.rev <= 0 && x.np < 0).length : v.active.filter((x) => x.d.out).length;
+    e.textContent = T.num(n);
+  });
+
+  /* Trend */
+  dash.draw('trend-gran', (e) => { const v = T.view(); e.textContent = v ? (v.r.b - v.r.a + 1 > 45 ? 'по неделям' : 'по дням') : '—'; });
+  dash.draw('trend', (e) => {
+    const s = dash.data('sales'); const v = T.view();
+    e.replaceChildren();
+    if (!v) { e.append(el('p', 'ts-chart-msg', s.status === 'error' ? 'Не удалось загрузить данные' : 'Загрузка…')); return; }
+    const { weekly, out } = T.buckets(v);
+    const PAY = T.state.chart === 'pay';
+    out.forEach((d) => { d.val = PAY ? d.pay : d.rev; d.parts = PAY ? d.byp : d.by; });
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 210 : 250;
+    const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', `Выручка ${weekly ? 'по неделям' : 'по дням'} столбцами и чистая прибыль линией за ${v.label}`);
+    const ymin = Math.min(0, d3.min(out, (d) => d.np) || 0, d3.min(out, (d) => d.val) || 0);
+    const ymax = Math.max(1, d3.max(out, (d) => d.val) || 0, d3.max(out, (d) => d.np) || 0);
+    const y = d3.scaleLinear().domain([ymin, ymax]).nice();
+    const ticks = y.ticks(W < 520 ? 4 : 5);
+    const probe = svg.append('g');
+    const tw = d3.max(ticks, (t) => probe.append('text').attr('class', 'ts-tick').text(T.short(t)).node().getComputedTextLength()) || 32;
+    probe.remove();
+    const m = { t: 10, r: 6, b: 24, l: Math.ceil(tw) + 10 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    y.range([m.t + ih, m.t]);
+    const x = d3.scaleBand().domain(out.map((d, i) => i)).range([m.l, m.l + iw]).paddingInner(out.length > 60 ? 0.15 : 0.3).paddingOuter(0.1);
+    const bw = x.bandwidth(), cx = (i) => x(i) + bw / 2;
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('class', (d) => (d === 0 ? 'ts-zero' : 'ts-gridl'))
+      .attr('x1', m.l).attr('x2', m.l + iw).attr('y1', (d) => y(d)).attr('y2', (d) => y(d));
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('class', 'ts-tick').attr('x', m.l - 6).attr('y', (d) => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(T.short);
+    const segs = [];
+    out.forEach((d, i) => {
+      let acc = 0;
+      T.MP_ORDER.concat(Object.keys(d.parts).filter((k) => !T.MP_ORDER.includes(k))).forEach((mp) => {
+        const val = Math.max(0, d.parts[mp] || 0); if (!val) return;
+        segs.push({ i, mp, y0: acc, y1: acc + val }); acc += val;
+      });
+      if (segs.length && segs[segs.length - 1].i === i) segs[segs.length - 1].top = true;
+    });
+    svg.append('g').selectAll('rect').data(segs).join('rect')
+      .attr('x', (s) => x(s.i)).attr('width', bw)
+      .attr('y', (s) => y(s.y1)).attr('height', (s) => Math.max(0, y(s.y0) - y(s.y1)))
+      .attr('rx', (s) => (s.top ? Math.min(3, bw / 3) : 0))
+      .style('fill', (s) => (T.MP[s.mp] ? T.MP[s.mp].color : 'var(--cds-chart-muted)'));
+    svg.append('path').datum(out).attr('d', d3.line().x((d, i) => cx(i)).y((d) => y(d.np)))
+      .style('fill', 'none').style('stroke', 'var(--color-fg)').style('stroke-width', 2).style('stroke-linejoin', 'round');
+    if (out.length <= 40) svg.append('g').selectAll('circle').data(out).join('circle').attr('cx', (d, i) => cx(i)).attr('cy', (d) => y(d.np)).attr('r', 3)
+      .style('fill', (d) => (d.np < 0 ? 'var(--cds-chart-status-critical)' : 'var(--color-fg)'));
+    const tickW = (() => { const t = svg.append('text').attr('class', 'ts-tick').text('00.00'); const w = t.node().getComputedTextLength() || 32; t.remove(); return w; })();
+    const step = Math.max(1, Math.ceil(out.length * (tickW + 12) / iw));
+    svg.append('g').selectAll('text').data(out.map((d, i) => ({ d, i })).filter((o) => o.i % step === 0)).join('text')
+      .attr('class', 'ts-tick').attr('x', (o) => cx(o.i)).attr('y', H - 6).attr('text-anchor', 'middle').text((o) => o.d.tick);
+    const tip = el('div', 'ts-tip'); tip.hidden = true; e.append(tip);
+    const show = (event, d) => {
+      const i = out.indexOf(d);
+      const lines = [el('div', 'ts-tip-h', d.label), el('div', null, (PAY ? 'Выплата: ' : 'Выручка: ') + T.rubFull(d.val))];
+      T.MP_ORDER.forEach((mp) => { if (d.parts[mp]) { const ln = el('div', 'ts-tip-h'); ln.append(T.mpChip(mp), document.createTextNode(' ' + T.rubFull(d.parts[mp]))); lines.push(ln); } });
+      if (PAY) lines.push(el('div', 'ts-tip-h', 'Выручка: ' + T.rubFull(d.rev)));
+      lines.push(el('div', d.np < 0 ? 'ts-neg' : null, 'Чистая прибыль: ' + T.rubFull(d.np)), el('div', 'ts-tip-h', 'Маржа: ' + T.pct(d.rev ? d.np / d.rev : NaN)));
+      tip.replaceChildren(...lines);
+      tip.hidden = false;
+      const scale = e.clientWidth / W, tw2 = tip.offsetWidth;
+      let left = cx(i) * scale + 12;
+      if (left + tw2 > e.clientWidth) left = cx(i) * scale - tw2 - 12;
+      tip.style.left = Math.max(0, left) + 'px'; tip.style.top = (m.t + 4) + 'px';
+    };
+    svg.append('g').selectAll('rect').data(out).join('rect').attr('class', 'ts-hit')
+      .attr('x', (d, i) => x(i) - (x.step() - bw) / 2).attr('width', x.step()).attr('y', m.t).attr('height', ih)
+      .on('mouseenter', show).on('click', show).on('mouseleave', () => { tip.hidden = true; });
+  });
+
+  /* P&L */
+  const PNL = [
+    ['rev', 'Выручка', 'strong'], ['comm', 'Комиссия маркетплейса', 'sub'], ['log', 'Логистика', 'sub'], ['stor', 'Хранение', 'sub'], ['adv', 'Реклама', 'sub'],
+    ['other', 'Прочие удержания', 'sub'], ['payout', 'Выплата на счёт', 'strong'], ['cogs', 'Себестоимость (закупка)', 'sub'], ['tax', 'Налог', 'sub'], ['np', 'Чистая прибыль', 'strong'],
+    ['margin', 'Маржа', 'pct'], ['q', 'Продано, шт.', 'cnt'], ['avg', 'Средняя цена продажи', 'avg']
+  ];
+  const valOf = (t, k) => (k === 'avg' ? (t.q ? t.rev / t.q : NaN) : t[k]);
+  const fmtOf = (kind, x) => (kind === 'pct' ? T.pct(x) : kind === 'cnt' ? T.num(x) : T.rubFull(x));
+  dash.draw('pnl', (tb) => {
+    const v = T.view(); tb.replaceChildren();
+    if (!v) { const td = tb.insertRow().insertCell(); td.colSpan = 5; td.textContent = '—'; return; }
+    for (const [k, label, kind] of PNL) {
+      const tr = tb.insertRow(); if (kind === 'strong') tr.className = 'ts-strong'; if (kind === 'sub') tr.className = 'ts-sub';
+      tr.insertCell().textContent = label;
+      const c = valOf(v.cur, k);
+      const vc = tr.insertCell(); vc.textContent = fmtOf(kind, c); if (c < 0 && (k === 'np' || k === 'margin')) vc.className = 'ts-neg';
+      const pc = tr.insertCell();
+      if (['sub', 'strong'].includes(kind) && v.cur.rev) {
+        const w = el('span', 'ts-pctbar'); const bar = el('i');
+        const share = Math.abs(c) / v.cur.rev;
+        bar.style.width = Math.round(Math.min(1, share) * 80) + 'px';
+        bar.style.background = k === 'np' ? (c < 0 ? 'var(--cds-chart-status-critical)' : dash.colors[1]) : k === 'rev' ? dash.colors[0] : 'var(--cds-chart-muted)';
+        w.append(bar, document.createTextNode(T.pct(c / v.cur.rev)));
+        pc.append(w);
+      } else pc.textContent = '';
+      const pr = tr.insertCell(), dc = tr.insertCell();
+      if (v.prev) {
+        const p = valOf(v.prev, k); pr.textContent = fmtOf(kind, p);
+        if (isFinite(c) && isFinite(p)) {
+          const diff = c - p;
+          dc.textContent = kind === 'pct' ? T.signed(diff * 100, (x) => x.toLocaleString('ru-RU', { maximumFractionDigits: 1, minimumFractionDigits: 1 })) + ' п.п.' : kind === 'cnt' ? T.signed(diff, T.num) : T.signed(diff, T.rubFull);
+          if (Math.abs(diff) > 0.5 || (kind === 'pct' && Math.abs(diff) > 0.0005)) dc.className = diff > 0 ? 'ts-good' : 'ts-bad';
+        }
+      } else { pr.textContent = '—'; dc.textContent = '—'; }
+    }
+  });
+  const MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+  dash.draw('pnlm-head', (th) => {
+    const mv = T.monthly(); th.replaceChildren(); const tr = th.insertRow();
+    const h0 = document.createElement('th'); h0.textContent = 'Статья'; tr.append(h0);
+    if (!mv) return;
+    const cur = dash.params().period || '30';
+    mv.keys.forEach((k) => {
+      const h = document.createElement('th'); h.className = 'ts-click'; h.tabIndex = 0;
+      h.textContent = MONTHS[Number(k.slice(5)) - 1] + ' ' + k.slice(2, 4);
+      if (cur === 'm' + k) h.setAttribute('aria-sort', 'other');
+      const go = () => dash.setParams({ period: 'm' + k });
+      h.addEventListener('click', go); h.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') go(); });
+      tr.append(h);
+    });
+    const ht = document.createElement('th'); ht.textContent = 'Итого'; tr.append(ht);
+  });
+  dash.draw('pnlm-body', (tb) => {
+    const mv = T.monthly(); tb.replaceChildren();
+    if (!mv) { const td = tb.insertRow().insertCell(); td.textContent = '—'; return; }
+    for (const [k, label, kind] of PNL) {
+      const tr = tb.insertRow(); if (kind === 'strong') tr.className = 'ts-strong'; if (kind === 'sub') tr.className = 'ts-sub';
+      tr.insertCell().textContent = label;
+      [...mv.keys.map((mk) => mv.months.get(mk)), mv.total].forEach((t) => {
+        const c = valOf(t, k); const td = tr.insertCell();
+        td.textContent = kind === 'pct' ? T.pct(c) : kind === 'cnt' ? T.num(c) : kind === 'avg' ? T.rubFull(c) : T.rub(c);
+        if (c < 0 && (k === 'np' || k === 'margin')) td.className = 'ts-neg';
+      });
+    }
+  });
+
+  /* Stores */
+  dash.draw('storerows', (tb) => {
+    const v = T.view(); tb.replaceChildren();
+    if (!v) { const td = tb.insertRow().insertCell(); td.colSpan = 9; td.textContent = '—'; return; }
+    const p = dash.params();
+    for (const s of v.stores) {
+      const tr = tb.insertRow(); tr.className = 'ts-store-row' + (p.store === s.store ? ' ts-on' : ''); tr.tabIndex = 0;
+      tr.setAttribute('data-key', encodeURIComponent(s.store));
+      const n = tr.insertCell(); n.className = 'ts-l'; T.storeCell(n, s);
+      const cells = [
+        [T.rubFull(s.rev)],
+        [isFinite(s.drevp) ? T.signed(s.drevp, (x) => T.pct(x, 0)) : '—', isFinite(s.drevp) ? (s.drevp >= 0 ? 'ts-good' : 'ts-bad') : ''],
+        [T.rubFull(s.np), s.np < 0 ? 'ts-neg' : ''], [T.pct(s.margin), s.margin < 0 ? 'ts-neg' : ''], [T.num(s.q)], [T.pct(s.retr)], [T.pct(s.drr)], [T.num(s.lossN)]
+      ];
+      cells.forEach(([t, cls]) => { const c = tr.insertCell(); c.textContent = t; if (cls) c.className = cls; });
+      const pick = () => dash.setParams({ store: p.store === s.store ? '' : s.store });
+      tr.addEventListener('click', pick);
+      tr.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); } });
+    }
+    if (!v.stores.length) { const td = tb.insertRow().insertCell(); td.colSpan = 9; td.textContent = 'Нет продаж с такими фильтрами.'; }
+  });
+
+  /* Best / problems */
+  dash.draw('bestcards', (box) => {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const list = v.active.filter((x) => x.np > 0).sort((a, b) => b.np - a.np).slice(0, 8);
+    if (!list.length) { box.append(el('p', 'ts-empty', 'За этот период нет товаров с прибылью.')); return; }
+    list.forEach((r) => box.append(T.card(r, 'good')));
+  });
+  const probList = (v) => v.active.filter((x) => x.np < 0).sort((a, b) => a.np - b.np);
+  dash.draw('probcount', (e) => { const v = T.view(); if (!v) { e.textContent = '—'; return; } const n = probList(v).length; e.textContent = Math.min(12, n) + ' из ' + n; });
+  dash.draw('probcards', (box) => {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const list = probList(v).slice(0, 12);
+    if (!list.length) { box.append(el('p', 'ts-empty', 'Убыточных товаров за этот период нет.')); return; }
+    list.forEach((r) => box.append(T.card(r, 'bad')));
+  });
+
+  /* Growth */
+  function growRow(r) {
+    const row = el('div', 'ts-grow'); row.setAttribute('data-key', encodeURIComponent(r.key));
+    row.append(T.photo(r.key, true));
+    const n = el('div', 'ts-gn'); n.append(T.link(r)); const sm = el('small'); sm.append(T.mpChip(r.mp), T.abcChip(r), document.createTextNode(r.store)); n.append(sm);
+    const g = el('div', 'ts-gv');
+    const d = el('b', r.drev >= 0 ? 'ts-good' : 'ts-bad', T.signed(r.drev, T.rub)); g.append(d);
+    g.append(el('small', null, T.rub(r.prevRev) + ' → ' + T.rub(r.rev) + (isFinite(r.drevp) ? ' (' + T.signed(r.drevp, (x) => T.pct(x, 0)) + ')' : ' (новый)')));
+    row.append(n, g); T.expandable(row, r); return row;
+  }
+  function growList(box, up) {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    if (!v.prev) { box.append(el('p', 'ts-empty', 'Нет периода для сравнения.')); return; }
+    const list = v.prods.filter((x) => (up ? x.drev > 0 : x.drev < 0)).sort((a, b) => (up ? b.drev - a.drev : a.drev - b.drev)).slice(0, 10);
+    if (!list.length) { box.append(el('p', 'ts-empty', up ? 'Нет товаров с ростом выручки.' : 'Нет товаров с падением выручки.')); return; }
+    list.forEach((r) => box.append(growRow(r)));
+  }
+  dash.draw('growup', (box) => growList(box, true));
+  dash.draw('growdown', (box) => growList(box, false));
+
+  /* ABC */
+  dash.draw('abcstat', (e) => {
+    const v = T.view(); if (!v) { e.textContent = '—'; return; }
+    const [cls, f] = e.dataset.k.split(':');
+    const set = cls === 'X' ? v.active.filter((x) => x.rev <= 0 && x.np < 0) : v.sold.filter((x) => x.abc === cls);
+    const npSum = set.reduce((a, x) => a + x.np, 0);
+    e.classList.remove('ts-neg');
+    if (f === 'n') e.textContent = T.num(set.length) + (cls !== 'X' && v.sold.length ? ' (' + T.pct(set.length / v.sold.length, 0) + ')' : '');
+    else if (f === 'share') e.textContent = T.pct(v.totRev ? set.reduce((a, x) => a + x.rev, 0) / v.totRev : NaN);
+    else if (f === 'np') { e.textContent = T.rub(npSum); if (npSum < 0) e.classList.add('ts-neg'); }
+    else if (f === 'loss') { const n = set.filter((x) => x.np < 0).length; e.textContent = T.num(n); if (n) e.classList.add('ts-neg'); }
+  });
+  function mRow(r, right, sub) {
+    const row = el('div', 'ts-mrow'); row.setAttribute('data-key', encodeURIComponent(r.key));
+    row.append(T.photo(r.key, true));
+    const n = el('div', 'ts-mn'); n.append(T.link(r));
+    const sm = el('small'); sm.append(T.mpChip(r.mp), T.abcChip(r), document.createTextNode(r.store)); n.append(sm);
+    const g = el('div', 'ts-mv'); right(g);
+    row.append(n, g);
+    if (sub) row.append(sub);
+    T.expandable(row, r);
+    return row;
+  }
+  function mRight(r) {
+    return (g) => {
+      g.append(el('b', r.np < 0 ? 'ts-neg' : 'ts-good', (r.np > 0 ? '+' : '') + T.rub(r.np)));
+      g.append(el('small', null, T.rub(r.rev) + ' · ' + T.num(r.q) + ' шт.'));
+      g.append(el('small', r.margin < 0 ? 'ts-neg' : null, 'маржа ' + T.pct(r.margin, 0) + (isFinite(r.drevp) ? ' · ' + T.signed(r.drevp, (x) => T.pct(x, 0)) : '')));
+    };
+  }
+  dash.draw('prodlist', (box) => {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const rows = window.TS_prodList(v);
+    rows.slice(0, T.state.limit).forEach((r) => box.append(mRow(r, mRight(r), r.d.issues.length ? T.badges(r, true) : null)));
+    if (!rows.length) box.append(el('p', 'ts-empty', 'Ничего не найдено.'));
+  });
+  dash.draw('delistm', (box) => {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const list = v.active.filter((x) => x.d.out).sort((a, b) => a.np - b.np);
+    list.forEach((r) => box.append(mRow(r, mRight(r), T.badges(r, true))));
+    if (!list.length) box.append(el('p', 'ts-empty', 'Кандидатов на вывод за этот период нет.'));
+  });
+  dash.draw('delist', (tb) => {
+    const v = T.view(); tb.replaceChildren();
+    if (!v) { const td = tb.insertRow().insertCell(); td.colSpan = 7; td.textContent = '—'; return; }
+    const list = v.active.filter((x) => x.d.out).sort((a, b) => a.np - b.np);
+    for (const r of list) {
+      const tr = tb.insertRow(); tr.setAttribute('data-key', encodeURIComponent(r.key));
+      const n = tr.insertCell(); n.className = 'ts-name';
+      const wrap = el('div'); wrap.style.display = 'flex'; wrap.style.gap = '10px'; wrap.style.alignItems = 'center';
+      const txt = el('div'); txt.append(T.link(r), el('small', null, [r.article, r.sku].filter(Boolean).join(' · ')));
+      wrap.append(T.photo(r.key, true), txt); n.append(wrap);
+      const st = tr.insertCell(); st.className = 'ts-l'; T.storeCell(st, r);
+      tr.insertCell().append(T.abcChip(r));
+      tr.insertCell().textContent = T.rubFull(r.rev);
+      const npc = tr.insertCell(); npc.textContent = T.rubFull(r.np); npc.className = 'ts-neg';
+      tr.insertCell().textContent = T.num(r.q);
+      const why = tr.insertCell(); why.className = 'ts-wrap'; why.append(T.badges(r));
+    }
+    if (!list.length) { const td = tb.insertRow().insertCell(); td.colSpan = 7; td.textContent = 'Кандидатов на вывод за этот период нет.'; }
+  });
+
+  /* All products */
+  window.TS_prodList = function (v) {
+    const q = T.state.q, show = T.state.show;
+    let rows = v.prods.filter((x) => x.rev !== 0 || x.np !== 0 || x.q !== 0 || x.prevRev);
+    if (show === 'loss') rows = rows.filter((x) => x.np < 0);
+    else if (show === 'out') rows = rows.filter((x) => x.d.out);
+    else if (show) rows = rows.filter((x) => x.abc === show);
+    if (q) rows = rows.filter((r) => ((r.name || '') + ' ' + (r.article || '') + ' ' + r.sku + ' ' + (r.brand || '')).toLowerCase().includes(q));
+    const k = T.state.sort, dir = T.state.dir;
+    return rows.slice().sort((a, b) => {
+      const x = a[k], y = b[k], fx = isFinite(x), fy = isFinite(y);
+      if (!fx && !fy) return b.rev - a.rev;
+      if (!fx) return 1; if (!fy) return -1;
+      return (x - y) * dir || b.rev - a.rev;
+    });
+  };
+  dash.draw('prodcount', (e) => { const v = T.view(); if (!v) { e.textContent = '—'; return; } const n = window.TS_prodList(v).length; e.textContent = Math.min(n, T.state.limit) + ' из ' + n; });
+  dash.draw('prodrows', (tb) => {
+    const v = T.view(); tb.replaceChildren();
+    if (!v) { const td = tb.insertRow().insertCell(); td.colSpan = 11; td.textContent = '—'; return; }
+    const rows = window.TS_prodList(v);
+    for (const r of rows.slice(0, T.state.limit)) {
+      const tr = tb.insertRow(); tr.setAttribute('data-key', encodeURIComponent(r.key));
+      const n = tr.insertCell(); n.className = 'ts-name';
+      const wrap = el('div'); wrap.style.display = 'flex'; wrap.style.gap = '10px'; wrap.style.alignItems = 'center';
+      const txt = el('div'); txt.append(T.link(r), el('small', null, [r.article, r.sku, r.brand].filter(Boolean).join(' · ')));
+      wrap.append(T.photo(r.key, true), txt); n.append(wrap);
+      const st = tr.insertCell(); st.className = 'ts-l'; T.storeCell(st, r);
+      tr.insertCell().append(T.abcChip(r));
+      const cells = [
+        [T.num(r.q)], [T.rubFull(r.rev)],
+        [isFinite(r.drevp) ? T.signed(r.drevp, (x) => T.pct(x, 0)) : (isFinite(r.drev) && r.rev > 0 ? 'новый' : '—'), isFinite(r.drevp) ? (r.drevp >= 0 ? 'ts-good' : 'ts-bad') : ''],
+        [T.rubFull(r.np), r.np < 0 ? 'ts-neg' : ''], [T.pct(r.margin, 0), r.margin < 0 ? 'ts-neg' : ''], [T.pct(r.drr, 0)],
+        [r.ret ? T.num(r.ret) + ' (' + T.pct(r.retr, 0) + ')' : '0']
+      ];
+      cells.forEach(([t, cls]) => { const c = tr.insertCell(); c.textContent = t; if (cls) c.className = cls; });
+      const dg = tr.insertCell(); dg.className = 'ts-wrap';
+      if (r.d.issues.length) dg.append(T.badges(r)); else dg.append(el('span', 'ts-badge ts-b-ok', 'В порядке'));
+    }
+    if (!rows.length) { const td = tb.insertRow().insertCell(); td.colSpan = 11; td.textContent = 'Ничего не найдено.'; }
+  });
+})();
+</script>
+
+</div>
+<script>window.__dashStart();</script>
+</body>
+</html>
