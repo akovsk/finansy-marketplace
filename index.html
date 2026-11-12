@@ -341,6 +341,13 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-ue tr.ts-ue-strong td { font-weight:600; } .ts-ue tr.ts-ue-strong td:first-child { color:var(--color-fg); }
 .ts-ue tr.ts-ue-total td { font-weight:700; font-size:13px; border-top:2px solid var(--color-border-line); } .ts-ue tr.ts-ue-total td:first-child { color:var(--color-fg); }
 .ts-spark { display:block; max-width:100%; height:auto; }
+.ts-glist2 { display:flex; max-height:560px; overflow:auto; }
+.ts-crow { display:flex; flex-direction:column; gap:4px; padding:9px 0; border-bottom:1px solid var(--color-border-line); cursor:pointer; }
+.ts-crow:last-child { border-bottom:0; }
+.ts-crow.ts-on .ts-crow-n { text-decoration:underline; }
+.ts-crow-n { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ts-crow-bar { height:4px; background:var(--cds-chart-grid); border-radius:2px; overflow:hidden; }
+.ts-crow-bar i { display:block; height:100%; border-radius:2px; }
 .ts-strow { display:flex; flex-direction:column; gap:4px; padding:10px 0; border-bottom:1px solid var(--color-border-line); cursor:pointer; }
 .ts-strow:last-child { border-bottom:0; }
 .ts-strow.ts-on { background:linear-gradient(90deg, var(--color-bg), transparent); margin:0 -12px; padding-left:12px; padding-right:12px; }
@@ -572,6 +579,7 @@ th[aria-sort] { color:var(--color-fg); }
       <button type="button" role="tab" data-sub="problems" aria-selected="true">Проблемные</button>
       <button type="button" role="tab" data-sub="growth" aria-selected="false">Рост и падение</button>
       <button type="button" role="tab" data-sub="all" aria-selected="false">Все товары</button>
+      <button type="button" role="tab" data-sub="cats" aria-selected="false">Категории</button>
       <button type="button" role="tab" data-sub="abc" aria-selected="false">ABC и вывод</button>
     </div>
     <div class="ts-subpage" id="best" hidden>
@@ -633,6 +641,13 @@ th[aria-sort] { color:var(--color-fg); }
       </div>
       <div><button type="button" class="ts-btn" id="p-more">Показать ещё 50</button></div>
     </div>
+    <div class="ts-subpage" id="cats" hidden>
+      <p class="ts-muted">Отсортировано по выручке. Нажмите на строку, чтобы отфильтровать весь сайт.</p>
+      <div class="ts-grid2">
+        <div class="ts-sec"><h3>Категории</h3><div class="ts-mlist ts-glist2" data-draw="catlist" data-k="cats" data-source="sales"></div></div>
+        <div class="ts-sec"><h3>Бренды</h3><div class="ts-mlist ts-glist2" data-draw="catlist" data-k="brands" data-source="sales"></div></div>
+      </div>
+    </div>
     <div class="ts-subpage" id="abc" hidden>
     <p class="ts-muted">Товары с продажами отсортированы по выручке: A дают первые 80% выручки, B следующие 15%, C последние 5%.</p>
     <div class="ts-abcgrid" data-source="sales">
@@ -664,7 +679,7 @@ th[aria-sort] { color:var(--color-fg); }
       <li>Сравнение: для «N дней» берутся N дней перед ними, для месяца те же дни предыдущего месяца.</li>
       <li>Пороги: ДРР выше 15%, возвраты выше 10% (от 2 шт.), логистика выше 25% выручки, себестоимость выше 50%, хранение выше 5%, падение выручки больше 30%. Дешёвые товары: до 600 ₽, дорогие: от 2000 ₽.</li>
       <li>Кандидат на вывод: убыточный товар класса C или товар без продаж с расходами.</li>
-      <li>«Упущенная выручка» в выгрузке везде нулевая. Бренды как в выгрузке («SEA PLUS» и «SEA Plus» отдельно). У 10 товаров нет фото.</li>
+      <li>«Упущенная выручка» в выгрузке везде нулевая. Одинаковые бренды и категории с разным написанием («Бетпак» и «БЕТПАК», «Консервы мясные» и «Мясные консервы») объединены. У 10 товаров нет фото.</li>
     </ul>
   </details>
 </div>
@@ -711,17 +726,17 @@ window.T = (function () {
     if (s.status !== 'ok' || !s.data.length) return null;
     if (metaCache.data === s.data) return metaCache.m;
     let min = '9999', max = '0000';
-    const stores = new Map(), brands = new Set(), cats = new Set();
+    const stores = new Map(), brands = new Map(), cats = new Map();
     for (const o of s.data) {
       if (o.date < min) min = o.date;
       if (o.date > max) max = o.date;
       if (!stores.has(o.store)) stores.set(o.store, o.mp);
-      if (o.brand) brands.add(o.brand);
-      if (o.category) cats.add(o.category);
+      if (o.brand && !brands.has(nb(o.brand))) brands.set(nb(o.brand), o.brand);
+      if (o.category && !cats.has(nc(o.category))) cats.set(nc(o.category), o.category);
     }
     s0 = Date.parse(min + 'T00:00:00Z');
     const coll = (a, b) => a.localeCompare(b, 'ru');
-    const m = { last: idxOf(Date.parse(max + 'T00:00:00Z')), stores: [...stores].map(([name, mp]) => ({ name, mp })), brands: [...brands].sort(coll), cats: [...cats].sort(coll) };
+    const m = { last: idxOf(Date.parse(max + 'T00:00:00Z')), stores: [...stores].map(([name, mp]) => ({ name, mp })), brands: [...brands.values()].sort(coll), cats: [...cats.values()].sort(coll) };
     metaCache = { data: s.data, m };
     return m;
   }
@@ -751,8 +766,11 @@ window.T = (function () {
     t.payout = t.rev + t.comm + t.log + t.stor + t.adv + t.other;
     return t;
   }
+  // Same brand or category is spelled differently across stores: «Бетпак»/«БЕТПАК», «Консервы мясные»/«Мясные консервы»
+  function nb(s) { return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim(); }
+  function nc(s) { return nb(s).split(' ').sort().join(' '); }
   function passDims(o, p) {
-    return !(p.mp && o.mp !== p.mp) && !(p.store && o.store !== p.store) && !(p.brand && o.brand !== p.brand) && !(p.cat && o.category !== p.cat);
+    return !(p.mp && o.mp !== p.mp) && !(p.store && o.store !== p.store) && !(p.brand && nb(o.brand) !== nb(p.brand)) && !(p.cat && nc(o.category) !== nc(p.cat));
   }
 
   function diagnose(r) {
@@ -840,10 +858,15 @@ window.T = (function () {
     stores.forEach((st) => { st.lossN = active.filter((x) => x.store === st.store && x.np < 0 && x.rev > 0).length; });
     mps.forEach((mm) => { fin(mm); const pm = pmps.get(mm.mp); mm.prev = r.prev && pm ? fin(pm) : null; });
     const brands = new Map();
-    list.forEach((x) => { const bk = x.brand || '—'; let b = brands.get(bk); if (!b) brands.set(bk, b = Object.assign(zero(), { brand: bk })); add(b, x); });
+    list.forEach((x) => { const bk = nb(x.brand) || '—'; let b = brands.get(bk); if (!b) brands.set(bk, b = Object.assign(zero(), { brand: x.brand || '—' })); add(b, x); });
     brands.forEach(fin);
+    const cats = new Map();
+    list.forEach((x) => { const ck = nc(x.category) || '—'; let c = cats.get(ck); if (!c) cats.set(ck, c = Object.assign(zero(), { name: x.category || '—', n: 0, loss: 0 })); add(c, x); if (x.rev > 0) { c.n++; if (x.np < 0) c.loss++; } });
+    cats.forEach(fin);
+    brands.forEach((b) => { b.name = b.brand; b.n = 0; b.loss = 0; });
+    list.forEach((x) => { const b = brands.get(nb(x.brand) || '—'); if (b && x.rev > 0) { b.n++; if (x.np < 0) b.loss++; } });
     const v = { r, cur, prev: r.prev ? prev : null, daily, stores: [...stores.values()].sort((a, b) => b.rev - a.rev), prods: list, active, sold, totRev: tot,
-      mps: [...mps.values()].sort((a, b) => b.rev - a.rev), brands: [...brands.values()],
+      mps: [...mps.values()].sort((a, b) => b.rev - a.rev), brands: [...brands.values()], cats: [...cats.values()],
       label: dm(r.a) + '–' + dmy(r.b), prevLabel: r.prev ? dm(r.prev.a) + '–' + dmy(r.prev.b) : null };
     cache = { data: s.data, key, v };
     return v;
@@ -1205,7 +1228,7 @@ dash.loader('sales', {
     names.forEach((n) => dash.draw(n));
   }
   const PAGES = ['overview', 'insights', 'mps', 'pnl', 'goods'];
-  const SUBS = ['best', 'problems', 'growth', 'all', 'abc'];
+  const SUBS = ['best', 'problems', 'growth', 'all', 'cats', 'abc'];
   function showTab(id, link) {
     if (!PAGES.includes(id)) return;
     document.querySelectorAll('.ts-page').forEach((p) => { p.hidden = p.id !== id; });
@@ -1691,6 +1714,30 @@ dash.loader('sales', {
   });
 
   /* Stores */
+  dash.draw('catlist', (box) => {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const kind = box.dataset.k, param = kind === 'cats' ? 'cat' : 'brand';
+    const p = dash.params();
+    const list = v[kind].filter((x) => x.rev > 0 || x.np < 0).sort((a, b) => b.rev - a.rev);
+    const mx = Math.max(1, ...list.map((x) => x.rev));
+    list.forEach((c) => {
+      const row = el('div', 'ts-crow' + (p[param] === c.name ? ' ts-on' : '')); row.tabIndex = 0;
+      const top = el('div', 'ts-strow-top');
+      top.append(el('b', 'ts-crow-n', c.name), el('b', c.np < 0 ? 'ts-neg' : 'ts-good', (c.np > 0 ? '+' : '') + T.rub(c.np)));
+      const bar = el('div', 'ts-crow-bar'); const i = el('i'); i.style.width = (c.rev / mx * 100) + '%'; i.style.background = c.np < 0 ? 'var(--color-bad)' : 'var(--ts-c2)'; bar.append(i);
+      const m = el('div', 'ts-strow-m');
+      const item = (l, val, cls) => { const sp = el('span', null, l + ' '); sp.append(el('b', cls, val)); m.append(sp); };
+      item('Выручка', T.rub(c.rev)); item('маржа', T.pct(c.margin, 0), c.margin < 0 ? 'ts-neg' : null); item('ДРР', T.pct(c.drr, 0), c.drr > T.TH.drr ? 'ts-bad' : null);
+      item('SKU', T.num(c.n)); if (c.loss) item('в минусе', T.num(c.loss), 'ts-bad');
+      row.append(top, bar, m);
+      const pick = () => dash.setParams({ [param]: p[param] === c.name ? '' : c.name });
+      row.addEventListener('click', pick);
+      row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') pick(); });
+      box.append(row);
+    });
+    if (!list.length) box.append(el('p', 'ts-empty', 'Нет продаж с такими фильтрами.'));
+  });
   dash.draw('storelist', (box) => {
     const v = T.view(); box.replaceChildren();
     if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
