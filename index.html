@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#14171c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Финансы МП">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
 <title>Финансы маркетплейсы</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -62,7 +70,15 @@ img { max-width:100%; }
 (function () {
   const DEF = { period: '30', mp: '', store: '', brand: '', cat: '' };
   const SOURCES = { sales: 'data.json', images: 'images.json' };
-  const S = { loaders: {}, drawers: {}, order: [], on: [], data: {}, params: Object.assign({}, DEF) };
+  const S = { loaders: {}, drawers: {}, order: [], on: [], data: {}, req: {}, started: false, params: Object.assign({}, DEF) };
+  let msg = null;
+  function load(id) {
+    if (S.req[id]) return; S.req[id] = true;
+    fetch(SOURCES[id]).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then((answer) => { const out = S.loaders[id] ? S.loaders[id]({ answer }) : answer; S.data[id] = { status: 'ok', data: Array.isArray(out) ? out : out.rows || out.data || [] }; })
+      .catch((e) => { console.error(id, e); S.data[id] = { status: 'error', data: [], message: String(e) }; })
+      .finally(() => { if (id === 'sales' && msg) { msg.remove(); msg = null; } render(); });
+  }
   Object.keys(SOURCES).forEach((k) => { S.data[k] = { status: 'loading', data: [] }; });
   function safe(fn, label) { try { fn(); } catch (e) { console.error('[dash]', label || '', e); } }
   function runDraw(name) {
@@ -77,7 +93,7 @@ img { max-width:100%; }
   window.dash = {
     colors: ['var(--c1)', 'var(--c2)', 'var(--cds-chart-muted)'],
     loader(id, o) { S.loaders[id] = o.fn; },
-    data(id) { const d = S.data[id]; if (!d) return { status: 'missing', data: [] }; return d; },
+    data(id) { const d = S.data[id]; if (!d) return { status: 'missing', data: [] }; if (S.started && !S.req[id]) load(id); return d; },
     params() { return Object.assign({}, S.params); },
     setParams(o) { Object.keys(o).forEach((k) => { S.params[k] = o[k] == null ? (DEF[k] || '') : o[k]; }); render(); },
     resetParams() { S.params = Object.assign({}, DEF); render(); },
@@ -90,18 +106,8 @@ img { max-width:100%; }
     render();
     let lastW = window.innerWidth;
     window.addEventListener('resize', () => { if (window.innerWidth !== lastW) { lastW = window.innerWidth; render(); } });
-    const msg = document.createElement('div'); msg.className = 'ts-loadmsg'; msg.textContent = 'Загружаю данные…'; document.body.append(msg);
-    let left = Object.keys(SOURCES).length;
-    Object.entries(SOURCES).forEach(([id, url]) => {
-      fetch(url).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then((answer) => {
-          let out = S.loaders[id] ? S.loaders[id]({ answer }) : answer;
-          const rows = Array.isArray(out) ? out : out.rows || out.data || [];
-          S.data[id] = { status: 'ok', data: rows };
-        })
-        .catch((e) => { console.error(id, e); S.data[id] = { status: 'error', data: [], message: String(e) }; })
-        .finally(() => { if (--left === 0) msg.remove(); render(); });
-    });
+    msg = document.createElement('div'); msg.className = 'ts-loadmsg'; msg.textContent = 'Загружаю данные…'; document.body.append(msg);
+    S.started = true; load('sales');
   };
 })();
 </script>
