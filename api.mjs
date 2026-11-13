@@ -94,39 +94,35 @@ async function wbStore(st) {
     }
     return n + ' cards';
   });
-  // Weekly financial reports (realization): what WB actually transfers. Find the live path first.
+  // Weekly financial reports (realization): what WB actually transfers (finance-api, 2026 method, 1 request/min)
   await step(st, 'fin', async () => {
-    const CAND = ['https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod', 'https://finance-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod', 'https://finance-api.wildberries.ru/api/v1/supplier/reportDetailByPeriod', 'https://statistics-api.wildberries.ru/api/v1/supplier/reportDetailByPeriod', 'https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed'];
-    let base = null;
-    for (const u of CAND) {
-      try { await wb(st, u + '?dateFrom=' + ago(14) + '&dateTo=' + TODAY + '&limit=1&rrdid=0'); base = u; break; } catch (e) { log('  fin probe', e.message.slice(0, 160)); if (!/404/.test(e.message)) { base = u; break; } }
-    }
-    if (!base) throw new Error('no live realization report path');
-    await sleep(61000);
-    let rrdid = 0, rows = [];
+    const URLF = 'https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed';
+    const fields = ['rrdId', 'dateFrom', 'dateTo', 'docTypeName', 'quantity', 'retailAmount', 'forPay', 'deliveryService', 'penalty', 'additionalPayment', 'paidStorage', 'deduction', 'paidAcceptance', 'sellerOperName'];
+    let rrdId = 0, rows = [];
     for (let i = 0; i < 10; i++) {
-      const j = await wb(st, base + '?dateFrom=' + ago(63) + '&dateTo=' + TODAY + '&limit=100000&rrdid=' + rrdid);
+      const j = await wb(st, URLF, { dateFrom: ago(63), dateTo: TODAY, limit: 100000, rrdId, period: 'weekly', fields });
       if (!Array.isArray(j) || !j.length) break;
+      if (!rows.length) log('  fin sample', JSON.stringify(j[0]).slice(0, 400));
       rows = rows.concat(j);
-      rrdid = j[j.length - 1].rrd_id;
+      rrdId = j[j.length - 1].rrdId;
       if (j.length < 100000) break;
       await sleep(61000);
     }
     const W = {};
     rows.forEach((r) => {
-      const wk = String(r.date_from).slice(0, 10) + '_' + String(r.date_to).slice(0, 10);
-      const w = (W[wk] = W[wk] || { from: String(r.date_from).slice(0, 10), to: String(r.date_to).slice(0, 10), sales: 0, forPay: 0, logistics: 0, storage: 0, penalty: 0, deduction: 0, acceptance: 0, add: 0, q: 0, ret: 0 });
-      const sign = /Возврат/i.test(r.doc_type_name) ? -1 : 1;
-      w.sales += sign * (+r.retail_amount || 0);
-      w.forPay += sign * (+r.ppvz_for_pay || 0);
-      if (/Продажа/i.test(r.doc_type_name)) w.q += +r.quantity || 0;
-      if (/Возврат/i.test(r.doc_type_name)) w.ret += +r.quantity || 0;
-      w.logistics += +r.delivery_rub || 0;
-      w.storage += +r.storage_fee || 0;
+      const from = String(r.dateFrom).slice(0, 10), to = String(r.dateTo).slice(0, 10);
+      const w = (W[from + '_' + to] = W[from + '_' + to] || { from, to, sales: 0, forPay: 0, logistics: 0, storage: 0, penalty: 0, deduction: 0, acceptance: 0, add: 0, q: 0, ret: 0 });
+      const isRet = /Возврат/i.test(r.docTypeName), sign = isRet ? -1 : 1;
+      w.sales += sign * (+r.retailAmount || 0);
+      w.forPay += sign * (+r.forPay || 0);
+      if (/Продажа/i.test(r.docTypeName)) w.q += +r.quantity || 0;
+      if (isRet) w.ret += +r.quantity || 0;
+      w.logistics += +r.deliveryService || 0;
+      w.storage += +r.paidStorage || 0;
       w.penalty += +r.penalty || 0;
       w.deduction += +r.deduction || 0;
-      w.acceptance += +r.acceptance || 0;
-      w.add += +r.additional_payment || 0;
+      w.acceptance += +r.paidAcceptance || 0;
+      w.add += +r.additionalPayment || 0;
     });
     OUT.fin[st.id] = Object.values(W).map((w) => { for (const k in w) if (typeof w[k] === 'number') w[k] = R(w[k]); w.payout = w.forPay - w.logistics - w.storage - w.penalty - w.deduction - w.acceptance + w.add; return w; }).sort((a, b) => (a.from < b.from ? -1 : 1));
     return rows.length + ' rows, ' + OUT.fin[st.id].length + ' weeks';
@@ -232,38 +228,40 @@ async function ozStore(st) {
     rows.forEach((r) => { const m = r.metrics || []; addOrders(st, String(r.dimensions[0].id).slice(0, 10), +m[0] || 0, +m[1] || 0, +m[2] || 0); });
     return rows.length + ' days';
   });
-  // Weekly accruals: what Ozon actually credits, summed from the transaction list (Mon-Sun weeks)
+  // Weekly accruals: what Ozon actually credits. Since 2026 Ozon gives accruals one day per call (/v1/finance/accrual/by-day)
   await step(st, 'fin', async () => {
-    const now = new Date(TODAY + 'T00:00:00Z');
-    const mon = new Date(now.getTime() - ((now.getUTCDay() + 6) % 7) * DAY);
-    const start = new Date(mon.getTime() - 8 * 7 * DAY);
     const W = {};
-    const wkOf = (d) => { const t = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); const m = new Date(t.getTime() - ((t.getUTCDay() + 6) % 7) * DAY); return iso(m); };
-    let ops = 0, sample = false;
-    for (let a = start; a < now; a = new Date(a.getTime() + 28 * DAY)) {
-      const b = new Date(Math.min(a.getTime() + 28 * DAY - 1000, now.getTime() + DAY - 1000));
-      for (let page = 1; page < 200; page++) {
-        const j = await oz(st, '/v3/finance/transaction/list', { filter: { date: { from: a.toISOString(), to: b.toISOString() }, operation_type: [], posting_number: '', transaction_type: 'all' }, page, page_size: 1000 });
-        const r = (j && j.result) || {};
-        const list = r.operations || [];
-        if (!sample && list[0]) { sample = true; log('  fin sample', JSON.stringify(list[0]).slice(0, 500)); }
-        list.forEach((o) => {
-          const k = wkOf(o.operation_date);
-          const w = (W[k] = W[k] || { from: k, to: iso(new Date(k + 'T00:00:00Z').getTime() + 6 * DAY), sales: 0, commission: 0, logistics: 0, services: 0, other: 0, payout: 0 });
-          const sv = (o.services || []).reduce((s, x) => s + (+x.price || 0), 0);
-          w.sales += +o.accruals_for_sale || 0;
-          w.commission += +o.sale_commission || 0;
-          w.logistics += (+o.delivery_charge || 0) + (+o.return_delivery_charge || 0);
-          w.services += sv;
-          w.payout += +o.amount || 0;
-          ops++;
+    const wkOf = (d) => { const t = new Date(d + 'T00:00:00Z'); return iso(t.getTime() - ((t.getUTCDay() + 6) % 7) * DAY); };
+    let n = 0, sample = false;
+    for (let i = 63; i >= 1; i--) {
+      const day = ago(i);
+      let last_id = '';
+      for (let page = 0; page < 50; page++) {
+        const j = await oz(st, '/v1/finance/accrual/by-day', last_id ? { date: day, last_id, limit: 1000 } : { date: day, limit: 1000 });
+        const r = (j && j.result) || j || {};
+        const list = r.accruals || r.items || r.rows || [];
+        if (!sample && list[0]) { sample = true; log('  fin sample', JSON.stringify(list[0]).slice(0, 700), 'keys', Object.keys(r).join(',')); }
+        const k = wkOf(day);
+        const w = (W[k] = W[k] || { from: k, to: iso(new Date(k + 'T00:00:00Z').getTime() + 6 * DAY), sales: 0, commission: 0, logistics: 0, services: 0, other: 0, payout: 0 });
+        list.forEach((a) => {
+          const amt = +((a.total_amount && (a.total_amount.amount != null ? a.total_amount.amount : a.total_amount)) ?? a.amount ?? 0) || 0;
+          w.payout += amt; n++;
+          const cat = String(a.accrual_type || a.type || a.category || a.name || '').toLowerCase();
+          if (/sale|продаж|выручк/.test(cat) && amt > 0) w.sales += amt;
+          else if (/commiss|комисс|reward|вознагр/.test(cat)) w.commission += amt;
+          else if (/deliver|logist|достав|логист|обработ/.test(cat)) w.logistics += amt;
+          else w.other += amt;
         });
-        if (page >= (r.page_count || 1)) break;
-        await sleep(300);
+        last_id = r.last_id || '';
+        if (!r.has_next || !last_id || !list.length) break;
+        await sleep(250);
       }
+      await sleep(250);
     }
-    OUT.fin[st.id] = Object.values(W).map((w) => { w.other = w.payout - w.sales - w.commission - w.logistics - w.services; for (const k in w) if (typeof w[k] === 'number') w[k] = R(w[k]); return w; }).sort((x, y) => (x.from < y.from ? -1 : 1));
-    return ops + ' operations, ' + OUT.fin[st.id].length + ' weeks';
+    const weeks = Object.values(W).filter((w) => w.from >= wkOf(ago(56))).map((w) => { for (const k in w) if (typeof w[k] === 'number') w[k] = R(w[k]); return w; }).sort((x, y) => (x.from < y.from ? -1 : 1));
+    if (!n) throw new Error('no accruals returned');
+    OUT.fin[st.id] = weeks;
+    return n + ' accruals, ' + weeks.length + ' weeks';
   });
   // Prices (by offer_id, mapped to sku through the stocks call)
   await step(st, 'prices', async () => {
