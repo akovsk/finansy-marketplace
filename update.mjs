@@ -7,7 +7,7 @@ const BASE = 'https://torgstat.ru';
 const TOKEN = (process.env.TORGSTAT_SESSION || '').trim();
 if (!TOKEN) { console.error('TORGSTAT_SESSION secret is empty'); process.exit(1); }
 // The secret may hold just the cookie value or the whole "name=value" cookie string
-const COOKIE = TOKEN.includes('=') ? TOKEN : '__Secure-next-auth.session-token=' + TOKEN;
+const COOKIE = TOKEN.includes('=') ? TOKEN : '__Secure-next-auth.session-token=' + TOKEN + '; __Secure-authjs.session-token=' + TOKEN;
 const UA = 'Mozilla/5.0 (finansy-marketplace data refresh)';
 
 const START = '2026-06-01';
