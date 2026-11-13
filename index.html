@@ -348,6 +348,9 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-crow-n { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ts-crow-bar { height:4px; background:var(--cds-chart-grid); border-radius:2px; overflow:hidden; }
 .ts-crow-bar i { display:block; height:100%; border-radius:2px; }
+.ts-och-h { margin:10px 0 0; font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px; }
+.ts-och-h .ts-sw { width:10px; height:10px; border-radius:3px; display:inline-block; }
+.ts-chart-big { min-height:230px !important; }
 .ts-och-ctl { display:flex; gap:6px; flex-wrap:wrap; margin-left:auto; }
 .ts-och-mp { display:flex; flex-wrap:wrap; gap:2px 8px; font-size:11px; color:var(--color-fg-muted); }
 .ts-och-mp span { display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
@@ -588,10 +591,13 @@ th[aria-sort] { color:var(--color-fg); }
       <div class="ts-kpi" id="kpi-ret"><div class="ts-kpi-l">Возвраты</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="retr" data-source="sales" data-field="ret">—</div><div class="ts-kpi-d" data-draw="delta" data-k="retr"></div><div class="ts-kspark" data-draw="kspark" data-k="retr" data-source="sales"></div></div>
     </div>
     <div class="ts-panel ts-bigchart" id="ordchart">
-      <div class="ts-panel-h"><h3>Заказы и выкупы по дням и площадкам</h3>
-        <div class="ts-och-ctl"><div class="ts-seg ts-seg-sm" role="tablist" aria-label="Что на столбцах"><button type="button" role="tab" data-ochm="o" aria-selected="true">Заказы</button><button type="button" role="tab" data-ochm="b" aria-selected="false">Выкупы</button></div><div class="ts-seg ts-seg-sm" role="tablist" aria-label="Единицы графика"><button type="button" role="tab" data-och="s" aria-selected="true">Рубли</button><button type="button" role="tab" data-och="n" aria-selected="false">Штуки</button></div></div></div>
+      <div class="ts-panel-h"><h3>Заказы и выкупы по площадкам</h3>
+        <div class="ts-och-ctl"><div class="ts-seg ts-seg-sm" role="tablist" aria-label="Единицы графика"><button type="button" role="tab" data-och="s" aria-selected="true">Рубли</button><button type="button" role="tab" data-och="n" aria-selected="false">Штуки</button></div></div></div>
       <div class="ts-och-sum" data-draw="och-sum" data-source="sales"></div>
-      <div class="ts-chart ts-chart-big" data-draw="och" data-source="sales"></div>
+      <h4 class="ts-och-h"><i class="ts-sw ts-sw-o"></i>Заказы по дням</h4>
+      <div class="ts-chart ts-chart-big" data-draw="och" data-m="o" data-source="sales"></div>
+      <h4 class="ts-och-h"><i class="ts-sw ts-sw-b"></i>Выкупы по дням</h4>
+      <div class="ts-chart ts-chart-big" data-draw="och" data-m="b" data-source="sales"></div>
       <p class="ts-muted" data-draw="och-note" data-source="sales"></p>
     </div>
     <div class="ts-grid-main">
@@ -2295,12 +2301,12 @@ dash.loader('sales', {
   dash.draw('och', (e) => {
     const S = ordSeries(); e.replaceChildren();
     if (!S || !S.days.length) return;
-    const SUM = T.state.och === 's', k = SUM ? 1 : 0, main = T.state.ochm === 'b' ? 'b' : 'o', other = main === 'o' ? 'b' : 'o';
+    const SUM = T.state.och === 's', k = SUM ? 1 : 0, main = e.dataset.m === 'b' ? 'b' : 'o', other = main === 'o' ? 'b' : 'o';
     const oMps = new Set(); S.days.forEach((d) => Object.keys(d.o).forEach((mp) => oMps.add(mp)));
     const lineOf = (d) => Object.entries(d[other]).reduce((a, [mp, x]) => a + (main === 'o' && !oMps.has(mp) ? 0 : x[k]), 0);
-    const D = S.days.map((d) => ({ d: d.d, raw: d, parts: T.MP_ORDER.map((mp) => [mp, (d[main][mp] || [0, 0])[k]]), line: other === 'b' && !d.hasB ? null : lineOf(d) }));
+    const D = S.days.map((d) => ({ d: d.d, raw: d, parts: T.MP_ORDER.map((mp) => [mp, (d[main][mp] || [0, 0])[k]]), line: null }));
     D.forEach((d) => { d.total = d.parts.reduce((a, x) => a + x[1], 0); });
-    const W = Math.max(280, e.clientWidth), H = W < 520 ? 280 : 340;
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 230 : 280;
     const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', (main === 'o' ? 'Заказы' : 'Выкупы') + ' по дням по площадкам');
     const ymax = Math.max(1, d3.max(D, (d) => Math.max(d.total, d.line || 0)));
     const y = d3.scaleLinear().domain([0, ymax]).nice();
@@ -2321,7 +2327,7 @@ dash.loader('sales', {
     svg.append('g').selectAll('rect').data(segs).join('rect')
       .attr('x', (s) => x(s.i)).attr('width', bw).attr('y', (s) => y(s.y1)).attr('height', (s) => Math.max(0, y(s.y0) - y(s.y1)))
       .attr('rx', (s) => (s.top ? Math.min(4, bw / 3) : 0)).style('fill', (s) => T.MP[s.mp].color)
-      .style('opacity', (s) => (D[s.i].d === S.partial ? 0.55 : 1));
+      .style('opacity', (s) => (D[s.i].d === S.partial || (main === 'b' && !D[s.i].raw.hasB) ? 0.55 : 1));
     const L = D.map((d, i) => ({ i, v: d.line })).filter((o) => o.v != null);
     svg.append('path').datum(L).attr('d', d3.line().x((o) => cx(o.i)).y((o) => y(o.v)).curve(d3.curveMonotoneX))
       .style('fill', 'none').style('stroke', 'var(--color-fg)').style('stroke-width', 2.2).style('stroke-dasharray', other === 'b' ? null : '5 4');
@@ -2352,7 +2358,6 @@ dash.loader('sales', {
       .on('mouseenter', show).on('click', show).on('mouseleave', () => { tip.hidden = true; });
     const lg = T.el('div', 'ts-legend'); lg.style.fontSize = '11.5px';
     T.MP_ORDER.forEach((mp) => { if (!segs.some((s) => s.mp === mp)) return; const sp = T.el('span'); const sw = T.el('i', 'ts-sw'); sw.style.background = T.MP[mp].color; sp.append(sw, document.createTextNode(T.MP[mp].short)); lg.append(sp); });
-    const ls = T.el('span'); ls.append(T.el('i', 'ts-sw ts-sw-line ts-sw-np'), document.createTextNode(other === 'b' ? 'выкупы ' + [...oMps].map((mp) => T.MP[mp].short).join(' + ') + ' (линия)' : 'заказы (линия)')); lg.append(ls);
     e.append(lg);
   });
 
