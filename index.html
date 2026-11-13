@@ -68,7 +68,7 @@ img { max-width:100%; }
 </style>
 <script>
 (function () {
-  const DEF = { period: '30', mp: '', store: '', brand: '', cat: '' };
+  const DEF = { period: '3', mp: '', store: '', brand: '', cat: '' };
   const SOURCES = { sales: 'data.json', images: 'images.json', market: 'market.json' };
   const S = { loaders: {}, drawers: {}, order: [], on: [], data: {}, req: {}, started: false, params: Object.assign({}, DEF) };
   let msg = null;
@@ -411,6 +411,11 @@ th[aria-sort] { color:var(--color-fg); }
 [data-dash-source-state=refreshing] { opacity:.5; }
 .ts-notes summary { cursor:pointer; color:var(--color-fg-muted); font-size:12px; }
 .ts-notes ul { margin:8px 0 0; padding-left:1.2em; line-height:1.6; font-size:12px; color:var(--color-fg-muted); max-width:90ch; }
+.ts-grid-main { align-items:stretch; }
+.ts-grid-main > .ts-sec > .ts-panel:last-child { flex:1; }
+#trend .ts-chart { flex:1; display:flex; flex-direction:column; justify-content:center; }
+#todo { grid-column:1 / -1; }
+@media (min-width: 901px) { #todo .ts-acts { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px 36px; } }
 /* Phone-first adjustments */
 @media (max-width: 640px) {
   .ts { gap:14px; font-size:14px; }
@@ -463,7 +468,7 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-acts { padding-left:18px; }
   .ts-grid-main { display:flex; flex-direction:column; gap:12px; }
   .ts-grid-main > .ts-sec { display:contents; }
-  #cash { order:1; } #todo { order:2; } #trend { order:3; } #mpshare { order:4; }
+  #trend { order:1; } #cash { order:2; } #todo { order:3; } #mpshare { order:4; }
   .ts-pnl th:nth-child(4), .ts-pnl td:nth-child(4) { display:none; }
   .ts-pnl .ts-pctbar i { display:none; }
   .ts-pnl td:first-child { white-space:normal; min-width:0; max-width:7.5rem; line-height:1.25; }
@@ -493,8 +498,10 @@ th[aria-sort] { color:var(--color-fg); }
       <button type="button" role="tab" data-tab="stock" aria-selected="false">Склад</button>
     </nav>
     <div class="ts-filters" id="filters">
-      <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
+      <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" data-period="1">1 дн</button><button type="button" data-period="3">3 дн</button><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
       <select class="dash-select" id="f-period" aria-label="Период" data-draw="opt-period" data-source="sales">
+        <option value="1">1 день</option>
+        <option value="3" selected>3 дня</option>
         <option value="7">7 дней</option>
         <option value="14">14 дней</option>
         <option value="30">30 дней</option>
@@ -522,16 +529,6 @@ th[aria-sort] { color:var(--color-fg); }
   </div>
 
   <section class="ts-page" id="overview" role="tabpanel">
-    <p class="ts-lede" id="takeaway" data-source="sales">На счёт пришло <b data-draw="tk-payout" data-source="sales" data-field="rev">—</b>, из них чистая прибыль <b data-draw="tk-np" data-source="sales" data-field="np">—</b>. В минусе <b data-draw="tk-loss" class="ts-hl-bad" data-source="sales" data-field="sku">—</b> из <b data-draw="tk-sold" data-source="sales" data-field="sku">—</b> товаров.</p>
-    <div class="ts-orders" data-draw="ord-strip" data-source="sales"></div>
-    <div class="ts-kpis">
-      <div class="ts-kpi" id="kpi-payout"><div class="ts-kpi-l" title="Сколько площадки перечисляют на счёт: продажи минус комиссия, логистика, хранение, реклама и удержания">Выплата на счёт</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="payout" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="payout"></div><div class="ts-kspark" data-draw="kspark" data-k="payout" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-rev"><div class="ts-kpi-l" title="Продажи по цене продавца до удержаний площадки">Выручка (продажи)</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="rev" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="rev"></div><div class="ts-kspark" data-draw="kspark" data-k="rev" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-np"><div class="ts-kpi-l">Чистая прибыль</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="np" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="np"></div><div class="ts-kspark" data-draw="kspark" data-k="np" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-margin"><div class="ts-kpi-l" title="Чистая прибыль ÷ выплата на счёт">Маржа от выплат</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="margin" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="margin"></div><div class="ts-kspark" data-draw="kspark" data-k="margin" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-drr"><div class="ts-kpi-l" title="Доля рекламных расходов: реклама ÷ выручка">ДРР</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="drr" data-source="sales" data-field="adv">—</div><div class="ts-kpi-d" data-draw="delta" data-k="drr"></div><div class="ts-kspark" data-draw="kspark" data-k="drr" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-ret"><div class="ts-kpi-l">Возвраты</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="retr" data-source="sales" data-field="ret">—</div><div class="ts-kpi-d" data-draw="delta" data-k="retr"></div><div class="ts-kspark" data-draw="kspark" data-k="retr" data-source="sales"></div></div>
-    </div>
     <div class="ts-grid-main">
       <div class="ts-panel" id="trend">
         <div class="ts-panel-h"><h3><span class="ts-mode-rev">Выручка</span><span class="ts-mode-pay" hidden>Выплаты на счёт</span> и прибыль, <span data-draw="trend-gran">—</span></h3>
@@ -548,12 +545,22 @@ th[aria-sort] { color:var(--color-fg); }
           <h3>Площадки</h3>
           <div class="ts-mprows" data-draw="mpshare" data-source="sales"></div>
         </div>
-        <div class="ts-panel" id="todo">
-          <h3>Сделать в первую очередь</h3>
-          <ol class="ts-acts" data-draw="topacts" data-source="sales"></ol>
-          <button type="button" class="ts-btn" data-goto="insights" style="width:fit-content">Все рекомендации</button>
-        </div>
       </div>
+      <div class="ts-panel" id="todo">
+        <h3>Сделать в первую очередь</h3>
+        <ol class="ts-acts" data-draw="topacts" data-source="sales"></ol>
+        <button type="button" class="ts-btn" data-goto="insights" style="width:fit-content">Все рекомендации</button>
+      </div>
+    </div>
+    <p class="ts-lede" id="takeaway" data-source="sales">На счёт пришло <b data-draw="tk-payout" data-source="sales" data-field="rev">—</b>, из них чистая прибыль <b data-draw="tk-np" data-source="sales" data-field="np">—</b>. В минусе <b data-draw="tk-loss" class="ts-hl-bad" data-source="sales" data-field="sku">—</b> из <b data-draw="tk-sold" data-source="sales" data-field="sku">—</b> товаров.</p>
+    <div class="ts-orders" data-draw="ord-strip" data-source="sales"></div>
+    <div class="ts-kpis">
+      <div class="ts-kpi" id="kpi-payout"><div class="ts-kpi-l" title="Сколько площадки перечисляют на счёт: продажи минус комиссия, логистика, хранение, реклама и удержания">Выплата на счёт</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="payout" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="payout"></div><div class="ts-kspark" data-draw="kspark" data-k="payout" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-rev"><div class="ts-kpi-l" title="Продажи по цене продавца до удержаний площадки">Выручка (продажи)</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="rev" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="rev"></div><div class="ts-kspark" data-draw="kspark" data-k="rev" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-np"><div class="ts-kpi-l">Чистая прибыль</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="np" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="np"></div><div class="ts-kspark" data-draw="kspark" data-k="np" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-margin"><div class="ts-kpi-l" title="Чистая прибыль ÷ выплата на счёт">Маржа от выплат</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="margin" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="margin"></div><div class="ts-kspark" data-draw="kspark" data-k="margin" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-drr"><div class="ts-kpi-l" title="Доля рекламных расходов: реклама ÷ выручка">ДРР</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="drr" data-source="sales" data-field="adv">—</div><div class="ts-kpi-d" data-draw="delta" data-k="drr"></div><div class="ts-kspark" data-draw="kspark" data-k="drr" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-ret"><div class="ts-kpi-l">Возвраты</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="retr" data-source="sales" data-field="ret">—</div><div class="ts-kpi-d" data-draw="delta" data-k="retr"></div><div class="ts-kspark" data-draw="kspark" data-k="retr" data-source="sales"></div></div>
     </div>
   </section>
 
@@ -798,7 +805,7 @@ window.T = (function () {
   }
 
   function range(period, last) {
-    period = period || '30';
+    period = period || '3';
     if (/^\d+$/.test(period)) {
       const n = Number(period), a = Math.max(0, last - n + 1);
       return { a, b: last, prev: a - n >= 0 ? { a: a - n, b: a - 1 } : null };
@@ -1406,11 +1413,11 @@ dash.loader('sales', {
     Object.keys(map).forEach((id) => {
       document.querySelectorAll('select#' + id).forEach((el) => {
         if (document.activeElement === el) return;
-        const val = p[map[id]] || (id === 'f-period' ? '30' : '');
+        const val = p[map[id]] || (id === 'f-period' ? '3' : '');
         if ([...el.options].some((o) => o.value === val)) el.value = val;
       });
     });
-    document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '30') ? 'true' : 'false'));
+    document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '3') ? 'true' : 'false'));
     document.querySelectorAll('.ts-sw-rev').forEach((e) => { e.style.background = dash.colors[0]; });
     document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = dash.colors[1]; });
     const v = T.view();
@@ -1674,7 +1681,7 @@ dash.loader('sales', {
     const { weekly, out } = T.buckets(v);
     const PAY = T.state.chart === 'pay';
     out.forEach((d) => { d.val = PAY ? d.pay : d.rev; d.parts = PAY ? d.byp : d.by; });
-    const W = Math.max(280, e.clientWidth), H = W < 520 ? 210 : 250;
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 210 : Math.round(Math.min(420, Math.max(250, W * 0.47)));
     const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
       .attr('aria-label', `Выручка ${weekly ? 'по неделям' : 'по дням'} столбцами и чистая прибыль линией за ${v.label}`);
     const ymin = Math.min(0, d3.min(out, (d) => d.np) || 0, d3.min(out, (d) => d.val) || 0);
@@ -1777,7 +1784,7 @@ dash.loader('sales', {
     if (!mv) { box.append(el('p', 'ts-empty', '—')); return; }
     const vals = mv.keys.map((k) => mv.months.get(k));
     const mx = Math.max(1, ...vals.map((t) => Math.abs(t.np)));
-    const cur = dash.params().period || '30';
+    const cur = dash.params().period || '3';
     mv.keys.forEach((k, i) => {
       const t = vals[i];
       const row = el('button', 'ts-mbar' + (cur === 'm' + k ? ' ts-on' : '')); row.type = 'button';
@@ -1798,7 +1805,7 @@ dash.loader('sales', {
     const mv = T.monthly(); th.replaceChildren(); const tr = th.insertRow();
     const h0 = document.createElement('th'); h0.textContent = 'Статья'; tr.append(h0);
     if (!mv) return;
-    const cur = dash.params().period || '30';
+    const cur = dash.params().period || '3';
     mv.keys.forEach((k) => {
       const h = document.createElement('th'); h.className = 'ts-click'; h.tabIndex = 0;
       h.textContent = MONTHS[Number(k.slice(5)) - 1] + ' ' + k.slice(2, 4);
@@ -1837,9 +1844,9 @@ dash.loader('sales', {
   dash.draw('opt-period', (sel) => {
     const m = T.meta(); if (!m) return;
     const last = T.iso(m.last), first = T.iso(0);
-    if (perKey === last) { sel.value = dash.params().period || '30'; return; }
+    if (perKey === last) { sel.value = dash.params().period || '3'; return; }
     perKey = last;
-    const o = [['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
+    const o = [['1', '1 день'], ['3', '3 дня'], ['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
     let y = +first.slice(0, 4), mo = +first.slice(5, 7);
     const ly = +last.slice(0, 4), lm = +last.slice(5, 7);
     while (y < ly || (y === ly && mo <= lm)) {
@@ -1849,7 +1856,7 @@ dash.loader('sales', {
     }
     o.push(['all', 'Весь период']);
     sel.replaceChildren(...o.map(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; return op; }));
-    sel.value = dash.params().period || '30';
+    sel.value = dash.params().period || '3';
   });
 
   /* ---- Orders today / yesterday (API, live) ---- */
