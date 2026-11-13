@@ -486,10 +486,10 @@ th[aria-sort] { color:var(--color-fg); }
   <section class="ts-page" id="overview" role="tabpanel">
     <p class="ts-lede" id="takeaway" data-source="sales">На счёт пришло <b data-draw="tk-payout" data-source="sales" data-field="rev">—</b>, из них чистая прибыль <b data-draw="tk-np" data-source="sales" data-field="np">—</b>. В минусе <b data-draw="tk-loss" class="ts-hl-bad" data-source="sales" data-field="sku">—</b> из <b data-draw="tk-sold" data-source="sales" data-field="sku">—</b> товаров.</p>
     <div class="ts-kpis">
-      <div class="ts-kpi" id="kpi-rev"><div class="ts-kpi-l">Выручка</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="rev" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="rev"></div><div class="ts-kspark" data-draw="kspark" data-k="rev" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-payout"><div class="ts-kpi-l" title="Выручка минус комиссия, логистика, хранение, реклама и удержания площадок">Выплата на счёт</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="payout" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="payout"></div><div class="ts-kspark" data-draw="kspark" data-k="payout" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-payout"><div class="ts-kpi-l" title="Сколько площадки перечисляют на счёт: продажи минус комиссия, логистика, хранение, реклама и удержания">Выплата на счёт</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="payout" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="payout"></div><div class="ts-kspark" data-draw="kspark" data-k="payout" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-rev"><div class="ts-kpi-l" title="Продажи по цене продавца до удержаний площадки">Выручка (продажи)</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="rev" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="rev"></div><div class="ts-kspark" data-draw="kspark" data-k="rev" data-source="sales"></div></div>
       <div class="ts-kpi" id="kpi-np"><div class="ts-kpi-l">Чистая прибыль</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="np" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="np"></div><div class="ts-kspark" data-draw="kspark" data-k="np" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-margin"><div class="ts-kpi-l">Маржа</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="margin" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="margin"></div><div class="ts-kspark" data-draw="kspark" data-k="margin" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-margin"><div class="ts-kpi-l" title="Чистая прибыль ÷ выплата на счёт">Маржа от выплат</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="margin" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="margin"></div><div class="ts-kspark" data-draw="kspark" data-k="margin" data-source="sales"></div></div>
       <div class="ts-kpi" id="kpi-drr"><div class="ts-kpi-l" title="Доля рекламных расходов: реклама ÷ выручка">ДРР</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="drr" data-source="sales" data-field="adv">—</div><div class="ts-kpi-d" data-draw="delta" data-k="drr"></div><div class="ts-kspark" data-draw="kspark" data-k="drr" data-source="sales"></div></div>
       <div class="ts-kpi" id="kpi-ret"><div class="ts-kpi-l">Возвраты</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="retr" data-source="sales" data-field="ret">—</div><div class="ts-kpi-d" data-draw="delta" data-k="retr"></div><div class="ts-kspark" data-draw="kspark" data-k="retr" data-source="sales"></div></div>
     </div>
@@ -673,7 +673,7 @@ th[aria-sort] { color:var(--color-fg); }
     <summary>Как считаются показатели</summary>
     <ul>
       <li>Данные: выгрузка Торгстат по каждому товару за каждый день. Расходы показаны со знаком минус.</li>
-      <li>Маржа: чистая прибыль ÷ выручка. ДРР: реклама ÷ выручка. Возвраты: возвращённые штуки ÷ проданные.</li>
+      <li>Маржа: чистая прибыль ÷ выплата на счёт (то, что площадка реально перечисляет). Выручка — продажи по цене продавца до удержаний. ДРР: реклама ÷ выручка. Возвраты: возвращённые штуки ÷ проданные.</li>
       <li>«Прочие удержания»: разница между чистой прибылью в выгрузке и выручкой за вычетом перечисленных статей (штрафы, корректировки).</li>
       <li>Выплата на счёт: выручка минус комиссия, логистика, хранение, реклама и прочие удержания площадок. Это расчёт по данным Торгстат: реальные переводы приходят по графику площадки, поэтому суммы за конкретную неделю могут отличаться. Если реклама оплачивается отдельно, а не из выплат, на счёт придёт больше на её сумму.</li>
       <li>Сравнение: для «N дней» берутся N дней перед ними, для месяца те же дни предыдущего месяца.</li>
@@ -760,10 +760,10 @@ window.T = (function () {
   function add(t, o) { for (const k of KEYS) t[k] += Number(o[k]) || 0; }
   function fin(t) {
     t.other = t.np - (t.rev + t.comm + t.log + t.stor + t.adv + t.cogs + t.tax);
-    t.margin = t.rev ? t.np / t.rev : NaN;
+    t.payout = t.rev + t.comm + t.log + t.stor + t.adv + t.other;
+    t.margin = t.payout > 0 ? t.np / t.payout : NaN;
     t.retr = t.q ? t.ret / t.q : NaN;
     t.drr = t.rev ? -t.adv / t.rev : NaN;
-    t.payout = t.rev + t.comm + t.log + t.stor + t.adv + t.other;
     return t;
   }
   // Same brand or category is spelled differently across stores: «Бетпак»/«БЕТПАК», «Консервы мясные»/«Мясные консервы»
@@ -935,7 +935,7 @@ window.T = (function () {
     const n = el('div', 'ts-card-n');
     const kv = (label, val, neg) => { const sp = el('span', null, label + ' '); const bb = el('b', neg ? 'ts-neg' : null, val); sp.append(bb); n.append(sp); };
     kv('Выручка', rub(r.rev));
-    kv('Маржа', pct(r.margin, 0), r.margin < 0);
+    kv('Маржа от выплат', pct(r.margin, 0), r.margin < 0);
     kv('Продано', num(r.q) + ' шт.');
     if (isFinite(r.drevp)) kv('Выручка к пред.', signed(r.drevp, (x) => pct(x, 0)), r.drevp < 0);
     b.append(n);
@@ -1090,12 +1090,12 @@ T.insights = function (v) {
     const chg = m.prev && m.prev.rev ? ' Выручка ' + T.signed(m.rev / m.prev.rev - 1, (x) => pct(x, 0)) + ' к прошлому периоду.' : '';
     if (m.np < 0) {
       out.push({ mp: m.mp, tone: 'bad', pot: -m.np, t: NAME(m.mp) + ' работает в минус:', val: rub(m.np),
-        x: 'Маржа ' + pct(m.margin) + ' при выручке ' + rub(m.rev) + '.' + (drv ? ' Главная причина: ' + COST[drv.k][0] + ' ' + pct(share(m, drv.k), 0) + ' выручки, на других площадках ' + pct(drv.o, 0) + '.' : '') + chg,
+        x: 'Маржа от выплат ' + pct(m.margin) + ', выплата ' + rub(m.payout) + '.' + (drv ? ' Главная причина: ' + COST[drv.k][0] + ' ' + pct(share(m, drv.k), 0) + ' выручки, на других площадках ' + pct(drv.o, 0) + '.' : '') + chg,
         a: drv ? COST[drv.k][1] : 'Разобрать убыточные товары этой площадки в разделе «Проблемные товары»' });
     } else {
       out.push({ mp: m.mp, tone: 'good', w: m.np, t: NAME(m.mp) + ' приносит', val: '+' + rub(m.np),
-        x: 'Маржа ' + pct(m.margin) + ', это ' + pct(m.rev / (v.cur.rev || 1), 0) + ' всей выручки.' + chg + (drv ? ' Слабое место: ' + COST[drv.k][0] + ' ' + pct(share(m, drv.k), 0) + ' выручки.' : ''),
-        a: m.margin >= 0.08 ? 'Расширять ассортимент и рекламу на этой площадке' : (drv ? COST[drv.k][1] : 'Держать курс, следить за ДРР и комиссией') });
+        x: 'Маржа от выплат ' + pct(m.margin) + ', это ' + pct(m.rev / (v.cur.rev || 1), 0) + ' всей выручки.' + chg + (drv ? ' Слабое место: ' + COST[drv.k][0] + ' ' + pct(share(m, drv.k), 0) + ' выручки.' : ''),
+        a: m.margin >= 0.2 ? 'Расширять ассортимент и рекламу на этой площадке' : (drv ? COST[drv.k][1] : 'Держать курс, следить за ДРР и комиссией') });
     }
   });
 
@@ -1156,7 +1156,7 @@ T.insights = function (v) {
   if (bl.length) out.push({ mp: null, tone: 'bad', pot: 0, t: 'Бренды в минусе:', val: bl.map((b) => b.brand).join(', '),
     x: bl.map((b) => b.brand + ' ' + rub(b.np) + ' (ДРР ' + pct(b.drr, 0) + ', логистика ' + pct(-b.log / b.rev, 0) + ')').join('; ') + '.',
     a: 'Пересчитать цены и рекламу по этим брендам, слабые позиции выводить' });
-  const bg = v.brands.filter((b) => b.np >= minLoss && b.margin >= 0.08).sort((a, b) => b.np - a.np).slice(0, 3);
+  const bg = v.brands.filter((b) => b.np >= minLoss && b.margin >= 0.2).sort((a, b) => b.np - a.np).slice(0, 3);
   if (bg.length) out.push({ mp: null, tone: 'good', w: sum(bg, (b) => b.np), t: 'Зарабатывают бренды:', val: bg.map((b) => b.brand).join(', '),
     x: bg.map((b) => b.brand + ' +' + rub(b.np) + ', маржа ' + pct(b.margin, 0)).join('; ') + '.', a: 'Расширять линейки этих брендов и держать их в наличии' });
 
@@ -1354,7 +1354,7 @@ dash.loader('sales', {
       const d = v.daily.get(T.iso(i));
       if (d) { b.rev += d.rev; b.np += d.np; b.adv += d.adv; b.cogs += d.cogs; b.tax += d.tax; b.q += d.q; b.ret += d.ret; }
     }
-    const f = { rev: (b) => b.rev, payout: (b) => b.np - b.cogs - b.tax, np: (b) => b.np, margin: (b) => (b.rev ? b.np / b.rev : null), drr: (b) => (b.rev ? -b.adv / b.rev : null), retr: (b) => (b.q ? b.ret / b.q : null) }[k];
+    const f = { rev: (b) => b.rev, payout: (b) => b.np - b.cogs - b.tax, np: (b) => b.np, margin: (b) => { const p = b.np - b.cogs - b.tax; return p > 0 ? b.np / p : null; }, drr: (b) => (b.rev ? -b.adv / b.rev : null), retr: (b) => (b.q ? b.ret / b.q : null) }[k];
     return out.map(f);
   }
   const KGOOD = { rev: 1, payout: 1, np: 1, margin: 1, drr: -1, retr: -1 };
@@ -1610,7 +1610,7 @@ dash.loader('sales', {
       const lines = [el('div', 'ts-tip-h', d.label), el('div', null, (PAY ? 'Выплата: ' : 'Выручка: ') + T.rubFull(d.val))];
       T.MP_ORDER.forEach((mp) => { if (d.parts[mp]) { const ln = el('div', 'ts-tip-h'); ln.append(T.mpChip(mp), document.createTextNode(' ' + T.rubFull(d.parts[mp]))); lines.push(ln); } });
       if (PAY) lines.push(el('div', 'ts-tip-h', 'Выручка: ' + T.rubFull(d.rev)));
-      lines.push(el('div', d.np < 0 ? 'ts-neg' : null, 'Чистая прибыль: ' + T.rubFull(d.np)), el('div', 'ts-tip-h', 'Маржа: ' + T.pct(d.rev ? d.np / d.rev : NaN)));
+      lines.push(el('div', d.np < 0 ? 'ts-neg' : null, 'Чистая прибыль: ' + T.rubFull(d.np)), el('div', 'ts-tip-h', 'Маржа от выплаты: ' + T.pct(d.np - d.cogs - d.tax > 0 ? d.np / (d.np - d.cogs - d.tax) : NaN)));
       tip.replaceChildren(...lines);
       tip.hidden = false;
       const scale = e.clientWidth / W, tw2 = tip.offsetWidth;
@@ -1627,7 +1627,7 @@ dash.loader('sales', {
   const PNL = [
     ['rev', 'Выручка', 'strong'], ['comm', 'Комиссия', 'sub'], ['log', 'Логистика', 'sub'], ['stor', 'Хранение', 'sub'], ['adv', 'Реклама', 'sub'],
     ['other', 'Прочие удержания', 'sub'], ['payout', 'Выплата на счёт', 'strong'], ['cogs', 'Закупка (себестоимость)', 'sub'], ['tax', 'Налог', 'sub'], ['np', 'Чистая прибыль', 'strong'],
-    ['margin', 'Маржа', 'pct'], ['q', 'Продано, шт.', 'cnt'], ['avg', 'Средний чек', 'avg']
+    ['margin', 'Маржа от выплат', 'pct'], ['q', 'Продано, шт.', 'cnt'], ['avg', 'Средний чек', 'avg']
   ];
   const valOf = (t, k) => (k === 'avg' ? (t.q ? t.rev / t.q : NaN) : t[k]);
   const narrow = () => window.innerWidth < 640;
