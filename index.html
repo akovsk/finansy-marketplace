@@ -368,7 +368,8 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-rk-name { font-weight:600; font-size:13.5px; line-height:1.3; }
 .ts-rk-why { margin:0; font-size:12.5px; line-height:1.45; }
 .ts-rk-bad { color:var(--color-bad); } .ts-rk-warn { color:var(--color-warn); } .ts-rk-good { color:var(--color-ok); } .ts-rk-ok, .ts-rk-info { color:var(--color-fg-muted); }
-.ts-rk-nums { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:6px; }
+.ts-rk-nums { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:6px; }
+.ts-rk-bud { margin:0; font-size:12.5px; line-height:1.4; padding:6px 10px; border-radius:8px; background:var(--color-bg); border-left:3px solid var(--color-warn); }
 .ts-rk-nums div { display:flex; flex-direction:column; background:var(--color-bg); border-radius:8px; padding:5px 8px; min-width:0; }
 .ts-rk-nums span { font-size:10.5px; color:var(--color-fg-muted); white-space:nowrap; }
 .ts-rk-nums b { font-size:13px; font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -2299,7 +2300,8 @@ dash.loader('sales', {
     const S = ordSeries(); e.replaceChildren();
     if (!S || !S.days.length) return;
     const SUM = T.state.och === 's', k = SUM ? 1 : 0, main = T.state.ochm === 'b' ? 'b' : 'o';
-    const days = main === 'b' ? S.days.filter((d) => d.hasB) : S.days;
+    // today's partial day would drag every line to zero: it is shown in the «Сегодня» block instead
+    const days = (main === 'b' ? S.days.filter((d) => d.hasB) : S.days).filter((d) => d.d !== S.partial);
     if (!days.length) { e.append(T.el('p', 'ts-chart-msg', 'Нет данных за этот период')); return; }
     const mps = T.MP_ORDER.filter((mp) => days.some((d) => d[main][mp]));
     const W = Math.max(280, e.clientWidth), H = W < 520 ? 260 : 320;
@@ -2407,8 +2409,18 @@ dash.loader('sales', {
       else if (be == null) { v = 'check'; why = 'По товарам кампании нет продаж в данных за 30 дней — проверить, на что идут показы.'; }
       else { why = 'ДРР ' + P(drrB) + ' в пределах маржи ' + P(be) + '.'; }
       const active = a.st === 9;
+      const d7 = (a.days || []).slice().sort((p, q) => (p[0] < q[0] ? 1 : -1)).slice(0, 7);
+      const perDay = d7.length ? d7.reduce((s, x) => s + (x[1] || 0), 0) / 7 : a.spend / 30;
+      const bud = a.bud != null ? a.bud : null;
+      const budDays = bud != null && perDay > 0 ? bud / perDay : null;
+      let budAdv = '';
+      if (bud != null && active) {
+        if (v === 'off' || v === 'pause') budAdv = bud > 0 ? 'Не пополнять бюджет: ' + T.rub(bud) + ' ещё уйдёт в минус — остановить кампанию сейчас.' : 'Бюджет кончился — не пополнять и не включать автопополнение.';
+        else if (v === 'up' || v === 'ok') { if (budDays != null && budDays < 2) budAdv = 'Бюджета хватит меньше чем на 2 дня — пополнить или включить автопополнение, иначе кампания встанет.'; }
+        else if (v === 'down' && budDays != null && budDays < 2) budAdv = 'Бюджет на исходе: сначала снизить ставку, потом пополнять.';
+      }
       if (!active && (v === 'off' || v === 'down' || v === 'pause')) { why = 'Сейчас ' + (RK_ST[a.st] || 'не работает') + ' — не возобновлять. ' + why; save = 0; }
-      list.push({ a, v, why, be, drr, drrB, buy, save, gain, prods, minDays, outShare, active });
+      list.push({ a, v, why, be, drr, drrB, buy, save, gain, prods, minDays, outShare, active, bud, budDays, perDay, budAdv });
     });
     list.sort((x, y) => RK_V[x.v].ord - RK_V[y.v].ord || (y.active - x.active) || (y.save + y.gain) - (x.save + x.gain) || y.a.spend - x.a.spend);
     rkCache = { key, list };
@@ -2432,6 +2444,9 @@ dash.loader('sales', {
     k('Отключить сейчас', offA.length + ' РК', 'идут и сливают ≈ ' + T.rub(offA.reduce((s, x) => s + x.save, 0)) + ' в месяц' + (off.length > offA.length ? ' · ещё ' + (off.length - offA.length) + ' на паузе не включать' : ''), offA.length ? 'ts-hl-bad' : null, 'off');
     k('Пауза до поставки', pause.length + ' РК', 'товар закончился', pause.length ? 'ts-hl-bad' : null, 'pause');
     k('Снизить ставку', down.length + ' РК', 'сбережёт ≈ ' + T.rub(down.reduce((s, x) => s + x.save, 0)), down.length ? 'ts-warn' : null, 'down');
+    const act = L.filter((x) => x.active), budAll = act.reduce((s, x) => s + (x.bud || 0), 0), hasBud = L.some((x) => x.bud != null);
+    const low = act.filter((x) => (x.v === 'up' || x.v === 'ok') && x.budDays != null && x.budDays < 2);
+    if (hasBud) k('Бюджет активных РК', T.rub(budAll), act.length + ' кампаний идут' + (low.length ? ' · у ' + low.length + ' хороших кончается' : ''), low.length ? 'ts-warn' : null);
     k('Масштабировать', up.length + ' РК', 'доп. прибыль ≈ ' + T.rub(up.reduce((s, x) => s + x.gain, 0)), up.length ? 'ts-hl-good' : null, 'up');
   });
   const rkOpen = { ok: false, check: false };
@@ -2474,7 +2489,11 @@ dash.loader('sales', {
     n('Маржа до рекл.', x.be != null ? T.pct(x.be, 0) : '—', x.be != null && x.be <= 0 ? 'ts-neg' : null);
     n('Цена заказа', a.orders ? T.rubFull(a.spend / a.orders) : '—');
     n('CTR', T.pct(a.views ? a.clicks / a.views : NaN, 1));
+    n('Остаток бюджета', x.bud != null ? T.rubFull(x.bud) : '—', x.active && x.budDays != null && x.budDays < 2 ? 'ts-neg' : null);
+    n('Хватит на', x.bud == null ? '—' : !x.perDay ? 'нет расхода' : x.budDays < 1 ? 'меньше дня' : '≈ ' + T.num(Math.round(x.budDays)) + ' дн.', x.active && x.budDays != null && x.budDays < 2 ? 'ts-neg' : null);
+    n('Расход в день', x.perDay ? T.rub(x.perDay) : '—');
     row.append(nums);
+    if (x.budAdv) row.append(T.el('p', 'ts-rk-bud', '💳 ' + x.budAdv));
     if (x.prods.length) {
       const pr = T.el('div', 'ts-rk-prods');
       x.prods.slice(0, 4).forEach((p) => {

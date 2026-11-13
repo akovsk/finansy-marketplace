@@ -183,6 +183,15 @@ async function wbStore(st) {
       } catch (e) { log('  adverts info:', e.message.slice(0, 160)); }
       await sleep(300);
     }
+    // Remaining budget of every campaign (WB: POST /api/advert/v2/budget, up to 50 ids per call)
+    const budget = {};
+    for (let i = 0; i < ids.length; i += 50) {
+      try {
+        const b = await wb(st, 'https://advert-api.wildberries.ru/api/advert/v2/budget', { advertIds: ids.slice(i, i + 50) });
+        ((b && b.adverts) || []).forEach((x) => { budget[x.advertId] = +x.total || 0; });
+      } catch (e) { log('  budget:', e.message.slice(0, 160)); }
+      await sleep(3200);
+    }
     let got = 0;
     for (let i = 0; i < ids.length; i += 50) {
       const part = ids.slice(i, i + 50);
@@ -200,7 +209,7 @@ async function wbStore(st) {
         const topE = Object.entries(nm).sort((a, b) => b[1] - a[1]).slice(0, 60);
         const top = topE.map(([k]) => K(st, k));
         const nmS = Object.fromEntries(topE.map(([k, v]) => [K(st, k), R(v)]));
-        OUT.ads.push({ s: st.id, id: s.advertId, name: (names[s.advertId] || {}).name || ('Кампания ' + s.advertId), st: (names[s.advertId] || {}).status || 0, spend: R(s.sum), views: R(s.views), clicks: R(s.clicks), cart: R(s.atbs), orders: R(s.orders), ordSum: R(s.sum_price), nms: top, nmS, days: (s.days || []).map((d) => [String(d.date).slice(0, 10), R(d.sum), R(d.orders), R(d.sum_price)]) });
+        OUT.ads.push({ s: st.id, id: s.advertId, name: (names[s.advertId] || {}).name || ('Кампания ' + s.advertId), st: (names[s.advertId] || {}).status || 0, spend: R(s.sum), views: R(s.views), clicks: R(s.clicks), cart: R(s.atbs), orders: R(s.orders), ordSum: R(s.sum_price), bud: budget[s.advertId] != null ? budget[s.advertId] : null, nms: top, nmS, days: (s.days || []).map((d) => [String(d.date).slice(0, 10), R(d.sum), R(d.orders), R(d.sum_price)]) });
         got++;
       });
       if (i + 50 < ids.length) await sleep(21000);
