@@ -15,37 +15,35 @@
 <title>Финансы маркетплейсы</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
 :root {
-  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#14171c; --color-panel:#1c2027; --color-border-line:#2b313a;
-  --ts-track:#171a20; --ts-thumb:#2b313a; --ts-subtle:#232832;
-  --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
-  --font-anthropic-sans:'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --color-fg:#1d2330; --color-fg-muted:#5f6878; --color-bg:#fbfbfa; --color-panel:#f2f3f1; --color-border-line:#e1e3df;
+  --color-ok:#2f7d4f; --color-warn:#a66a00; --color-bad:#c0392b;
+  --c1:#3b6fb6; --c2:#e08a2c;
+  --font-anthropic-sans:'Onest', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --font-anthropic-serif:'Source Serif 4', Georgia, 'Times New Roman', serif;
   --cds-font-size-caption:12.5px; --cds-font-size-body:14.5px; --cds-font-size-heading:16px; --cds-font-size-title:2rem;
   --cds-font-weight-medium:600;
   --cds-gap-xs:4px; --cds-gap-sm:8px; --cds-gap-md:12px; --cds-gap-lg:16px; --cds-gap-xl:24px;
   --cds-pad-xs:4px; --cds-pad-sm:8px; --cds-pad-md:12px; --cds-pad-lg:16px; --cds-pad-xl:24px;
   --cds-radius:10px;
-  --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
-  --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
-  color-scheme:dark;
+  --cds-chart-muted:#9aa2ae; --cds-chart-status-critical:#c0392b; --cds-chart-grid:#e6e8e4; --cds-chart-axis:#9aa2ae; --cds-chart-reference:#9aa2ae;
+  --cds-text-secondary:#5f6878; --cds-surface-popover:#ffffff; --cds-border:#d9dcd6; --cds-shadow-popover:0 6px 24px rgba(20,25,35,.12);
+  color-scheme:light;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#14171c; --color-panel:#1c2027; --color-border-line:#2b313a;
-  --ts-track:#171a20; --ts-thumb:#2b313a; --ts-subtle:#232832;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
   --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
-  --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
+  --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.45);
   color-scheme:dark; } }
 :root[data-theme="dark"] {
   --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#14171c; --color-panel:#1c2027; --color-border-line:#2b313a;
-  --ts-track:#171a20; --ts-thumb:#2b313a; --ts-subtle:#232832;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
   --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
-  --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
+  --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.45);
   color-scheme:dark; }
 *, *::before, *::after { box-sizing:border-box; }
 html { -webkit-text-size-adjust:100%; }
@@ -71,7 +69,7 @@ img { max-width:100%; }
 <script>
 (function () {
   const DEF = { period: '30', mp: '', store: '', brand: '', cat: '' };
-  const SOURCES = { sales: 'data.json', images: 'images.json' };
+  const SOURCES = { sales: 'data.json', images: 'images.json', market: 'market.json' };
   const S = { loaders: {}, drawers: {}, order: [], on: [], data: {}, req: {}, started: false, params: Object.assign({}, DEF) };
   let msg = null;
   function load(id) {
@@ -350,6 +348,43 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-crow-n { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ts-crow-bar { height:4px; background:var(--cds-chart-grid); border-radius:2px; overflow:hidden; }
 .ts-crow-bar i { display:block; height:100%; border-radius:2px; }
+.ts-orders { display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; }
+.ts-orders[hidden] { display:none; }
+.ts-ord-h { width:100%; font-size:12px; color:var(--color-fg-muted); }
+.ts-ord { flex:1 1 140px; background:var(--color-panel); border:1px solid var(--color-border-line); border-radius:var(--ts-r); padding:10px 14px; display:flex; flex-direction:column; gap:2px; }
+.ts-ord span { font-size:12px; color:var(--color-fg-muted); }
+.ts-ord b { font-size:20px; font-weight:650; font-variant-numeric:tabular-nums; }
+.ts-ord small { font-size:12px; color:var(--color-fg-muted); }
+.ts-xlist { display:flex; flex-direction:column; background:var(--color-panel); border:1px solid var(--color-border-line); border-radius:var(--ts-r); padding:2px 12px; }
+.ts-xlist[hidden] { display:none; }
+.ts-xrow { display:grid; grid-template-columns:52px minmax(0,1fr) auto; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--color-border-line); }
+.ts-xrow:last-of-type { border-bottom:0; }
+.ts-xrow .ts-ph { width:52px; height:52px; border-radius:8px; }
+.ts-xrow-b { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.ts-xrow-t { font-weight:600; font-size:13px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.ts-xrow-t a { color:inherit; text-decoration:none; }
+.ts-xrow-s { font-size:11.5px; color:var(--color-fg-muted); display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.ts-xrow-n { font-size:12px; color:var(--color-fg-muted); line-height:1.4; }
+.ts-xrow-q { font-size:12.5px; line-height:1.4; }
+.ts-xrow-r { display:flex; flex-direction:column; align-items:flex-end; gap:1px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.ts-xrow-r b { font-size:15px; font-weight:650; }
+.ts-xrow-r small { font-size:11.5px; color:var(--color-fg-muted); }
+.ts-xrow-r small.ts-neg { color:var(--color-bad); } .ts-xrow-r small.ts-good { color:var(--color-ok); }
+.ts-warn { color:var(--color-warn); }
+.ts-morebtn { margin:8px 0; align-self:center; }
+.ts-adsum .ts-lede { font-size:13.5px; }
+.ts-mkt { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; color:var(--color-fg-muted); }
+.ts-mkt b { color:var(--color-fg); font-weight:600; }
+.ts-mkt b.ts-neg { color:var(--color-bad); } .ts-mkt b.ts-warn { color:var(--color-warn); }
+.ts-negrev { display:flex; flex-direction:column; gap:4px; font-size:12px; line-height:1.4; }
+.ts-negrev p { margin:0; }
+#weekpay[hidden] { display:none; }
+#weekpay { margin-bottom:18px; }
+.ts-wkrow { display:grid; grid-template-columns:92px minmax(0,1fr) 84px; gap:10px; align-items:center; padding:5px 0; font-size:12.5px; font-variant-numeric:tabular-nums; }
+.ts-wkrow b { text-align:right; font-weight:600; }
+.ts-wk-d { color:var(--color-fg-muted); }
+.ts-wk-bar { height:12px; display:flex; gap:2px; }
+.ts-wk-bar i { display:block; height:100%; border-radius:3px; min-width:2px; }
 .ts-strow { display:flex; flex-direction:column; gap:4px; padding:10px 0; border-bottom:1px solid var(--color-border-line); cursor:pointer; }
 .ts-strow:last-child { border-bottom:0; }
 .ts-strow.ts-on { background:linear-gradient(90deg, var(--color-bg), transparent); margin:0 -12px; padding-left:12px; padding-right:12px; }
@@ -438,79 +473,13 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-desk { display:none; }
   .ts-tools .ts-search { width:100%; }
 }
-
-/* layout fixes */
-.ts-grid-main { align-items:stretch; gap:16px; }
-.ts-grid-main > .ts-sec { gap:16px; }
-.ts-grid-main > .ts-sec > .ts-panel:last-child { flex:1; }
-#trend .ts-chart { flex:1; display:flex; flex-direction:column; justify-content:center; }
-#todo { grid-column:1 / -1; }
-@media (min-width: 901px) { #todo .ts-acts { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px 36px; padding-left:20px; } }
-.ts-bar { margin-inline:-16px; padding-inline:16px; }
-@media (max-width: 640px) { .ts-bar { margin-inline:-12px; padding-inline:12px; } .ts-grid-main { align-items:stretch; } }
-
-/* ===== Minimal theme ===== */
-.ts { --ts-shadow:none; --ts-r:6px; --ts-r-sm:4px; gap:24px; font-size:13.5px; }
-.ts h1 { font-size:22px; font-weight:600; letter-spacing:-0.02em; }
-.ts h2 { font-size:16px; font-weight:600; }
-.ts h3 { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--color-fg-muted); }
-.ts-top { padding-bottom:4px; }
-/* bar & controls */
-.ts-bar { background:color-mix(in srgb, var(--color-bg) 90%, transparent); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); padding-block:0 12px; gap:12px; }
-.ts-chips { background:transparent; border:1px solid var(--color-border-line); border-radius:4px; padding:0; gap:0; }
-.ts-chips button { border-radius:0; padding:6px 12px; border-left:1px solid var(--color-border-line); }
-.ts-chips button:first-child { border-left:0; }
-.ts-chips button[aria-pressed="true"] { background:var(--color-fg); color:var(--color-panel); }
-.ts-seg { background:transparent; border:1px solid var(--color-border-line); border-radius:4px; padding:0; gap:0; }
-.ts-seg button { border-radius:0; border-left:1px solid var(--color-border-line); }
-.ts-seg button:first-child { border-left:0; }
-.ts-seg button[aria-selected="true"] { background:var(--ts-track); box-shadow:none; }
-.dash-select, .ts-search, .ts-btn, .ts-filters select { border-radius:4px; background-color:var(--color-panel); }
-.dash-select:hover, .ts-search:hover, .ts-btn:hover { border-color:var(--color-fg); }
-@media (min-width: 641px) {
-  .ts-tabs { background:transparent; border:0; border-bottom:1px solid var(--color-border-line); border-radius:0; padding:0; gap:24px; width:100%; }
-  .ts-tabs button { border-radius:0; padding:12px 0 11px; font-size:14px; border-bottom:2px solid transparent; margin-bottom:-1px; }
-  .ts-tabs button[aria-selected="true"] { background:transparent; box-shadow:none; border-bottom-color:var(--color-fg); }
-}
-/* surfaces: flat, hairlines */
-.ts-panel, .ts-mpc, .ts-in, .ts-card, .ts-abcc, .ts-glist, .ts-mlist, .ts-hl, .ts-tablewrap { background:var(--color-panel); box-shadow:none; border-radius:6px; }
-.ts-panel { padding:20px; gap:14px; }
-.ts-mpc::before { height:3px; }
-.ts-in { border-left-width:3px; }
-.ts-hl:hover, .ts-mpc:hover, .ts-in:hover, .ts-card:hover { border-color:var(--color-fg-muted); box-shadow:none; transform:none; }
-/* KPI strip: one ruled grid, large numbers */
-.ts-kpis { gap:1px; background:var(--color-border-line); border:1px solid var(--color-border-line); border-radius:6px; overflow:hidden; }
-.ts-kpi { background:var(--color-panel); border:0; border-radius:0; box-shadow:none; padding:16px 18px 14px; gap:4px; }
-.ts-kpi:hover { box-shadow:none; }
-.ts-kpi-l { font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:500; }
-.ts-kpi-v { font-size:28px; font-weight:600; letter-spacing:-0.03em; }
-.ts-mpc-big { font-size:26px; font-weight:600; letter-spacing:-0.03em; }
-.ts-lede { font-size:15px; }
-/* tables */
-.ts-table th { background:var(--color-panel); text-transform:uppercase; letter-spacing:.05em; font-size:10.5px; font-weight:600; border-bottom-color:var(--color-fg); }
-.ts-table tbody tr:hover td, .ts-store-row.ts-on td { background:var(--ts-subtle); }
-.ts-table tr.ts-strong td { background:var(--color-panel); border-top:1px solid var(--color-fg); }
-/* badges flatter */
-.ts-mp { border-radius:3px; letter-spacing:.02em; }
-.ts-badge { border-radius:3px; }
-.ts-ph { border-radius:4px; }
-.ts-acts li::marker { color:var(--color-fg-muted); font-weight:600; }
-@media (max-width: 640px) {
-  .ts h1 { font-size:20px; }
-  .ts-kpi { padding:12px 14px; }
-  .ts-kpi-v { font-size:22px; }
-  .ts-panel { padding:14px; }
-  #dash-root .ts-tabs { background:var(--color-panel); border-radius:0; box-shadow:none; border-top:1px solid var(--color-border-line); }
-  #dash-root .ts-tabs button[aria-selected="true"] { background:transparent; box-shadow:none; color:var(--color-fg); font-weight:600; text-decoration:underline; text-underline-offset:6px; text-decoration-thickness:2px; }
-  .ts-table th:first-child, .ts-table td:first-child { background:var(--color-panel); }
-}
 </style>
 
 <div class="ts">
   <header class="ts-top" id="top">
     <div class="ts-brand">
       <h1>Финансы маркетплейсы</h1>
-      <p class="ts-muted"><span class="ts-mp ts-mp-wb">Wildberries</span><span class="ts-mp ts-mp-oz">Ozon</span><span class="ts-mp ts-mp-ym">Яндекс Маркет</span> 5 магазинов · данные Торгстат 01.06–12.11.2026</p>
+      <p class="ts-muted"><span class="ts-mp ts-mp-wb">Wildberries</span><span class="ts-mp ts-mp-oz">Ozon</span><span class="ts-mp ts-mp-ym">Яндекс Маркет</span> 5 магазинов · <span data-draw="hdr-dates" data-source="sales">данные Торгстат</span></p>
     </div>
   </header>
 
@@ -521,10 +490,11 @@ th[aria-sort] { color:var(--color-fg); }
       <button type="button" role="tab" data-tab="mps" aria-selected="false">Площадки</button>
       <button type="button" role="tab" data-tab="pnl" aria-selected="false">P&amp;L</button>
       <button type="button" role="tab" data-tab="goods" aria-selected="false">Товары</button>
+      <button type="button" role="tab" data-tab="stock" aria-selected="false">Склад</button>
     </nav>
     <div class="ts-filters" id="filters">
       <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
-      <select class="dash-select" id="f-period" aria-label="Период">
+      <select class="dash-select" id="f-period" aria-label="Период" data-draw="opt-period" data-source="sales">
         <option value="7">7 дней</option>
         <option value="14">14 дней</option>
         <option value="30">30 дней</option>
@@ -553,6 +523,7 @@ th[aria-sort] { color:var(--color-fg); }
 
   <section class="ts-page" id="overview" role="tabpanel">
     <p class="ts-lede" id="takeaway" data-source="sales">На счёт пришло <b data-draw="tk-payout" data-source="sales" data-field="rev">—</b>, из них чистая прибыль <b data-draw="tk-np" data-source="sales" data-field="np">—</b>. В минусе <b data-draw="tk-loss" class="ts-hl-bad" data-source="sales" data-field="sku">—</b> из <b data-draw="tk-sold" data-source="sales" data-field="sku">—</b> товаров.</p>
+    <div class="ts-orders" data-draw="ord-strip" data-source="sales"></div>
     <div class="ts-kpis">
       <div class="ts-kpi" id="kpi-payout"><div class="ts-kpi-l" title="Сколько площадки перечисляют на счёт: продажи минус комиссия, логистика, хранение, реклама и удержания">Выплата на счёт</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="payout" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="payout"></div><div class="ts-kspark" data-draw="kspark" data-k="payout" data-source="sales"></div></div>
       <div class="ts-kpi" id="kpi-rev"><div class="ts-kpi-l" title="Продажи по цене продавца до удержаний площадки">Выручка (продажи)</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="rev" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="rev"></div><div class="ts-kspark" data-draw="kspark" data-k="rev" data-source="sales"></div></div>
@@ -577,12 +548,12 @@ th[aria-sort] { color:var(--color-fg); }
           <h3>Площадки</h3>
           <div class="ts-mprows" data-draw="mpshare" data-source="sales"></div>
         </div>
-      </div>
-      <div class="ts-panel" id="todo">
+        <div class="ts-panel" id="todo">
           <h3>Сделать в первую очередь</h3>
           <ol class="ts-acts" data-draw="topacts" data-source="sales"></ol>
           <button type="button" class="ts-btn" data-goto="insights" style="width:fit-content">Все рекомендации</button>
         </div>
+      </div>
     </div>
   </section>
 
@@ -605,9 +576,16 @@ th[aria-sort] { color:var(--color-fg); }
         <tbody data-draw="storerows"></tbody>
       </table>
     </div>
+    <h2 id="ads">Реклама WB: кампании за 30 дней</h2>
+    <div class="ts-adsum" data-draw="ads-sum" data-source="sales"></div>
+    <div class="ts-xlist" data-draw="ads-list" data-source="sales"></div>
+    <h2 id="reviews">Отзывы</h2>
+    <div class="ts-kpis" data-draw="rev-kpis" data-source="sales"></div>
+    <div class="ts-sec"><h3>Свежие негативные отзывы (1–3★)</h3><div class="ts-xlist" data-draw="rev-list" data-source="sales"></div></div>
   </section>
 
   <section class="ts-page" id="pnl" role="tabpanel" hidden>
+    <div class="ts-sec" id="weekpay"><h2>Фактические выплаты по неделям</h2><p class="ts-muted">Из финансовых отчётов WB и начислений Ozon (API площадок). Это то, что реально пришло к перечислению.</p><div data-draw="fin-weeks" data-source="sales"></div></div>
     <div class="ts-sec" style="gap:18px">
       <div class="ts-sec">
         <h2>P&amp;L за период</h2>
@@ -633,6 +611,16 @@ th[aria-sort] { color:var(--color-fg); }
         </div>
       </div>
     </div>
+  </section>
+
+  <section class="ts-page" id="stock" role="tabpanel" hidden>
+    <p class="ts-muted" data-draw="stk-note" data-source="sales">Остатки WB и Ozon из API площадок.</p>
+    <div class="ts-kpis" data-draw="stk-kpis" data-source="sales"></div>
+    <div class="ts-grid2">
+      <div class="ts-sec"><h3>Скоро закончится</h3><div class="ts-xlist" data-draw="stk-list" data-k="low" data-source="sales"></div></div>
+      <div class="ts-sec"><h3>Нет в наличии, а продавался</h3><div class="ts-xlist" data-draw="stk-list" data-k="out" data-source="sales"></div></div>
+    </div>
+    <div class="ts-sec"><h3>Залежалось: деньги заморожены</h3><div class="ts-xlist" data-draw="stk-list" data-k="slow" data-source="sales"></div></div>
   </section>
 
   <section class="ts-page" id="goods" role="tabpanel" hidden>
@@ -961,6 +949,39 @@ window.T = (function () {
     return v;
   }
 
+  /* Marketplace API data (market.json): stocks, funnel, reviews, prices, orders, ads, weekly payouts */
+  const SID = { wb1: { name: 'ВБ Саковский', mp: 'WB' }, wb2: { name: 'Дармил', mp: 'WB' }, oz1: { name: 'Озон Саковский', mp: 'Ozon' }, oz2: { name: 'Suaviss Озон', mp: 'Ozon' } };
+  function mk() { const s = dash.data('market'); return s.status === 'ok' && s.data[0] ? s.data[0] : null; }
+  const sidPass = (id, p) => { const s = SID[id]; return !!s && !(p.mp && s.mp !== p.mp) && !(p.store && s.name !== p.store); };
+  let velC = { data: null, map: null };
+  // Per product: info, average units and revenue per day over the last 14 full days, purchase cost per unit
+  function vel() {
+    const s = dash.data('sales'), m = meta();
+    if (s.status !== 'ok' || !m) return null;
+    if (velC.data === s.data) return velC.map;
+    const A = iso(m.last - 14), B = iso(m.last - 1), A60 = iso(m.last - 60);
+    const map = new Map();
+    for (const o of s.data) {
+      const k = o.store + '|' + o.sku;
+      let x = map.get(k);
+      if (!x) map.set(k, x = { key: k, store: o.store, mp: o.mp, sku: o.sku, article: o.article, name: o.name, brand: o.brand, category: o.category, url: o.url, q14: 0, rev14: 0, q60: 0, cogs60: 0, qAll: 0, cogsAll: 0 });
+      const q = Number(o.q) || 0, cg = -(Number(o.cogs) || 0);
+      x.qAll += q; x.cogsAll += cg;
+      if (o.date >= A60) { x.q60 += q; x.cogs60 += cg; }
+      if (o.date >= A && o.date <= B) { x.q14 += q; x.rev14 += Number(o.rev) || 0; }
+    }
+    map.forEach((x) => { x.perDay = Math.max(0, x.q14 / 14); x.revDay = Math.max(0, x.rev14 / 14); x.unitCost = x.q60 > 0 ? x.cogs60 / x.q60 : (x.qAll > 0 ? x.cogsAll / x.qAll : 0); });
+    velC = { data: s.data, map };
+    return map;
+  }
+  function stockOf(key) {
+    const M = mk(); if (!M || !M.stocks) return null;
+    const st = M.stocks[key]; if (!st) return null;
+    const x = (vel() || new Map()).get(key);
+    const per = x ? x.perDay : 0;
+    return { q: Math.max(0, st.q), toCl: st.toCl || 0, perDay: per, days: per > 0 ? Math.max(0, st.q) / per : Infinity, value: Math.max(0, st.q) * (x ? x.unitCost : 0) };
+  }
+
   let icache = { data: null, map: new Map() };
   function img(key) {
     const s = dash.data('images');
@@ -1064,6 +1085,25 @@ window.T = (function () {
       wrap.append(p);
       if (bk.up > 0.5) wrap.append(el('p', 'ts-muted', 'Поднять цену так сильно вряд ли получится: выгоднее наборы, другая логистика или вывод.'));
     }
+    const M = mk();
+    if (M) {
+      const box = el('div', 'ts-mkt');
+      const it = (l, val, cls) => { const sp = el('span', null, l + ' '); sp.append(el('b', cls || null, val)); box.append(sp); };
+      const so = stockOf(r.key);
+      if (so) it('Остаток', num(so.q) + ' шт.' + (isFinite(so.days) ? ' · хватит на ' + num(Math.round(so.days)) + ' дн.' : ''), so.q <= 0 ? 'ts-neg' : (so.days < 14 ? 'ts-warn' : null));
+      const rv = M.reviews && M.reviews[r.key];
+      if (rv) it('Рейтинг', rv.avg.toFixed(2).replace('.', ',') + '★ (' + num(rv.n) + ' отз. за 90 дн.' + (rv.neg ? ', негатив ' + rv.neg : '') + ')', rv.avg < 4.5 ? 'ts-neg' : null);
+      const pr = M.prices && M.prices[r.key];
+      if (pr && pr.pd) it('Цена', rubFull(pr.pd) + (pr.disc ? ' (скидка ' + pr.disc + '% от ' + rubFull(pr.p) + ')' : '') + (pr.mp ? ' · на витрине ' + rubFull(pr.mp) : ''));
+      const f = M.funnel && M.funnel[r.key];
+      if (f && f.v) it('Воронка 30 дн.', num(f.v) + ' просмотров → ' + num(f.c) + ' в корзину (' + pct(f.c / f.v, 1) + ') → ' + num(f.o) + ' заказов (' + pct(f.c ? f.o / f.c : 0, 0) + ')' + (f.bp ? ' · выкуп ' + Math.round(f.bp) + '%' : ''));
+      if (box.childNodes.length) wrap.append(box);
+      if (rv && rv.last && rv.last.length) {
+        const nl = el('div', 'ts-negrev');
+        rv.last.forEach((x) => { const p = el('p'); p.append(el('b', 'ts-neg', x.r + '★'), document.createTextNode(' ' + x.d.slice(8, 10) + '.' + x.d.slice(5, 7) + ' · ' + x.t)); nl.append(p); });
+        wrap.append(nl);
+      }
+    }
     const s = dash.data('sales');
     if (v && s.status === 'ok') {
       const A = iso(v.r.a), B = iso(v.r.b), byDay = new Map();
@@ -1102,7 +1142,7 @@ window.T = (function () {
     node.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target === node) tog(); });
   }
 
-  return { KEYS, expandable, COST_LABELS, TH, MP, MP_ORDER, mpChip, storeCell, rub, rubFull, short, pct, num, signed, meta, view, monthly, buckets: null, photo, link, el, abcChip, badges, card,
+  return { mk, vel, stockOf, SID, sidPass, passDims, KEYS, expandable, COST_LABELS, TH, MP, MP_ORDER, mpChip, storeCell, rub, rubFull, short, pct, num, signed, meta, view, monthly, buckets: null, photo, link, el, abcChip, badges, card,
     iso: (i) => iso(i), dm: (i) => dm(i), dmy: (i) => dmy(i), dayDow: (i) => new Date(s0 + i * DAY).getUTCDay(),
     state: { sort: 'rev', dir: -1, q: '', show: '', limit: 50 } };
 })();
@@ -1253,6 +1293,7 @@ T.insights = function (v) {
 </script>
 
 <script>
+dash.loader('market', { description: 'Данные из API WB и Ozon: остатки, отзывы, цены, реклама, заказы, выплаты.', fn: ({ answer }) => ({ rows: [answer] }) });
 dash.loader('sales', {
   description: 'Разворачивает выгрузку Торгстат: одна строка на товар в магазине за день, с названием магазина и маркетплейсом.',
   fn: ({ answer }) => {
@@ -1295,7 +1336,7 @@ dash.loader('sales', {
     root.querySelectorAll('[data-draw]').forEach((e) => names.add(e.getAttribute('data-draw')));
     names.forEach((n) => dash.draw(n));
   }
-  const PAGES = ['overview', 'insights', 'mps', 'pnl', 'goods'];
+  const PAGES = ['overview', 'insights', 'mps', 'pnl', 'goods', 'stock'];
   const SUBS = ['best', 'problems', 'growth', 'all', 'cats', 'abc'];
   function showTab(id, link) {
     if (!PAGES.includes(id)) return;
@@ -1359,6 +1400,7 @@ dash.loader('sales', {
   const gotoHash = () => { const id = (location.hash || '').slice(1); if (PAGES.includes(id)) showTab(id, false); else if (SUBS.includes(id)) { showTab('goods', false); showSub(id, false); } };
   setTimeout(gotoHash, 0);
 
+  dash.data('market');
   dash.onData(() => {
     const p = dash.params();
     Object.keys(map).forEach((id) => {
@@ -1370,7 +1412,7 @@ dash.loader('sales', {
     });
     document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '30') ? 'true' : 'false'));
     document.querySelectorAll('.ts-sw-rev').forEach((e) => { e.style.background = dash.colors[0]; });
-    document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = 'var(--color-fg)'; });
+    document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = dash.colors[1]; });
     const v = T.view();
     const hasPrev = !v || !!v.prev;
     document.querySelectorAll('.ts-cmp-yes').forEach((e) => { e.hidden = !hasPrev; });
@@ -1632,7 +1674,7 @@ dash.loader('sales', {
     const { weekly, out } = T.buckets(v);
     const PAY = T.state.chart === 'pay';
     out.forEach((d) => { d.val = PAY ? d.pay : d.rev; d.parts = PAY ? d.byp : d.by; });
-    const W = Math.max(280, e.clientWidth), H = W < 520 ? 210 : Math.round(Math.min(420, Math.max(250, W * 0.47)));
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 210 : 250;
     const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
       .attr('aria-label', `Выручка ${weekly ? 'по неделям' : 'по дням'} столбцами и чистая прибыль линией за ${v.label}`);
     const ymin = Math.min(0, d3.min(out, (d) => d.np) || 0, d3.min(out, (d) => d.val) || 0);
@@ -1782,6 +1824,216 @@ dash.loader('sales', {
   });
 
   /* Stores */
+  /* ---- dates in header and period list follow the data ---- */
+  const MON_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  dash.draw('hdr-dates', (e) => {
+    const m = T.meta(); if (!m) return;
+    const M = T.mk();
+    let t = 'данные ' + T.dm(0) + '–' + T.dmy(m.last);
+    if (M && M.generated) { const g = new Date(M.generated); t += ' · обновлено ' + g.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }); }
+    e.textContent = t;
+  });
+  let perKey = '';
+  dash.draw('opt-period', (sel) => {
+    const m = T.meta(); if (!m) return;
+    const last = T.iso(m.last), first = T.iso(0);
+    if (perKey === last) { sel.value = dash.params().period || '30'; return; }
+    perKey = last;
+    const o = [['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
+    let y = +first.slice(0, 4), mo = +first.slice(5, 7);
+    const ly = +last.slice(0, 4), lm = +last.slice(5, 7);
+    while (y < ly || (y === ly && mo <= lm)) {
+      const v = 'm' + y + '-' + String(mo).padStart(2, '0');
+      o.push([v, MON_NAMES[mo - 1] + (y === ly && mo === lm ? ' (по ' + T.dm(m.last) + ')' : '')]);
+      mo++; if (mo > 12) { mo = 1; y++; }
+    }
+    o.push(['all', 'Весь период']);
+    sel.replaceChildren(...o.map(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; return op; }));
+    sel.value = dash.params().period || '30';
+  });
+
+  /* ---- Orders today / yesterday (API, live) ---- */
+  dash.draw('ord-strip', (e) => {
+    const M = T.mk(); e.replaceChildren();
+    if (!M || !M.orders) { e.style.display = 'none'; return; }
+    const p = dash.params();
+    const tot = (day) => { let n = 0, s = 0; Object.entries(M.orders).forEach(([id, o]) => { if (!T.sidPass(id, p)) return; const d = o[day]; if (d) { n += d[0]; s += d[1]; } }); return [n, s]; };
+    const today = M.today, yd = new Date(Date.parse(today + 'T00:00:00Z') - 864e5).toISOString().slice(0, 10), wk = new Date(Date.parse(today + 'T00:00:00Z') - 7 * 864e5).toISOString().slice(0, 10);
+    const a = tot(today), b = tot(yd), c = tot(wk);
+    if (!a[0] && !b[0]) { e.style.display = 'none'; return; }
+    e.style.display = '';
+    const cell = (label, v, cmp) => { const d = T.el('div', 'ts-ord'); d.append(T.el('span', null, label), T.el('b', null, T.num(v[0]) + ' шт.'), T.el('small', null, T.rub(v[1]) + (cmp ? ' · ' + cmp : ''))); return d; };
+    const ch = c[1] ? T.signed(b[1] / c[1] - 1, (x) => T.pct(x, 0)) + ' к тому же дню нед. назад' : '';
+    e.append(T.el('div', 'ts-ord-h', 'Заказы WB + Ozon'), cell('Сегодня (неполный день)', a), cell('Вчера', b, ch));
+  });
+
+  /* ---- Stock page ---- */
+  function stockRows() {
+    const M = T.mk(), V = T.vel();
+    if (!M || !M.stocks || !V) return null;
+    const p = dash.params(), out = [];
+    V.forEach((x, k) => {
+      if (!T.passDims(x, p)) return;
+      const st = M.stocks[k];
+      if (!st) return;
+      const q = Math.max(0, st.q);
+      out.push(Object.assign({}, x, { stock: q, toCl: st.toCl || 0, days: x.perDay > 0 ? q / x.perDay : Infinity, value: q * x.unitCost, need: Math.max(0, Math.ceil(x.perDay * 45 - q)) }));
+    });
+    return out;
+  }
+  dash.draw('stk-note', (e) => {
+    const M = T.mk();
+    if (!M) { e.textContent = 'Данные остатков появятся после выгрузки из API площадок.'; return; }
+    e.textContent = 'Остатки WB и Ozon из API площадок на ' + new Date(M.generated).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }) + '. Скорость продаж — среднее за последние 14 дней. Яндекс Маркет пока без остатков.';
+  });
+  dash.draw('stk-kpis', (e) => {
+    const R = stockRows(); e.replaceChildren();
+    if (!R) return;
+    const low = R.filter((x) => x.stock > 0 && x.days < 14), out = R.filter((x) => x.stock <= 0 && x.rev14 > 0), slow = R.filter((x) => x.stock > 0 && x.days > 120);
+    const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
+    const per = sum(R, (x) => x.perDay), tq = sum(R, (x) => x.stock);
+    const k = (l, v, sub, cls) => { const d = T.el('div', 'ts-kpi'); d.append(T.el('div', 'ts-kpi-l', l), T.el('div', 'ts-kpi-v' + (cls ? ' ' + cls : ''), v), T.el('div', 'ts-kpi-d', sub)); e.append(d); };
+    k('Товара на складах', T.rub(sum(R, (x) => x.value)), T.num(tq) + ' шт. по закупочной цене');
+    k('Хватит в среднем', per > 0 ? T.num(Math.round(tq / per)) + ' дн.' : '—', 'при текущей скорости продаж');
+    k('Скоро закончится', T.num(low.length) + ' SKU', 'остатка меньше чем на 14 дней', low.length ? 'ts-hl-bad' : null);
+    k('Нет в наличии', T.num(out.length) + ' SKU', out.length ? '−' + T.rub(sum(out, (x) => x.revDay)) + ' выручки в день' : 'всё в наличии', out.length ? 'ts-hl-bad' : null);
+    k('Залежалось', T.rub(sum(slow, (x) => x.value)), T.num(slow.length) + ' SKU, запаса больше чем на 120 дней');
+  });
+  const stkLimit = { low: 15, out: 15, slow: 15 };
+  dash.draw('stk-list', (box) => {
+    const R = stockRows(); box.replaceChildren();
+    if (!R) { box.append(T.el('p', 'ts-empty', 'Нет данных об остатках.')); return; }
+    const kind = box.dataset.k;
+    let L;
+    if (kind === 'low') L = R.filter((x) => x.stock > 0 && x.days < 14).sort((a, b) => a.days - b.days);
+    else if (kind === 'out') L = R.filter((x) => x.stock <= 0 && x.rev14 > 0).sort((a, b) => b.revDay - a.revDay);
+    else L = R.filter((x) => x.stock > 0 && x.days > 120).sort((a, b) => b.value - a.value);
+    if (!L.length) { box.append(T.el('p', 'ts-empty', kind === 'out' ? 'Всё, что продавалось, есть в наличии.' : 'Таких товаров нет.')); return; }
+    L.slice(0, stkLimit[kind]).forEach((x) => {
+      const row = T.el('div', 'ts-xrow');
+      row.append(T.photo(x.key, true));
+      const b = T.el('div', 'ts-xrow-b');
+      const t = T.el('div', 'ts-xrow-t'); t.append(T.link(x)); b.append(t);
+      const s = T.el('div', 'ts-xrow-s'); s.append(T.mpChip(x.mp), document.createTextNode(x.store + ' · ' + (x.article || x.sku))); b.append(s);
+      const n = T.el('div', 'ts-xrow-n');
+      if (kind === 'low') n.textContent = 'Остаток ' + T.num(x.stock) + ' шт. · продаётся ' + T.num(Math.round(x.perDay * 10) / 10) + ' шт./день · довезти ≈ ' + T.num(x.need) + ' шт. на 45 дней';
+      else if (kind === 'out') n.textContent = 'Продавался по ' + T.num(Math.round(x.perDay * 10) / 10) + ' шт./день' + (x.toCl ? ' · ' + T.num(x.toCl) + ' шт. едут к покупателям' : '') + ' · довезти ≈ ' + T.num(Math.ceil(x.perDay * 45)) + ' шт.';
+      else n.textContent = 'Остаток ' + T.num(x.stock) + ' шт. · ' + (x.perDay > 0 ? 'продаётся ' + T.num(Math.round(x.perDay * 10) / 10) + ' шт./день' : 'продаж за 14 дней нет') + ' → скидка, акция или вывод';
+      b.append(n);
+      row.append(b);
+      const r = T.el('div', 'ts-xrow-r');
+      if (kind === 'low') r.append(T.el('b', x.days < 7 ? 'ts-neg' : 'ts-warn', T.num(Math.max(0, Math.floor(x.days))) + ' дн.'), T.el('small', null, 'хватит'));
+      else if (kind === 'out') r.append(T.el('b', 'ts-neg', '−' + T.rub(x.revDay)), T.el('small', null, 'в день'));
+      else r.append(T.el('b', null, T.rub(x.value)), T.el('small', null, isFinite(x.days) ? T.num(Math.round(x.days)) + ' дн. запаса' : 'не продаётся'));
+      row.append(r);
+      box.append(row);
+    });
+    if (L.length > stkLimit[kind]) {
+      const more = T.el('button', 'ts-btn ts-morebtn', 'Показать ещё ' + Math.min(30, L.length - stkLimit[kind]) + ' из ' + (L.length - stkLimit[kind]));
+      more.type = 'button';
+      more.addEventListener('click', () => { stkLimit[kind] += 30; dash.draw('stk-list'); });
+      box.append(more);
+    }
+  });
+
+  /* ---- WB ads ---- */
+  let adsLimit = 12;
+  const adsOf = () => { const M = T.mk(); if (!M || !M.ads) return null; const p = dash.params(); return M.ads.filter((a) => T.sidPass(a.s, p)); };
+  dash.draw('ads-sum', (e) => {
+    const A = adsOf(); e.replaceChildren();
+    if (!A) { e.append(T.el('p', 'ts-muted', 'Данные по рекламе появятся после выгрузки из API.')); return; }
+    if (!A.length) { e.append(T.el('p', 'ts-muted', 'Для выбранных фильтров рекламы WB нет.')); return; }
+    const sp = A.reduce((s, a) => s + a.spend, 0), os = A.reduce((s, a) => s + a.ordSum, 0), on = A.reduce((s, a) => s + a.orders, 0);
+    const bad = A.filter((a) => (a.ordSum ? a.spend / a.ordSum : Infinity) > 0.25 && a.spend > 1000);
+    const p = T.el('p', 'ts-lede');
+    p.append(document.createTextNode('Потрачено '), T.el('b', null, T.rub(sp)), document.createTextNode(', заказов с рекламы '), T.el('b', null, T.num(on) + ' на ' + T.rub(os)), document.createTextNode(', ДРР '), T.el('b', os && sp / os > 0.2 ? 'ts-hl-bad' : 'ts-hl-good', T.pct(os ? sp / os : NaN, 0)), document.createTextNode('. '));
+    if (bad.length) { p.append(document.createTextNode('Дорогих кампаний (ДРР > 25%): '), T.el('b', 'ts-hl-bad', String(bad.length)), document.createTextNode(', на них ушло ' + T.rub(bad.reduce((s, a) => s + a.spend, 0)) + '.')); }
+    e.append(p);
+  });
+  dash.draw('ads-list', (box) => {
+    const A = adsOf(); box.replaceChildren();
+    if (!A || !A.length) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const L = A.slice().sort((a, b) => b.spend - a.spend);
+    L.slice(0, adsLimit).forEach((a) => {
+      const drr = a.ordSum ? a.spend / a.ordSum : Infinity, cpo = a.orders ? a.spend / a.orders : Infinity;
+      const row = T.el('div', 'ts-xrow ts-adrow');
+      const firstKey = (a.nms || [])[0];
+      row.append(firstKey ? T.photo(firstKey, true) : T.el('div', 'ts-ph ts-ph-s'));
+      const b = T.el('div', 'ts-xrow-b');
+      b.append(T.el('div', 'ts-xrow-t', a.name || ('Кампания ' + a.id)));
+      const s = T.el('div', 'ts-xrow-s'); s.append(T.mpChip('WB'), document.createTextNode((T.SID[a.s] || {}).name || a.s)); b.append(s);
+      b.append(T.el('div', 'ts-xrow-n', T.num(a.views) + ' показов · CTR ' + T.pct(a.views ? a.clicks / a.views : NaN, 1) + ' · ' + T.num(a.cart) + ' в корзину · ' + T.num(a.orders) + ' заказов на ' + T.rub(a.ordSum) + (isFinite(cpo) ? ' · заказ за ' + T.rubFull(cpo) : '')));
+      row.append(b);
+      const r = T.el('div', 'ts-xrow-r');
+      r.append(T.el('b', null, T.rub(a.spend)), T.el('small', drr > 0.25 ? 'ts-neg' : (drr < 0.12 ? 'ts-good' : null), isFinite(drr) ? 'ДРР ' + T.pct(drr, 0) : 'без заказов'));
+      row.append(r);
+      box.append(row);
+    });
+    if (L.length > adsLimit) { const more = T.el('button', 'ts-btn ts-morebtn', 'Показать все ' + L.length); more.type = 'button'; more.addEventListener('click', () => { adsLimit = 999; dash.draw('ads-list'); }); box.append(more); }
+  });
+
+  /* ---- Reviews ---- */
+  dash.draw('rev-kpis', (e) => {
+    const M = T.mk(); e.replaceChildren();
+    if (!M || !M.revStore) return;
+    const p = dash.params();
+    Object.entries(M.revStore).forEach(([id, r]) => {
+      if (!T.sidPass(id, p) || !r) return;
+      const d = T.el('div', 'ts-kpi');
+      const l = T.el('div', 'ts-kpi-l'); l.append(T.mpChip(T.SID[id].mp), document.createTextNode(T.SID[id].name)); d.append(l);
+      d.append(T.el('div', 'ts-kpi-v' + (r.avg30 && r.avg30 < 4.6 ? ' ts-hl-bad' : ''), r.avg30 ? r.avg30.toFixed(2).replace('.', ',') + '★' : '—'));
+      d.append(T.el('div', 'ts-kpi-d', T.num(r.n30) + ' отзывов за 30 дн. · негатив ' + T.num(r.neg30) + (r.unanswered ? ' · без ответа ' + T.num(r.unanswered) : '')));
+      e.append(d);
+    });
+    if (!e.childNodes.length) e.append(T.el('p', 'ts-muted', 'Отзывы есть только для WB (Ozon отдаёт их по подписке Premium Plus).'));
+  });
+  dash.draw('rev-list', (box) => {
+    const M = T.mk(), V = T.vel(); box.replaceChildren();
+    if (!M || !M.reviews || !V) { box.append(T.el('p', 'ts-empty', 'Нет данных.')); return; }
+    const p = dash.params(), L = [];
+    Object.entries(M.reviews).forEach(([k, r]) => { const x = V.get(k); if (!x || !T.passDims(x, p)) return; (r.last || []).forEach((n) => L.push({ x, r, n })); });
+    L.sort((a, b) => (a.n.d < b.n.d ? 1 : -1));
+    if (!L.length) { box.append(T.el('p', 'ts-empty', 'Негативных отзывов за 90 дней нет.')); return; }
+    L.slice(0, 12).forEach(({ x, r, n }) => {
+      const row = T.el('div', 'ts-xrow');
+      row.append(T.photo(x.key, true));
+      const b = T.el('div', 'ts-xrow-b');
+      const t = T.el('div', 'ts-xrow-t'); t.append(T.link(x)); b.append(t);
+      b.append(T.el('div', 'ts-xrow-q', '«' + n.t + '»'));
+      b.append(T.el('div', 'ts-xrow-s', n.d.slice(8, 10) + '.' + n.d.slice(5, 7) + ' · рейтинг товара ' + r.avg.toFixed(2).replace('.', ',') + '★ из ' + T.num(r.n)));
+      row.append(b);
+      const rr = T.el('div', 'ts-xrow-r'); rr.append(T.el('b', 'ts-neg', n.r + '★')); row.append(rr);
+      box.append(row);
+    });
+  });
+
+  /* ---- Weekly payouts from finance reports ---- */
+  dash.draw('fin-weeks', (box) => {
+    const M = T.mk(); box.replaceChildren();
+    const sec = document.getElementById('weekpay');
+    const p = dash.params();
+    const ids = M && M.fin ? Object.keys(M.fin).filter((id) => T.sidPass(id, p) && (M.fin[id] || []).length) : [];
+    if (!ids.length) { if (sec) sec.style.display = 'none'; return; }
+    if (sec) sec.style.display = '';
+    const weeks = new Map();
+    ids.forEach((id) => M.fin[id].forEach((w) => { const k = w.from; let x = weeks.get(k); if (!x) weeks.set(k, x = { from: w.from, to: w.to, by: {}, tot: 0, sales: 0 }); x.by[id] = (x.by[id] || 0) + w.payout; x.tot += w.payout; x.sales += w.sales || 0; }));
+    const W = [...weeks.values()].sort((a, b) => (a.from < b.from ? -1 : 1)).slice(-9);
+    const mx = Math.max(1, ...W.map((w) => Math.abs(w.tot)));
+    const fd = (s) => s.slice(8, 10) + '.' + s.slice(5, 7);
+    W.slice().reverse().forEach((w) => {
+      const row = T.el('div', 'ts-wkrow');
+      row.append(T.el('span', 'ts-wk-d', fd(w.from) + '–' + fd(w.to)));
+      const bar = T.el('div', 'ts-wk-bar');
+      ids.forEach((id) => { const v = w.by[id] || 0; if (v <= 0) return; const i = T.el('i'); i.style.width = (v / mx * 100) + '%'; i.style.background = T.MP[T.SID[id].mp].color; i.title = T.SID[id].name + ': ' + T.rubFull(v); bar.append(i); });
+      row.append(bar, T.el('b', w.tot < 0 ? 'ts-neg' : null, T.rub(w.tot)));
+      box.append(row);
+    });
+    const lg = T.el('div', 'ts-legend'); lg.style.fontSize = '11px';
+    ids.forEach((id) => { const sp = T.el('span'); const sw = T.el('i', 'ts-sw'); sw.style.background = T.MP[T.SID[id].mp].color; sp.append(sw, document.createTextNode(T.SID[id].name)); lg.append(sp); });
+    box.append(lg);
+  });
+
   dash.draw('catlist', (box) => {
     const v = T.view(); box.replaceChildren();
     if (!v) { box.append(el('p', 'ts-empty', '—')); return; }

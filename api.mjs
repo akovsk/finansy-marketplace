@@ -219,9 +219,10 @@ async function ozStore(st) {
   });
   // Funnel per SKU (30 days) and orders per day
   await step(st, 'funnel', async () => {
-    const j = await oz(st, '/v1/analytics/data', { date_from: ago(30), date_to: ago(1), metrics: ['hits_view', 'session_view', 'hits_tocart', 'ordered_units', 'revenue'], dimension: ['sku'], limit: 1000, offset: 0 });
+    // Without Ozon Premium only ordered_units and revenue are available; views stay empty
+    const j = await oz(st, '/v1/analytics/data', { date_from: ago(30), date_to: ago(1), metrics: ['ordered_units', 'revenue'], dimension: ['sku'], limit: 1000, offset: 0 });
     const rows = (j && j.result && j.result.data) || [];
-    rows.forEach((r) => { const m = r.metrics || []; OUT.funnel[K(st, r.dimensions[0].id)] = { v: R(m[1] || m[0]), c: R(m[2]), o: R(m[3]), os: R(m[4]), b: null, bp: null, imp: R(m[0]) }; });
+    rows.forEach((r) => { const m = r.metrics || []; OUT.funnel[K(st, r.dimensions[0].id)] = { v: 0, c: 0, o: R(m[0]), os: R(m[1]), b: null, bp: null }; });
     return rows.length + ' SKU';
   });
   await sleep(2000);
@@ -279,7 +280,7 @@ async function ozStore(st) {
     return n + ' prices';
   });
   // Reviews (needs Premium Plus on Ozon; skipped quietly if not available)
-  if (OUT.status[st.id] && /403/.test(String((OUT.status.oz1 || {}).reviews))) return;
+  if (st.id !== 'oz1' && /403/.test(String((OUT.status.oz1 || {}).reviews))) return;
   await step(st, 'reviews', async () => {
     let all = [], last_id = '';
     for (let i = 0; i < 20; i++) {
@@ -300,7 +301,7 @@ function reviewsAgg(st, all) {
   recent.forEach((x) => { const k = K(st, x.nm); const p = (per[k] = per[k] || { n: 0, sum: 0, neg: 0, last: [] }); p.n++; p.sum += x.r; if (x.r <= 3) { p.neg++; if (p.last.length < 3 && x.t) p.last.push({ r: x.r, d: x.d, t: x.t }); } });
   Object.entries(per).forEach(([k, p]) => { OUT.reviews[k] = { n: p.n, avg: Math.round((p.sum / p.n) * 100) / 100, neg: p.neg, last: p.last }; });
   const n30 = all.filter((x) => x.d >= ago(30) && x.r > 0);
-  OUT.revStore[st.id] = { n30: n30.length, avg30: n30.length ? Math.round((n30.reduce((a, x) => a + x.r, 0) / n30.length) * 100) / 100 : null, neg30: n30.filter((x) => x.r <= 3).length, unanswered: all.filter((x) => !x.a).length };
+  OUT.revStore[st.id] = { n30: n30.length, avg30: n30.length ? Math.round((n30.reduce((a, x) => a + x.r, 0) / n30.length) * 100) / 100 : null, neg30: n30.filter((x) => x.r <= 3).length, unanswered: all.filter((x) => !x.a && x.t && x.d >= ago(30)).length };
 }
 
 for (const st of STORES) {
