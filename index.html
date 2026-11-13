@@ -682,6 +682,12 @@ th[aria-sort] { color:var(--color-fg); }
   #overview > .ts-kpis { order:4; }
   #overview > .ts-grid-main { order:5; }
 }
+/* Phone: only orders and buyouts in the chart summary, centred */
+@media (max-width: 640px) {
+  .ts-och-sum { grid-template-columns:repeat(2, minmax(0, 150px)) !important; justify-content:center; gap:10px; }
+  .ts-och-sum > .ts-och-c:nth-child(n+3) { display:none; }
+  .ts-och-c b { font-size:15px; }
+}
 </style>
 
 <div class="ts">
