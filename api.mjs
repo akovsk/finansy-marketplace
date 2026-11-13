@@ -238,10 +238,11 @@ async function ymStore(st) {
           const j = await ym(st, '/campaigns/' + c.id + '/stats/orders?limit=200' + (token ? '&page_token=' + encodeURIComponent(token) : ''), { dateFrom: a, dateTo: b });
           const r = (j && j.result) || {};
           const list = r.orders || [];
-          if (!sample && list[0]) { sample = true; log('  ym order sample', JSON.stringify(list[0]).slice(0, 500)); }
+          if (!sample && list[0]) { sample = true; log('  ym order sample', JSON.stringify((list[0].items || [])[0] || list[0]).slice(0, 500)); }
           list.forEach((o) => {
             const d = ymDate(o.creationDate);
-            const sum = (o.items || []).reduce((s, it) => { const pr = (it.prices || []).find((x) => x.type === 'BUYER') || (it.prices || [])[0] || {}; return s + (+pr.total || (+pr.costPerItem || 0) * (+it.count || 1)); }, 0);
+            // seller price = what the buyer pays + Маркет's subsidy + cashback (all price parts), like the order sum in the cabinet
+            const sum = (o.items || []).reduce((s, it) => s + (it.prices || []).reduce((a, x) => a + (+x.total || (+x.costPerItem || 0) * (+it.count || 1)), 0), 0);
             const cnt = (o.items || []).reduce((s, it) => s + (+it.count || 1), 0) || 1;
             addOrders(st, d, cnt, sum, /CANCEL/i.test(o.status) ? cnt : 0);
             n++;
