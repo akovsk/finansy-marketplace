@@ -47,5 +47,5 @@ jobs:
             echo "Данные не изменились"
           else
             git commit -m "Данные на $(TZ=Europe/Moscow date +%d.%m.%Y)"
-            git push
+            git pull --rebase --autostash && git push
           fi
