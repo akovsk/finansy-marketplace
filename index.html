@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#1c1e22">
+<meta name="theme-color" content="#0b0b0c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,8 +19,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
 :root {
-  --color-fg:#e9eaec; --color-fg-muted:#9a9fa7; --color-bg:#1c1e22; --color-panel:#25282d; --color-border-line:#33373d;
-  --ts-track:#1f2226; --ts-thumb:#3a3e45; --ts-subtle:#2b2e34;
+  --color-fg:#ededed; --color-fg-muted:#8c8c8c; --color-bg:#0b0b0c; --color-panel:#161618; --color-border-line:#2a2a2d;
+  --ts-track:#111113; --ts-thumb:#2a2a2d; --ts-subtle:#1c1c1f;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
   --font-anthropic-sans:'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --font-anthropic-serif:'Source Serif 4', Georgia, 'Times New Roman', serif;
@@ -29,23 +29,23 @@
   --cds-gap-xs:4px; --cds-gap-sm:8px; --cds-gap-md:12px; --cds-gap-lg:16px; --cds-gap-xl:24px;
   --cds-pad-xs:4px; --cds-pad-sm:8px; --cds-pad-md:12px; --cds-pad-lg:16px; --cds-pad-xl:24px;
   --cds-radius:10px;
-  --cds-chart-muted:#6f757e; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#33373d; --cds-chart-axis:#6f757e; --cds-chart-reference:#6f757e;
-  --cds-text-secondary:#9a9fa7; --cds-surface-popover:#2d3036; --cds-border:#3d4249; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
+  --cds-chart-muted:#6b6b70; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#26262a; --cds-chart-axis:#6b6b70; --cds-chart-reference:#6b6b70;
+  --cds-text-secondary:#8c8c8c; --cds-surface-popover:#1f1f22; --cds-border:#343438; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
   color-scheme:dark;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --color-fg:#e9eaec; --color-fg-muted:#9a9fa7; --color-bg:#1c1e22; --color-panel:#25282d; --color-border-line:#33373d;
-  --ts-track:#1f2226; --ts-thumb:#3a3e45; --ts-subtle:#2b2e34;
+  --color-fg:#ededed; --color-fg-muted:#8c8c8c; --color-bg:#0b0b0c; --color-panel:#161618; --color-border-line:#2a2a2d;
+  --ts-track:#111113; --ts-thumb:#2a2a2d; --ts-subtle:#1c1c1f;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
-  --cds-chart-muted:#6f757e; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#33373d; --cds-chart-axis:#6f757e; --cds-chart-reference:#6f757e;
-  --cds-text-secondary:#9a9fa7; --cds-surface-popover:#2d3036; --cds-border:#3d4249; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
+  --cds-chart-muted:#6b6b70; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#26262a; --cds-chart-axis:#6b6b70; --cds-chart-reference:#6b6b70;
+  --cds-text-secondary:#8c8c8c; --cds-surface-popover:#1f1f22; --cds-border:#343438; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
   color-scheme:dark; } }
 :root[data-theme="dark"] {
-  --color-fg:#e9eaec; --color-fg-muted:#9a9fa7; --color-bg:#1c1e22; --color-panel:#25282d; --color-border-line:#33373d;
-  --ts-track:#1f2226; --ts-thumb:#3a3e45; --ts-subtle:#2b2e34;
+  --color-fg:#ededed; --color-fg-muted:#8c8c8c; --color-bg:#0b0b0c; --color-panel:#161618; --color-border-line:#2a2a2d;
+  --ts-track:#111113; --ts-thumb:#2a2a2d; --ts-subtle:#1c1c1f;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
-  --cds-chart-muted:#6f757e; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#33373d; --cds-chart-axis:#6f757e; --cds-chart-reference:#6f757e;
-  --cds-text-secondary:#9a9fa7; --cds-surface-popover:#2d3036; --cds-border:#3d4249; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
+  --cds-chart-muted:#6b6b70; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#26262a; --cds-chart-axis:#6b6b70; --cds-chart-reference:#6b6b70;
+  --cds-text-secondary:#8c8c8c; --cds-surface-popover:#1f1f22; --cds-border:#343438; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
   color-scheme:dark; }
 *, *::before, *::after { box-sizing:border-box; }
 html { -webkit-text-size-adjust:100%; }
