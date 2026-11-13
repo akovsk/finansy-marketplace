@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#14171c">
+<meta name="theme-color" content="#1c1e22">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,35 +15,37 @@
 <title>Финансы маркетплейсы</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
 :root {
-  --color-fg:#1d2330; --color-fg-muted:#5f6878; --color-bg:#fbfbfa; --color-panel:#f2f3f1; --color-border-line:#e1e3df;
-  --color-ok:#2f7d4f; --color-warn:#a66a00; --color-bad:#c0392b;
-  --c1:#3b6fb6; --c2:#e08a2c;
-  --font-anthropic-sans:'Onest', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --color-fg:#e9eaec; --color-fg-muted:#9a9fa7; --color-bg:#1c1e22; --color-panel:#25282d; --color-border-line:#33373d;
+  --ts-track:#1f2226; --ts-thumb:#3a3e45; --ts-subtle:#2b2e34;
+  --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
+  --font-anthropic-sans:'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --font-anthropic-serif:'Source Serif 4', Georgia, 'Times New Roman', serif;
   --cds-font-size-caption:12.5px; --cds-font-size-body:14.5px; --cds-font-size-heading:16px; --cds-font-size-title:2rem;
   --cds-font-weight-medium:600;
   --cds-gap-xs:4px; --cds-gap-sm:8px; --cds-gap-md:12px; --cds-gap-lg:16px; --cds-gap-xl:24px;
   --cds-pad-xs:4px; --cds-pad-sm:8px; --cds-pad-md:12px; --cds-pad-lg:16px; --cds-pad-xl:24px;
   --cds-radius:10px;
-  --cds-chart-muted:#9aa2ae; --cds-chart-status-critical:#c0392b; --cds-chart-grid:#e6e8e4; --cds-chart-axis:#9aa2ae; --cds-chart-reference:#9aa2ae;
-  --cds-text-secondary:#5f6878; --cds-surface-popover:#ffffff; --cds-border:#d9dcd6; --cds-shadow-popover:0 6px 24px rgba(20,25,35,.12);
-  color-scheme:light;
+  --cds-chart-muted:#6f757e; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#33373d; --cds-chart-axis:#6f757e; --cds-chart-reference:#6f757e;
+  --cds-text-secondary:#9a9fa7; --cds-surface-popover:#2d3036; --cds-border:#3d4249; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
+  color-scheme:dark;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#14171c; --color-panel:#1c2027; --color-border-line:#2b313a;
+  --color-fg:#e9eaec; --color-fg-muted:#9a9fa7; --color-bg:#1c1e22; --color-panel:#25282d; --color-border-line:#33373d;
+  --ts-track:#1f2226; --ts-thumb:#3a3e45; --ts-subtle:#2b2e34;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
-  --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
-  --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.45);
+  --cds-chart-muted:#6f757e; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#33373d; --cds-chart-axis:#6f757e; --cds-chart-reference:#6f757e;
+  --cds-text-secondary:#9a9fa7; --cds-surface-popover:#2d3036; --cds-border:#3d4249; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
   color-scheme:dark; } }
 :root[data-theme="dark"] {
-  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#14171c; --color-panel:#1c2027; --color-border-line:#2b313a;
+  --color-fg:#e9eaec; --color-fg-muted:#9a9fa7; --color-bg:#1c1e22; --color-panel:#25282d; --color-border-line:#33373d;
+  --ts-track:#1f2226; --ts-thumb:#3a3e45; --ts-subtle:#2b2e34;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
-  --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
-  --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.45);
+  --cds-chart-muted:#6f757e; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#33373d; --cds-chart-axis:#6f757e; --cds-chart-reference:#6f757e;
+  --cds-text-secondary:#9a9fa7; --cds-surface-popover:#2d3036; --cds-border:#3d4249; --cds-shadow-popover:0 8px 28px rgba(0,0,0,.5);
   color-scheme:dark; }
 *, *::before, *::after { box-sizing:border-box; }
 html { -webkit-text-size-adjust:100%; }
@@ -436,6 +438,72 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-desk { display:none; }
   .ts-tools .ts-search { width:100%; }
 }
+
+/* layout fixes */
+.ts-grid-main { align-items:stretch; gap:16px; }
+.ts-grid-main > .ts-sec { gap:16px; }
+.ts-grid-main > .ts-sec > .ts-panel:last-child { flex:1; }
+#trend .ts-chart { flex:1; display:flex; flex-direction:column; justify-content:center; }
+#todo { grid-column:1 / -1; }
+@media (min-width: 901px) { #todo .ts-acts { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px 36px; padding-left:20px; } }
+.ts-bar { margin-inline:-16px; padding-inline:16px; }
+@media (max-width: 640px) { .ts-bar { margin-inline:-12px; padding-inline:12px; } .ts-grid-main { align-items:stretch; } }
+
+/* ===== Minimal theme ===== */
+.ts { --ts-shadow:none; --ts-r:6px; --ts-r-sm:4px; gap:24px; font-size:13.5px; }
+.ts h1 { font-size:22px; font-weight:600; letter-spacing:-0.02em; }
+.ts h2 { font-size:16px; font-weight:600; }
+.ts h3 { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--color-fg-muted); }
+.ts-top { padding-bottom:4px; }
+/* bar & controls */
+.ts-bar { background:color-mix(in srgb, var(--color-bg) 90%, transparent); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); padding-block:0 12px; gap:12px; }
+.ts-chips { background:transparent; border:1px solid var(--color-border-line); border-radius:4px; padding:0; gap:0; }
+.ts-chips button { border-radius:0; padding:6px 12px; border-left:1px solid var(--color-border-line); }
+.ts-chips button:first-child { border-left:0; }
+.ts-chips button[aria-pressed="true"] { background:var(--color-fg); color:var(--color-panel); }
+.ts-seg { background:transparent; border:1px solid var(--color-border-line); border-radius:4px; padding:0; gap:0; }
+.ts-seg button { border-radius:0; border-left:1px solid var(--color-border-line); }
+.ts-seg button:first-child { border-left:0; }
+.ts-seg button[aria-selected="true"] { background:var(--ts-track); box-shadow:none; }
+.dash-select, .ts-search, .ts-btn, .ts-filters select { border-radius:4px; background-color:var(--color-panel); }
+.dash-select:hover, .ts-search:hover, .ts-btn:hover { border-color:var(--color-fg); }
+@media (min-width: 641px) {
+  .ts-tabs { background:transparent; border:0; border-bottom:1px solid var(--color-border-line); border-radius:0; padding:0; gap:24px; width:100%; }
+  .ts-tabs button { border-radius:0; padding:12px 0 11px; font-size:14px; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .ts-tabs button[aria-selected="true"] { background:transparent; box-shadow:none; border-bottom-color:var(--color-fg); }
+}
+/* surfaces: flat, hairlines */
+.ts-panel, .ts-mpc, .ts-in, .ts-card, .ts-abcc, .ts-glist, .ts-mlist, .ts-hl, .ts-tablewrap { background:var(--color-panel); box-shadow:none; border-radius:6px; }
+.ts-panel { padding:20px; gap:14px; }
+.ts-mpc::before { height:3px; }
+.ts-in { border-left-width:3px; }
+.ts-hl:hover, .ts-mpc:hover, .ts-in:hover, .ts-card:hover { border-color:var(--color-fg-muted); box-shadow:none; transform:none; }
+/* KPI strip: one ruled grid, large numbers */
+.ts-kpis { gap:1px; background:var(--color-border-line); border:1px solid var(--color-border-line); border-radius:6px; overflow:hidden; }
+.ts-kpi { background:var(--color-panel); border:0; border-radius:0; box-shadow:none; padding:16px 18px 14px; gap:4px; }
+.ts-kpi:hover { box-shadow:none; }
+.ts-kpi-l { font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:500; }
+.ts-kpi-v { font-size:28px; font-weight:600; letter-spacing:-0.03em; }
+.ts-mpc-big { font-size:26px; font-weight:600; letter-spacing:-0.03em; }
+.ts-lede { font-size:15px; }
+/* tables */
+.ts-table th { background:var(--color-panel); text-transform:uppercase; letter-spacing:.05em; font-size:10.5px; font-weight:600; border-bottom-color:var(--color-fg); }
+.ts-table tbody tr:hover td, .ts-store-row.ts-on td { background:var(--ts-subtle); }
+.ts-table tr.ts-strong td { background:var(--color-panel); border-top:1px solid var(--color-fg); }
+/* badges flatter */
+.ts-mp { border-radius:3px; letter-spacing:.02em; }
+.ts-badge { border-radius:3px; }
+.ts-ph { border-radius:4px; }
+.ts-acts li::marker { color:var(--color-fg-muted); font-weight:600; }
+@media (max-width: 640px) {
+  .ts h1 { font-size:20px; }
+  .ts-kpi { padding:12px 14px; }
+  .ts-kpi-v { font-size:22px; }
+  .ts-panel { padding:14px; }
+  #dash-root .ts-tabs { background:var(--color-panel); border-radius:0; box-shadow:none; border-top:1px solid var(--color-border-line); }
+  #dash-root .ts-tabs button[aria-selected="true"] { background:transparent; box-shadow:none; color:var(--color-fg); font-weight:600; text-decoration:underline; text-underline-offset:6px; text-decoration-thickness:2px; }
+  .ts-table th:first-child, .ts-table td:first-child { background:var(--color-panel); }
+}
 </style>
 
 <div class="ts">
@@ -509,12 +577,12 @@ th[aria-sort] { color:var(--color-fg); }
           <h3>Площадки</h3>
           <div class="ts-mprows" data-draw="mpshare" data-source="sales"></div>
         </div>
-        <div class="ts-panel" id="todo">
+      </div>
+      <div class="ts-panel" id="todo">
           <h3>Сделать в первую очередь</h3>
           <ol class="ts-acts" data-draw="topacts" data-source="sales"></ol>
           <button type="button" class="ts-btn" data-goto="insights" style="width:fit-content">Все рекомендации</button>
         </div>
-      </div>
     </div>
   </section>
 
@@ -1302,7 +1370,7 @@ dash.loader('sales', {
     });
     document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '30') ? 'true' : 'false'));
     document.querySelectorAll('.ts-sw-rev').forEach((e) => { e.style.background = dash.colors[0]; });
-    document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = dash.colors[1]; });
+    document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = 'var(--color-fg)'; });
     const v = T.view();
     const hasPrev = !v || !!v.prev;
     document.querySelectorAll('.ts-cmp-yes').forEach((e) => { e.hidden = !hasPrev; });
@@ -1564,7 +1632,7 @@ dash.loader('sales', {
     const { weekly, out } = T.buckets(v);
     const PAY = T.state.chart === 'pay';
     out.forEach((d) => { d.val = PAY ? d.pay : d.rev; d.parts = PAY ? d.byp : d.by; });
-    const W = Math.max(280, e.clientWidth), H = W < 520 ? 210 : 250;
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 210 : Math.round(Math.min(420, Math.max(250, W * 0.47)));
     const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
       .attr('aria-label', `Выручка ${weekly ? 'по неделям' : 'по дням'} столбцами и чистая прибыль линией за ${v.label}`);
     const ymin = Math.min(0, d3.min(out, (d) => d.np) || 0, d3.min(out, (d) => d.val) || 0);
