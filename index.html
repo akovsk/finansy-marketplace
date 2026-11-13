@@ -592,12 +592,9 @@ th[aria-sort] { color:var(--color-fg); }
     </div>
     <div class="ts-panel ts-bigchart" id="ordchart">
       <div class="ts-panel-h"><h3>Заказы и выкупы по площадкам</h3>
-        <div class="ts-och-ctl"><div class="ts-seg ts-seg-sm" role="tablist" aria-label="Единицы графика"><button type="button" role="tab" data-och="s" aria-selected="true">Рубли</button><button type="button" role="tab" data-och="n" aria-selected="false">Штуки</button></div></div></div>
+        <div class="ts-och-ctl"><div class="ts-seg ts-seg-sm" role="tablist" aria-label="Что показывать"><button type="button" role="tab" data-ochm="o" aria-selected="true">Заказы</button><button type="button" role="tab" data-ochm="b" aria-selected="false">Выкупы</button></div><div class="ts-seg ts-seg-sm" role="tablist" aria-label="Единицы графика"><button type="button" role="tab" data-och="s" aria-selected="true">Рубли</button><button type="button" role="tab" data-och="n" aria-selected="false">Штуки</button></div></div></div>
       <div class="ts-och-sum" data-draw="och-sum" data-source="sales"></div>
-      <h4 class="ts-och-h"><i class="ts-sw ts-sw-o"></i>Заказы по дням</h4>
-      <div class="ts-chart ts-chart-big" data-draw="och" data-m="o" data-source="sales"></div>
-      <h4 class="ts-och-h"><i class="ts-sw ts-sw-b"></i>Выкупы по дням</h4>
-      <div class="ts-chart ts-chart-big" data-draw="och" data-m="b" data-source="sales"></div>
+      <div class="ts-chart ts-chart-big" data-draw="och" data-source="sales"></div>
       <p class="ts-muted" data-draw="och-note" data-source="sales"></p>
     </div>
     <div class="ts-grid-main">
@@ -2301,63 +2298,61 @@ dash.loader('sales', {
   dash.draw('och', (e) => {
     const S = ordSeries(); e.replaceChildren();
     if (!S || !S.days.length) return;
-    const SUM = T.state.och === 's', k = SUM ? 1 : 0, main = e.dataset.m === 'b' ? 'b' : 'o', other = main === 'o' ? 'b' : 'o';
-    const oMps = new Set(); S.days.forEach((d) => Object.keys(d.o).forEach((mp) => oMps.add(mp)));
-    const lineOf = (d) => Object.entries(d[other]).reduce((a, [mp, x]) => a + (main === 'o' && !oMps.has(mp) ? 0 : x[k]), 0);
-    const D = S.days.map((d) => ({ d: d.d, raw: d, parts: T.MP_ORDER.map((mp) => [mp, (d[main][mp] || [0, 0])[k]]), line: null }));
-    D.forEach((d) => { d.total = d.parts.reduce((a, x) => a + x[1], 0); });
-    const W = Math.max(280, e.clientWidth), H = W < 520 ? 230 : 280;
-    const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', (main === 'o' ? 'Заказы' : 'Выкупы') + ' по дням по площадкам');
-    const ymax = Math.max(1, d3.max(D, (d) => Math.max(d.total, d.line || 0)));
+    const SUM = T.state.och === 's', k = SUM ? 1 : 0, main = T.state.ochm === 'b' ? 'b' : 'o';
+    const days = main === 'b' ? S.days.filter((d) => d.hasB) : S.days;
+    if (!days.length) { e.append(T.el('p', 'ts-chart-msg', 'Нет данных за этот период')); return; }
+    const mps = T.MP_ORDER.filter((mp) => days.some((d) => d[main][mp]));
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 260 : 320;
+    const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', (main === 'o' ? 'Заказы' : 'Выкупы') + ' по дням, линия на каждую площадку');
+    const val = (d, mp) => (d[main][mp] ? d[main][mp][k] : 0);
+    const ymax = Math.max(1, d3.max(days, (d) => d3.max(mps, (mp) => val(d, mp))) || 1);
     const y = d3.scaleLinear().domain([0, ymax]).nice();
     const ticks = y.ticks(W < 520 ? 4 : 6);
     const fmt = SUM ? T.short : (x) => T.num(x);
     const probe = svg.append('g');
     const tw = d3.max(ticks, (t) => probe.append('text').attr('class', 'ts-tick').text(fmt(t)).node().getComputedTextLength()) || 30;
     probe.remove();
-    const m = { t: 12, r: 8, b: 24, l: Math.ceil(tw) + 10 };
+    const m = { t: 14, r: 12, b: 24, l: Math.ceil(tw) + 10 };
     const iw = W - m.l - m.r, ih = H - m.t - m.b;
     y.range([m.t + ih, m.t]);
-    const x = d3.scaleBand().domain(D.map((d, i) => i)).range([m.l, m.l + iw]).paddingInner(D.length > 45 ? 0.18 : 0.32).paddingOuter(0.1);
-    const bw = x.bandwidth(), cx = (i) => x(i) + bw / 2;
+    const x = d3.scalePoint().domain(days.map((d, i) => i)).range([m.l + 8, m.l + iw - 8]);
     svg.append('g').selectAll('line').data(ticks).join('line').attr('class', (t) => (t === 0 ? 'ts-zero' : 'ts-gridl')).attr('x1', m.l).attr('x2', m.l + iw).attr('y1', (t) => y(t)).attr('y2', (t) => y(t));
     svg.append('g').selectAll('text').data(ticks).join('text').attr('class', 'ts-tick').attr('x', m.l - 6).attr('y', (t) => y(t)).attr('dy', '0.32em').attr('text-anchor', 'end').text(fmt);
-    const segs = [];
-    D.forEach((d, i) => { let acc = 0; d.parts.forEach(([mp, val]) => { if (val <= 0) return; segs.push({ i, mp, y0: acc, y1: acc + val }); acc += val; }); if (segs.length && segs[segs.length - 1].i === i) segs[segs.length - 1].top = true; });
-    svg.append('g').selectAll('rect').data(segs).join('rect')
-      .attr('x', (s) => x(s.i)).attr('width', bw).attr('y', (s) => y(s.y1)).attr('height', (s) => Math.max(0, y(s.y0) - y(s.y1)))
-      .attr('rx', (s) => (s.top ? Math.min(4, bw / 3) : 0)).style('fill', (s) => T.MP[s.mp].color)
-      .style('opacity', (s) => (D[s.i].d === S.partial || (main === 'b' && !D[s.i].raw.hasB) ? 0.55 : 1));
-    const L = D.map((d, i) => ({ i, v: d.line })).filter((o) => o.v != null);
-    svg.append('path').datum(L).attr('d', d3.line().x((o) => cx(o.i)).y((o) => y(o.v)).curve(d3.curveMonotoneX))
-      .style('fill', 'none').style('stroke', 'var(--color-fg)').style('stroke-width', 2.2).style('stroke-dasharray', other === 'b' ? null : '5 4');
-    if (L.length <= 40) svg.append('g').selectAll('circle').data(L).join('circle').attr('cx', (o) => cx(o.i)).attr('cy', (o) => y(o.v)).attr('r', 3).style('fill', 'var(--color-fg)');
-    const lastI = D.length - 1, step = Math.max(1, Math.ceil(D.length * 48 / iw));
-    svg.append('g').selectAll('text').data(D.map((d, i) => ({ d, i })).filter((o) => (lastI - o.i) % step === 0)).join('text')
-      .attr('class', 'ts-tick').attr('x', (o) => cx(o.i)).attr('y', H - 6).attr('text-anchor', 'middle').text((o) => o.d.d.slice(8, 10) + '.' + o.d.d.slice(5, 7));
+    const lastI = days.length - 1, step = Math.max(1, Math.ceil(days.length * 48 / iw));
+    svg.append('g').selectAll('text').data(days.map((d, i) => ({ d, i })).filter((o) => (lastI - o.i) % step === 0)).join('text')
+      .attr('class', 'ts-tick').attr('x', (o) => x(o.i)).attr('y', H - 6).attr('text-anchor', 'middle').text((o) => o.d.d.slice(8, 10) + '.' + o.d.d.slice(5, 7));
+    mps.forEach((mp) => {
+      let pts = days.map((d, i) => ({ i, v: val(d, mp), part: d.d === S.partial }));
+      // a marketplace whose data lags (Яндекс via Торгстат) must not drop to zero at the end
+      let lastData = -1; days.forEach((d, i) => { if (d[main][mp]) lastData = i; });
+      pts = pts.filter((p) => p.i <= lastData);
+      if (!pts.length) return;
+      const full = pts.filter((p) => !p.part), tail = pts.slice(-2);
+      const ln = d3.line().x((p) => x(p.i)).y((p) => y(p.v)).curve(d3.curveMonotoneX);
+      svg.append('path').datum(full).attr('d', ln).style('fill', 'none').style('stroke', T.MP[mp].color).style('stroke-width', 2.6).style('stroke-linejoin', 'round');
+      if (pts[pts.length - 1].part && tail.length === 2) svg.append('path').datum(tail).attr('d', d3.line().x((p) => x(p.i)).y((p) => y(p.v))).style('fill', 'none').style('stroke', T.MP[mp].color).style('stroke-width', 2).style('stroke-dasharray', '4 4').style('opacity', 0.7);
+      if (days.length <= 40) svg.append('g').selectAll('circle').data(pts).join('circle').attr('cx', (p) => x(p.i)).attr('cy', (p) => y(p.v)).attr('r', 3.2).style('fill', T.MP[mp].color).style('opacity', (p) => (p.part ? 0.6 : 1));
+    });
+    const guide = svg.append('line').attr('y1', m.t).attr('y2', m.t + ih).style('stroke', 'var(--cds-chart-axis)').style('stroke-dasharray', '3 3').style('opacity', 0);
     const tip = T.el('div', 'ts-tip'); tip.hidden = true; e.append(tip);
-    const show = (ev, d) => {
-      const i = D.indexOf(d), r = d.raw;
-      const dd = d.d.slice(8, 10) + '.' + d.d.slice(5, 7) + (d.d === S.partial ? ' (неполный день)' : '');
-      const lines = [T.el('div', 'ts-tip-h', dd)];
-      const blk = (key, title) => {
-        const n = otot(r[key], 0), sm = otot(r[key], 1);
-        lines.push(T.el('div', null, title + ': ' + T.rubFull(sm) + ' · ' + T.num(n) + ' шт.'));
-        T.MP_ORDER.forEach((mp) => { const v2 = r[key][mp]; if (!v2 || !v2[0]) return; const ln = T.el('div', 'ts-tip-h'); ln.append(T.mpChip(mp), document.createTextNode(' ' + T.rubFull(v2[1]) + ' · ' + T.num(v2[0]) + ' шт.')); lines.push(ln); });
-      };
-      blk('o', 'Заказы');
-      if (r.oc) lines.push(T.el('div', 'ts-tip-h', 'отмены: ' + T.num(r.oc)));
-      if (r.hasB) blk('b', 'Выкупы'); else lines.push(T.el('div', 'ts-tip-h', 'Выкупы за этот день ещё не выгружены'));
+    const show = (ev) => {
+      const [px] = d3.pointer(ev, svg.node());
+      let i = Math.round((px - x(0)) / (x.step() || 1)); i = Math.max(0, Math.min(lastI, i));
+      const d = days[i];
+      guide.attr('x1', x(i)).attr('x2', x(i)).style('opacity', 1);
+      const lines = [T.el('div', 'ts-tip-h', d.d.slice(8, 10) + '.' + d.d.slice(5, 7) + (d.d === S.partial ? ' (неполный день)' : '') + ' · ' + (main === 'o' ? 'заказы' : 'выкупы'))];
+      let sn = 0, ss = 0;
+      mps.forEach((mp) => { const v2 = d[main][mp] || [0, 0]; sn += v2[0]; ss += v2[1]; const ln = T.el('div'); ln.append(T.mpChip(mp), document.createTextNode(' ' + T.rubFull(v2[1]) + ' · ' + T.num(v2[0]) + ' шт.')); lines.push(ln); });
+      lines.push(T.el('div', 'ts-tip-h', 'Всего: ' + T.rubFull(ss) + ' · ' + T.num(sn) + ' шт.' + (main === 'o' && d.oc ? ' · отмен ' + T.num(d.oc) : '')));
       tip.replaceChildren(...lines); tip.hidden = false;
       const sc = e.clientWidth / W, w2 = tip.offsetWidth;
-      let left = cx(i) * sc + 12; if (left + w2 > e.clientWidth) left = cx(i) * sc - w2 - 12;
+      let left = x(i) * sc + 12; if (left + w2 > e.clientWidth) left = x(i) * sc - w2 - 12;
       tip.style.left = Math.max(0, left) + 'px'; tip.style.top = (m.t + 4) + 'px';
     };
-    svg.append('g').selectAll('rect').data(D).join('rect').attr('class', 'ts-hit')
-      .attr('x', (d, i) => x(i) - (x.step() - bw) / 2).attr('width', x.step()).attr('y', m.t).attr('height', ih)
-      .on('mouseenter', show).on('click', show).on('mouseleave', () => { tip.hidden = true; });
-    const lg = T.el('div', 'ts-legend'); lg.style.fontSize = '11.5px';
-    T.MP_ORDER.forEach((mp) => { if (!segs.some((s) => s.mp === mp)) return; const sp = T.el('span'); const sw = T.el('i', 'ts-sw'); sw.style.background = T.MP[mp].color; sp.append(sw, document.createTextNode(T.MP[mp].short)); lg.append(sp); });
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', iw).attr('height', ih).style('fill', 'transparent').style('cursor', 'crosshair')
+      .on('mousemove', show).on('click', show).on('mouseleave', () => { tip.hidden = true; guide.style('opacity', 0); });
+    const lg = T.el('div', 'ts-legend'); lg.style.fontSize = '12px';
+    T.MP_ORDER.forEach((mp) => { const sp = T.el('span'); const sw = T.el('i', 'ts-sw'); sw.style.background = T.MP[mp].color; sp.append(sw, document.createTextNode(T.MP[mp].name + (mps.includes(mp) ? '' : ' — нет данных'))); if (!mps.includes(mp)) sp.style.opacity = '0.5'; lg.append(sp); });
     e.append(lg);
   });
 
