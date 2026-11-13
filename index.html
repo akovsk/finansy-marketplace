@@ -618,6 +618,10 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-chart-big { min-height:165px !important; }
   #ordchart > .ts-muted { display:none; }
 }
+.ts-ord-today { flex:0 1 calc(50% - 5px); max-width:calc(50% - 5px); border-color:color-mix(in srgb, #2b6cff 55%, var(--color-border-line)); border-left:4px solid #2b6cff; background:linear-gradient(135deg, color-mix(in srgb, #2b6cff 16%, var(--color-panel)), var(--color-panel) 75%); }
+.ts-ord-today span { color:#5b8cff; font-weight:600; }
+.ts-ord-today b { color:var(--color-fg); }
+@media (max-width: 640px) { .ts-ord-today { flex:0 1 calc(50% - 4px); max-width:calc(50% - 4px); } .ts-ord-today span { white-space:normal; line-height:1.2; } .ts-ord-today small { white-space:normal; } }
 </style>
 
 <div class="ts">
@@ -2131,14 +2135,14 @@ dash.loader('sales', {
     if (!M || !M.orders) { e.style.display = 'none'; return; }
     const p = dash.params();
     const tot = (day) => { let n = 0, s = 0; Object.entries(M.orders).forEach(([id, o]) => { if (!T.sidPass(id, p)) return; const d = o[day]; if (d) { n += d[0]; s += d[1]; } }); return [n, s]; };
-    const today = M.today, yd = new Date(Date.parse(today + 'T00:00:00Z') - 864e5).toISOString().slice(0, 10), wk = new Date(Date.parse(today + 'T00:00:00Z') - 7 * 864e5).toISOString().slice(0, 10);
-    const a = tot(today), b = tot(yd), c = tot(wk);
-    if (!a[0] && !b[0]) { e.style.display = 'none'; return; }
+    const today = M.today;
+    const a = tot(today);
+    if (!today) { e.style.display = 'none'; return; }
     e.style.display = '';
-    const cell = (label, v, cmp) => { const d = T.el('div', 'ts-ord'); d.append(T.el('span', null, label), T.el('b', null, T.num(v[0]) + ' шт.'), T.el('small', null, T.rub(v[1]) + (cmp ? ' · ' + cmp : ''))); return d; };
-    const ch = c[1] ? T.signed(b[1] / c[1] - 1, (x) => T.pct(x, 0)) + ' к тому же дню нед. назад' : '';
     const mpsHave = [...new Set(Object.keys(M.orders).filter((id) => T.sidPass(id, p) && T.SID[id]).map((id) => T.SID[id].mp))].map((mp) => T.MP[mp].short).join(' + ');
-    e.append(T.el('div', 'ts-ord-h', 'Заказы ' + mpsHave + ' (из кабинетов)'), cell('Сегодня (неполный день)', a), cell('Вчера', b, ch));
+    const d = T.el('div', 'ts-ord ts-ord-today');
+    d.title = 'Все площадки: ' + mpsHave + '. День ещё идёт.'; d.append(T.el('span', null, 'Заказы сегодня'), T.el('b', null, T.num(a[0]) + ' шт.'), T.el('small', null, T.rub(a[1]) + ' · все площадки'));
+    e.append(d);
   });
 
   /* ---- Stock page ---- */
