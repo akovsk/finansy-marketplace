@@ -70,29 +70,42 @@ async function wbStore(st) {
     (rows || []).forEach((r) => { const d = String(r.date).slice(0, 10); if (d < ago(30)) return; addOrders(st, d, 1, +r.priceWithDisc || 0, r.isCancel ? 1 : 0); });
     return (rows || []).length + ' orders';
   });
-  // Card funnel for the last 30 days
+  // Card funnel for the last 30 days (WB moved this method in 2026: v3 sales-funnel)
   await step(st, 'funnel', async () => {
-    let page = 1, n = 0, more = true;
-    while (more && page < 30) {
-      const j = await wb(st, 'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/detail', { period: { begin: ago(30) + ' 00:00:00', end: ago(1) + ' 23:59:59' }, page });
-      const cards = (j && j.data && j.data.cards) || [];
-      cards.forEach((c) => {
-        const s = (c.statistics && c.statistics.selectedPeriod) || {};
-        if (!s.openCardCount && !s.ordersCount) return;
-        OUT.funnel[K(st, c.nmID)] = { v: R(s.openCardCount), c: R(s.addToCartCount), o: R(s.ordersCount), os: R(s.ordersSumRub), b: R(s.buyoutsCount), bp: +s.buyoutPercent || 0 };
-        n++;
+    const URL3 = 'https://seller-analytics-api.wildberries.ru/api/analytics/v3/sales-funnel/products';
+    let n = 0, first = null;
+    for (let off = 0; off < 20000; off += 1000) {
+      const j = await wb(st, URL3, { selectedPeriod: { start: ago(30), end: ago(1) }, limit: 1000, offset: off });
+      const list = (j && j.data && (j.data.products || j.data.cards || j.data.items)) || (j && (j.products || j.cards)) || [];
+      if (!first) { first = list[0]; log('  funnel sample', JSON.stringify(first || j).slice(0, 900)); }
+      list.forEach((c) => {
+        const p = c.product || c;
+        const nm = p.nmId || p.nmID || c.nmId || c.nmID;
+        const s0 = (c.statistic || c.statistics || {});
+        const s = s0.selected || s0.selectedPeriod || s0;
+        const g = (...ks) => { for (const k of ks) if (s[k] != null) return +s[k]; return 0; };
+        if (!nm) return;
+        const f = { v: R(g('openCount', 'openCardCount')), c: R(g('cartCount', 'addToCartCount')), o: R(g('orderCount', 'ordersCount')), os: R(g('orderSum', 'ordersSumRub')), b: R(g('buyoutCount', 'buyoutsCount')), bp: g('buyoutPercent') };
+        if (!f.v && !f.o) return;
+        OUT.funnel[K(st, nm)] = f; n++;
       });
-      more = !!(j && j.data && j.data.isNextPage);
-      page++;
-      if (more) await sleep(21000);
+      if (list.length < 1000) break;
+      await sleep(21000);
     }
     return n + ' cards';
   });
-  // Weekly financial reports (realization): what WB actually transfers
+  // Weekly financial reports (realization): what WB actually transfers. Find the live path first.
   await step(st, 'fin', async () => {
+    const CAND = ['https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod', 'https://finance-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod', 'https://finance-api.wildberries.ru/api/v1/supplier/reportDetailByPeriod', 'https://statistics-api.wildberries.ru/api/v1/supplier/reportDetailByPeriod', 'https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed'];
+    let base = null;
+    for (const u of CAND) {
+      try { await wb(st, u + '?dateFrom=' + ago(14) + '&dateTo=' + TODAY + '&limit=1&rrdid=0'); base = u; break; } catch (e) { log('  fin probe', e.message.slice(0, 160)); if (!/404/.test(e.message)) { base = u; break; } }
+    }
+    if (!base) throw new Error('no live realization report path');
+    await sleep(61000);
     let rrdid = 0, rows = [];
     for (let i = 0; i < 10; i++) {
-      const j = await wb(st, 'https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=' + ago(63) + '&dateTo=' + TODAY + '&limit=100000&rrdid=' + rrdid);
+      const j = await wb(st, base + '?dateFrom=' + ago(63) + '&dateTo=' + TODAY + '&limit=100000&rrdid=' + rrdid);
       if (!Array.isArray(j) || !j.length) break;
       rows = rows.concat(j);
       rrdid = j[j.length - 1].rrd_id;
@@ -153,9 +166,11 @@ async function wbStore(st) {
     const names = {};
     for (let i = 0; i < ids.length; i += 50) {
       try {
-        const info = await wb(st, 'https://advert-api.wildberries.ru/adv/v1/promotion/adverts', ids.slice(i, i + 50));
-        (info || []).forEach((a) => { names[a.advertId] = { name: a.name, status: a.status }; });
-      } catch (e) { log('  adverts info:', e.message.slice(0, 120)); }
+        const info = await wb(st, 'https://advert-api.wildberries.ru/api/advert/v2/adverts?ids=' + ids.slice(i, i + 50).join(','));
+        const arr = Array.isArray(info) ? info : (info && (info.adverts || info.data)) || [];
+        if (i === 0) log('  advert sample', JSON.stringify(arr[0] || info).slice(0, 400));
+        arr.forEach((a) => { const id = a.advertId || a.id; names[id] = { name: a.name || (a.settings && a.settings.name) || '', status: a.status || 0 }; });
+      } catch (e) { log('  adverts info:', e.message.slice(0, 160)); }
       await sleep(300);
     }
     let got = 0;
@@ -216,22 +231,38 @@ async function ozStore(st) {
     rows.forEach((r) => { const m = r.metrics || []; addOrders(st, String(r.dimensions[0].id).slice(0, 10), +m[0] || 0, +m[1] || 0, +m[2] || 0); });
     return rows.length + ' days';
   });
-  // Weekly accruals: what Ozon actually credits
+  // Weekly accruals: what Ozon actually credits, summed from the transaction list (Mon-Sun weeks)
   await step(st, 'fin', async () => {
-    const weeks = [];
     const now = new Date(TODAY + 'T00:00:00Z');
     const mon = new Date(now.getTime() - ((now.getUTCDay() + 6) % 7) * DAY);
-    for (let i = 8; i >= 0; i--) {
-      const a = new Date(mon.getTime() - i * 7 * DAY), b = new Date(a.getTime() + 7 * DAY - 1000);
-      const j = await oz(st, '/v3/finance/transaction/totals', { date: { from: a.toISOString(), to: b.toISOString() }, posting_number: '', transaction_type: 'all' });
-      const t = (j && j.result) || {};
-      const w = { from: iso(a), to: iso(b), sales: R(t.accruals_for_sale), commission: R(t.sale_commission), logistics: R(t.processing_and_delivery), refunds: R(t.refunds_and_cancellations), services: R(t.services_amount), compensation: R(t.compensation_amount), other: R(t.others_amount) };
-      w.payout = w.sales + w.commission + w.logistics + w.refunds + w.services + w.compensation + w.other;
-      weeks.push(w);
-      await sleep(400);
+    const start = new Date(mon.getTime() - 8 * 7 * DAY);
+    const W = {};
+    const wkOf = (d) => { const t = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); const m = new Date(t.getTime() - ((t.getUTCDay() + 6) % 7) * DAY); return iso(m); };
+    let ops = 0, sample = false;
+    for (let a = start; a < now; a = new Date(a.getTime() + 28 * DAY)) {
+      const b = new Date(Math.min(a.getTime() + 28 * DAY - 1000, now.getTime() + DAY - 1000));
+      for (let page = 1; page < 200; page++) {
+        const j = await oz(st, '/v3/finance/transaction/list', { filter: { date: { from: a.toISOString(), to: b.toISOString() }, operation_type: [], posting_number: '', transaction_type: 'all' }, page, page_size: 1000 });
+        const r = (j && j.result) || {};
+        const list = r.operations || [];
+        if (!sample && list[0]) { sample = true; log('  fin sample', JSON.stringify(list[0]).slice(0, 500)); }
+        list.forEach((o) => {
+          const k = wkOf(o.operation_date);
+          const w = (W[k] = W[k] || { from: k, to: iso(new Date(k + 'T00:00:00Z').getTime() + 6 * DAY), sales: 0, commission: 0, logistics: 0, services: 0, other: 0, payout: 0 });
+          const sv = (o.services || []).reduce((s, x) => s + (+x.price || 0), 0);
+          w.sales += +o.accruals_for_sale || 0;
+          w.commission += +o.sale_commission || 0;
+          w.logistics += (+o.delivery_charge || 0) + (+o.return_delivery_charge || 0);
+          w.services += sv;
+          w.payout += +o.amount || 0;
+          ops++;
+        });
+        if (page >= (r.page_count || 1)) break;
+        await sleep(300);
+      }
     }
-    OUT.fin[st.id] = weeks;
-    return weeks.length + ' weeks';
+    OUT.fin[st.id] = Object.values(W).map((w) => { w.other = w.payout - w.sales - w.commission - w.logistics - w.services; for (const k in w) if (typeof w[k] === 'number') w[k] = R(w[k]); return w; }).sort((x, y) => (x.from < y.from ? -1 : 1));
+    return ops + ' operations, ' + OUT.fin[st.id].length + ' weeks';
   });
   // Prices (by offer_id, mapped to sku through the stocks call)
   await step(st, 'prices', async () => {
@@ -248,6 +279,7 @@ async function ozStore(st) {
     return n + ' prices';
   });
   // Reviews (needs Premium Plus on Ozon; skipped quietly if not available)
+  if (OUT.status[st.id] && /403/.test(String((OUT.status.oz1 || {}).reviews))) return;
   await step(st, 'reviews', async () => {
     let all = [], last_id = '';
     for (let i = 0; i < 20; i++) {
