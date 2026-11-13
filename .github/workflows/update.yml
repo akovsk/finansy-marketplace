@@ -36,6 +36,7 @@ jobs:
           OZON_SAKOVSKY_API_KEY: ${{ secrets.OZON_SAKOVSKY_API_KEY }}
           OZON_SUAVISS_CLIENT_ID: ${{ secrets.OZON_SUAVISS_CLIENT_ID }}
           OZON_SUAVISS_API_KEY: ${{ secrets.OZON_SUAVISS_API_KEY }}
+          YM_API_KEY: ${{ secrets.YM_API_KEY }}
         run: node api.mjs
 
       - name: Закоммитить данные
