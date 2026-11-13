@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#14171c">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f5f8">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121519">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,7 +20,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
 :root {
-  --color-fg:#1d2330; --color-fg-muted:#5f6878; --color-bg:#fbfbfa; --color-panel:#f2f3f1; --color-border-line:#e1e3df;
+  --color-fg:#1a2030; --color-fg-muted:#5f6878; --color-bg:#f4f5f8; --color-panel:#ffffff; --color-border-line:#e4e7ec;
+  --ts-track:#e9ecf1; --ts-thumb:#ffffff; --ts-subtle:#f7f8fa;
   --color-ok:#2f7d4f; --color-warn:#a66a00; --color-bad:#c0392b;
   --c1:#3b6fb6; --c2:#e08a2c;
   --font-anthropic-sans:'Onest', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -34,13 +36,15 @@
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#14171c; --color-panel:#1c2027; --color-border-line:#2b313a;
+  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#121519; --color-panel:#1b1f26; --color-border-line:#2a3039;
+  --ts-track:#0d1014; --ts-thumb:#2a303a; --ts-subtle:#21262e;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
   --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
   --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.45);
   color-scheme:dark; } }
 :root[data-theme="dark"] {
-  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#14171c; --color-panel:#1c2027; --color-border-line:#2b313a;
+  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#121519; --color-panel:#1b1f26; --color-border-line:#2a3039;
+  --ts-track:#0d1014; --ts-thumb:#2a303a; --ts-subtle:#21262e;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
   --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
   --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.45);
@@ -436,14 +440,63 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-desk { display:none; }
   .ts-tools .ts-search { width:100%; }
 }
+
+/* ===== Visual refresh ===== */
+.ts { gap:20px; }
+.ts-brandrow { display:flex; align-items:center; gap:14px; }
+.ts-logo { width:44px; height:44px; border-radius:12px; flex:none; box-shadow:0 0 0 1px var(--color-border-line), 0 2px 8px rgba(15,20,30,.18); }
+.ts h1 { font-size:26px; letter-spacing:-0.02em; }
+.ts-bar { background:color-mix(in srgb, var(--color-bg) 82%, transparent); -webkit-backdrop-filter:saturate(1.4) blur(12px); backdrop-filter:saturate(1.4) blur(12px); padding-block:10px; margin-inline:-16px; padding-inline:16px; }
+.ts-tabs, .ts-seg, .ts-chips { background:var(--ts-track); border-color:transparent; }
+.ts-tabs button[aria-selected="true"], .ts-seg button[aria-selected="true"] { background:var(--ts-thumb); box-shadow:0 1px 2px rgba(15,20,30,.10), 0 1px 6px rgba(15,20,30,.06); }
+.ts-tabs button, .ts-seg button, .ts-chips button, .ts-btn, .ts-hl, .ts-mpc, .ts-in, .ts-kpi, .ts-card, .ts-abcc, .dash-select { transition:background-color .15s, color .15s, border-color .15s, box-shadow .2s, transform .2s; }
+.dash-select, .ts-search { background-color:var(--color-panel); border-color:var(--color-border-line); }
+.dash-select:hover, .ts-search:hover { border-color:var(--color-fg-muted); }
+.ts-btn { background:var(--color-panel); }
+.ts { --ts-shadow:0 1px 2px rgba(16,24,40,.04), 0 2px 10px rgba(16,24,40,.04); --ts-shadow-hi:0 2px 4px rgba(16,24,40,.06), 0 10px 28px rgba(16,24,40,.10); --ts-r:16px; }
+.ts-panel { padding:18px 20px; gap:12px; }
+.ts-kpi { padding:14px 16px; gap:3px; position:relative; overflow:hidden; }
+.ts-kpi-l { font-size:12.5px; }
+.ts-kpi-v { font-size:24px; font-weight:700; }
+.ts-kpi:hover, .ts-mpc:hover, .ts-in:hover, .ts-card:hover, .ts-abcc:hover { box-shadow:var(--ts-shadow-hi); border-color:var(--color-border-line); }
+.ts-hl { background:var(--color-panel); box-shadow:var(--ts-shadow); }
+.ts-hl:hover { box-shadow:var(--ts-shadow-hi); border-color:var(--color-border-line); }
+@media (prefers-reduced-motion: no-preference) { .ts-mpc:hover, .ts-in:hover, .ts-hl:hover, .ts-card:hover { transform:translateY(-2px); } }
+.ts-tablewrap { background:var(--color-panel); }
+.ts-table th { background:var(--ts-subtle); }
+.ts-table tbody tr:hover td, .ts-table tr.ts-strong td, .ts-store-row.ts-on td { background:var(--ts-subtle); }
+.ts-ph { border-radius:12px; }
+.ts-grid-main { align-items:stretch; gap:16px; }
+.ts-grid-main > .ts-sec { gap:16px; }
+.ts-grid-main > .ts-sec > .ts-panel:last-child { flex:1; }
+#trend .ts-chart { flex:1; display:flex; flex-direction:column; justify-content:center; }
+#todo { grid-column:1 / -1; }
+@media (min-width: 901px) {
+  #todo .ts-acts { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px 36px; padding-left:20px; }
+}
+.ts-acts li::marker { color:var(--color-ok); }
+@media (max-width: 640px) {
+  .ts h1 { font-size:20px; }
+  .ts-logo { width:36px; height:36px; border-radius:10px; }
+  .ts-brandrow { gap:10px; }
+  .ts-bar { margin-inline:-12px; padding-inline:12px; }
+  .ts-grid-main { align-items:stretch; }
+  .ts-kpi-v { font-size:20px; }
+  .ts-panel { padding:14px 15px; }
+  #dash-root .ts-tabs { background:color-mix(in srgb, var(--color-panel) 88%, transparent); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+  #dash-root .ts-tabs button[aria-selected="true"] { background:var(--ts-track); box-shadow:none; }
+  .ts-table th:first-child, .ts-table td:first-child { background:var(--color-panel); }
+  .ts-table th:first-child, .ts-table tr.ts-strong td:first-child { background:var(--ts-subtle); }
+}
 </style>
 
 <div class="ts">
   <header class="ts-top" id="top">
+    <div class="ts-brandrow"><img class="ts-logo" src="icon-180.png" alt="" width="44" height="44">
     <div class="ts-brand">
       <h1>Финансы маркетплейсы</h1>
       <p class="ts-muted"><span class="ts-mp ts-mp-wb">Wildberries</span><span class="ts-mp ts-mp-oz">Ozon</span><span class="ts-mp ts-mp-ym">Яндекс Маркет</span> 5 магазинов · данные Торгстат 01.06–12.11.2026</p>
-    </div>
+    </div></div>
   </header>
 
   <div class="ts-bar" id="bar">
@@ -509,12 +562,12 @@ th[aria-sort] { color:var(--color-fg); }
           <h3>Площадки</h3>
           <div class="ts-mprows" data-draw="mpshare" data-source="sales"></div>
         </div>
-        <div class="ts-panel" id="todo">
+      </div>
+      <div class="ts-panel" id="todo">
           <h3>Сделать в первую очередь</h3>
           <ol class="ts-acts" data-draw="topacts" data-source="sales"></ol>
           <button type="button" class="ts-btn" data-goto="insights" style="width:fit-content">Все рекомендации</button>
         </div>
-      </div>
     </div>
   </section>
 
@@ -1302,7 +1355,7 @@ dash.loader('sales', {
     });
     document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '30') ? 'true' : 'false'));
     document.querySelectorAll('.ts-sw-rev').forEach((e) => { e.style.background = dash.colors[0]; });
-    document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = dash.colors[1]; });
+    document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = 'var(--color-fg)'; });
     const v = T.view();
     const hasPrev = !v || !!v.prev;
     document.querySelectorAll('.ts-cmp-yes').forEach((e) => { e.hidden = !hasPrev; });
@@ -1564,7 +1617,7 @@ dash.loader('sales', {
     const { weekly, out } = T.buckets(v);
     const PAY = T.state.chart === 'pay';
     out.forEach((d) => { d.val = PAY ? d.pay : d.rev; d.parts = PAY ? d.byp : d.by; });
-    const W = Math.max(280, e.clientWidth), H = W < 520 ? 210 : 250;
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 210 : Math.round(Math.min(420, Math.max(250, W * 0.47)));
     const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
       .attr('aria-label', `Выручка ${weekly ? 'по неделям' : 'по дням'} столбцами и чистая прибыль линией за ${v.label}`);
     const ymin = Math.min(0, d3.min(out, (d) => d.np) || 0, d3.min(out, (d) => d.val) || 0);
