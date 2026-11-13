@@ -2017,13 +2017,16 @@ dash.loader('sales', {
     if (!ids.length) { if (sec) sec.style.display = 'none'; return; }
     if (sec) sec.style.display = '';
     const weeks = new Map();
-    ids.forEach((id) => M.fin[id].forEach((w) => { const k = w.from; let x = weeks.get(k); if (!x) weeks.set(k, x = { from: w.from, to: w.to, by: {}, tot: 0, sales: 0 }); x.by[id] = (x.by[id] || 0) + w.payout; x.tot += w.payout; x.sales += w.sales || 0; }));
+    const mon = (s) => { const t = Date.parse(s + 'T00:00:00Z'); const d = new Date(t).getUTCDay(); return new Date(t - ((d + 6) % 7) * 864e5).toISOString().slice(0, 10); };
+    const plus6 = (s) => new Date(Date.parse(s + 'T00:00:00Z') + 6 * 864e5).toISOString().slice(0, 10);
+    const today = M.today || '';
+    ids.forEach((id) => M.fin[id].forEach((w) => { const k = mon(w.from); let x = weeks.get(k); if (!x) weeks.set(k, x = { from: k, to: plus6(k), by: {}, tot: 0, sales: 0 }); x.by[id] = (x.by[id] || 0) + w.payout; x.tot += w.payout; x.sales += w.sales || 0; }));
     const W = [...weeks.values()].sort((a, b) => (a.from < b.from ? -1 : 1)).slice(-9);
     const mx = Math.max(1, ...W.map((w) => Math.abs(w.tot)));
     const fd = (s) => s.slice(8, 10) + '.' + s.slice(5, 7);
     W.slice().reverse().forEach((w) => {
       const row = T.el('div', 'ts-wkrow');
-      row.append(T.el('span', 'ts-wk-d', fd(w.from) + '–' + fd(w.to)));
+      row.append(T.el('span', 'ts-wk-d', fd(w.from) + '–' + fd(w.to) + (w.to >= today ? '*' : '')));
       const bar = T.el('div', 'ts-wk-bar');
       ids.forEach((id) => { const v = w.by[id] || 0; if (v <= 0) return; const i = T.el('i'); i.style.width = (v / mx * 100) + '%'; i.style.background = T.MP[T.SID[id].mp].color; i.title = T.SID[id].name + ': ' + T.rubFull(v); bar.append(i); });
       row.append(bar, T.el('b', w.tot < 0 ? 'ts-neg' : null, T.rub(w.tot)));
@@ -2032,6 +2035,7 @@ dash.loader('sales', {
     const lg = T.el('div', 'ts-legend'); lg.style.fontSize = '11px';
     ids.forEach((id) => { const sp = T.el('span'); const sw = T.el('i', 'ts-sw'); sw.style.background = T.MP[T.SID[id].mp].color; sp.append(sw, document.createTextNode(T.SID[id].name)); lg.append(sp); });
     box.append(lg);
+    box.append(T.el('p', 'ts-muted', '* текущая неделя, ещё не закрыта. WB публикует финотчёт раз в неделю с задержкой, поэтому последняя неделя WB появляется позже Ozon.'));
   });
 
   dash.draw('catlist', (box) => {
