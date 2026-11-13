@@ -667,6 +667,21 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-ord-pot.ts-neg b { color:var(--color-bad); }
   .ts-ord-pot small { opacity:.8; }
 }
+.ts-chips .ts-mob { display:none; }
+/* Phone overview order: today → period → orders chart → KPI tiles → the rest */
+@media (max-width: 640px) {
+  .ts-chips .ts-mob { display:inline-block; }
+  .ts-filters-in { flex-wrap:nowrap !important; }
+  .ts-filters-in.ts-fopen { flex-wrap:wrap !important; }
+  .ts-filters-in .ts-chips { flex:1 1 auto; display:flex; min-width:0; }
+  .ts-filters-in .ts-chips button { flex:1 1 auto; padding:5px 4px; font-size:12.5px; }
+  .ts-filters-in .ts-ftog { flex:none; padding:5px 10px; font-size:12.5px; }
+  #overview > .ts-orders { order:1; }
+  #overview > #filters { order:2; }
+  #overview > #ordchart { order:3; }
+  #overview > .ts-kpis { order:4; }
+  #overview > .ts-grid-main { order:5; }
+}
 </style>
 
 <div class="ts">
@@ -688,7 +703,7 @@ th[aria-sort] { color:var(--color-fg); }
       <button type="button" role="tab" data-tab="rk" aria-selected="false"><svg class="ts-ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM16 8a5 5 0 0 1 0 8M19 5a9 9 0 0 1 0 14"/></svg><span>Реклама</span></button>
     </nav>
     <div class="ts-filters" id="filters">
-      <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
+      <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" class="ts-mob" data-period="1">1 дн</button><button type="button" class="ts-mob" data-period="3">3 дн</button><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
       <button type="button" class="ts-btn ts-ftog" id="f-toggle" aria-expanded="false">Фильтры<span id="f-count"></span></button>
       <select class="dash-select" id="f-period" aria-label="Период" data-draw="opt-period" data-source="sales">
         <option value="7">7 дней</option>
@@ -1064,14 +1079,16 @@ window.T = (function () {
     return { issues, rec, out };
   }
 
-  let cache = { data: null, key: null };
-  function view() {
+  let cache = { data: null, key: null }, cache2 = { data: null, key: null };
+  // po: optional parameter override (e.g. a fixed period), cached separately from the main view
+  function view(po) {
     const s = dash.data('sales');
     const m = meta();
     if (s.status !== 'ok' || !m) return null;
-    const p = dash.params();
+    const p = po ? Object.assign({}, dash.params(), po) : dash.params();
     const key = [p.period, p.mp, p.store, p.brand, p.cat].join('|');
-    if (cache.data === s.data && cache.key === key) return cache.v;
+    const C = po ? cache2 : cache;
+    if (C.data === s.data && C.key === key) return C.v;
     const r = range(p.period, m.last);
     const A = iso(r.a), B = iso(r.b), PA = r.prev ? iso(r.prev.a) : null, PB = r.prev ? iso(r.prev.b) : null;
     const cur = zero(), prev = zero();
@@ -1131,7 +1148,7 @@ window.T = (function () {
     const v = { r, cur, prev: r.prev ? prev : null, daily, stores: [...stores.values()].sort((a, b) => b.rev - a.rev), prods: list, active, sold, totRev: tot,
       mps: [...mps.values()].sort((a, b) => b.rev - a.rev), brands: [...brands.values()], cats: [...cats.values()],
       label: dm(r.a) + '–' + dmy(r.b), prevLabel: r.prev ? dm(r.prev.a) + '–' + dmy(r.prev.b) : null };
-    cache = { data: s.data, key, v };
+    if (po) cache2 = { data: s.data, key, v }; else cache = { data: s.data, key, v };
     return v;
   }
 
@@ -2176,7 +2193,7 @@ dash.loader('sales', {
     const last = T.iso(m.last), first = T.iso(0);
     if (perKey === last) { sel.value = dash.params().period || '7'; return; }
     perKey = last;
-    const o = [['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
+    const o = [['1', '1 день'], ['3', '3 дня'], ['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
     let y = +first.slice(0, 4), mo = +first.slice(5, 7);
     const ly = +last.slice(0, 4), lm = +last.slice(5, 7);
     while (y < ly || (y === ly && mo <= lm)) {
@@ -2204,8 +2221,8 @@ dash.loader('sales', {
     d.title = 'Все площадки: ' + mpsHave + '. День ещё идёт.'; d.append(T.el('span', null, 'Заказы сегодня'), T.el('b', null, T.num(a[0]) + ' шт.'), T.el('small', null, T.rub(a[1]) + ' · все площадки'));
     const two = T.el('div', 'ts-ord-two');
     const half = (v, l) => { const h = T.el('div'); h.append(T.el('b', null, v), T.el('small', null, l)); return h; };
-    // expected profit: each store's today orders × its net margin (net profit ÷ revenue) for the selected period
-    const v = T.view(); let pot = null;
+    // expected profit: each store's today orders × its net margin (net profit ÷ revenue) over the last 30 days
+    const v = T.view({ period: '30' }); let pot = null;
     if (v && v.stores && v.stores.length) {
       const rate = {}; let R = 0, N = 0;
       v.stores.forEach((st) => { if (st.rev > 0) { rate[st.store] = st.np / st.rev; R += st.rev; N += st.np; } });
@@ -2213,7 +2230,7 @@ dash.loader('sales', {
       Object.entries(M.orders).forEach(([id, o]) => { if (!T.sidPass(id, p)) return; const dd = o[today]; if (!dd) return; const nm = T.SID[id] && T.SID[id].name; pot += dd[1] * (nm in rate ? rate[nm] : avg); });
     }
     two.append(half(T.num(a[0]) + ' шт.', 'в штуках'), half(T.rub(a[1]), 'в рублях'));
-    if (pot != null) { const h = half('≈ ' + T.rub(pot), 'прибыль'); h.className = 'ts-ord-pot' + (pot < 0 ? ' ts-neg' : ''); h.title = 'Ожидаемая чистая прибыль с сегодняшних заказов: сумма заказов каждого магазина × его рентабельность (чистая прибыль ÷ выручка) за выбранный период'; two.append(h); }
+    if (pot != null) { const h = half('≈ ' + T.rub(pot), 'прибыль'); h.className = 'ts-ord-pot' + (pot < 0 ? ' ts-neg' : ''); h.title = 'Ожидаемая чистая прибыль с сегодняшних заказов: сумма заказов каждого магазина × его рентабельность (чистая прибыль ÷ выручка) за последние 30 дней'; two.append(h); }
     d.append(two);
     e.append(d);
   });
