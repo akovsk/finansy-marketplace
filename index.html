@@ -615,7 +615,7 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-och-c span { font-size:10px; line-height:1.15; }
   .ts-och-c b { font-size:13.5px; }
   .ts-och-c small, .ts-och-mp { display:none; }
-  .ts-chart-big { min-height:165px !important; }
+  .ts-chart-big { min-height:150px !important; }
   #ordchart > .ts-muted { display:none; }
 }
 .ts-ord-today { flex:0 1 calc(50% - 5px); max-width:calc(50% - 5px); border-color:color-mix(in srgb, #2b6cff 55%, var(--color-border-line)); border-left:4px solid #2b6cff; background:linear-gradient(135deg, color-mix(in srgb, #2b6cff 16%, var(--color-panel)), var(--color-panel) 75%); }
@@ -643,12 +643,27 @@ th[aria-sort] { color:var(--color-fg); }
 @media (max-width: 640px) {
   .ts-ord-today { flex:1 1 100%; max-width:none; padding:9px 12px 8px; }
   .ts-ord-today > b, .ts-ord-today > small { display:none; }
-  .ts-ord-two { display:grid; grid-template-columns:1fr 1fr; width:100%; margin:3px 0 2px; }
+  .ts-ord-two { display:grid; grid-template-columns:1fr 1fr; width:100%; margin:1px 0 0; }
   .ts-ord-two > div { display:flex; flex-direction:column; align-items:center; gap:0; min-width:0; }
   .ts-ord-two > div + div { border-left:1px solid color-mix(in srgb, #2b6cff 35%, var(--color-border-line)); }
   .ts-ord-two b { font-size:24px; line-height:1.15; white-space:nowrap; }
   .ts-ord-two small { font-size:11px; color:var(--color-fg-muted); }
   .ts-ord-today > span::after { content:' · все площадки'; }
+}
+/* Phone: header at the bottom, filters above the chart, expected profit in the today block */
+@media (max-width: 640px) {
+  .ts-top { order:99; margin-top:8px; padding-top:12px; border-top:1px solid var(--color-border-line); }
+  .ts-bar.ts-bar-nof { border-bottom:0; padding:0; min-height:0; margin-top:-14px; }
+  .ts { gap:10px; }
+  .ts-filters.ts-filters-in { margin:0; gap:6px; }
+  .ts-filters-in .ts-chips button { padding:5px 13px; font-size:13px; }
+  .ts-filters-in .ts-ftog { padding:5px 13px; font-size:13px; }
+  #ordchart .ts-panel-h h3 { display:none; }
+  .ts-ord-two { grid-template-columns:1fr 1fr 1fr; }
+  .ts-ord-two b { font-size:21px; }
+  .ts-ord-pot b { font-size:17px; font-weight:600; color:var(--color-ok); opacity:.85; padding-top:3px; }
+  .ts-ord-pot.ts-neg b { color:var(--color-bad); }
+  .ts-ord-pot small { opacity:.8; }
 }
 </style>
 
@@ -1562,6 +1577,21 @@ dash.loader('sales', {
     redrawIn(document.getElementById(id));
   }
   window.TS_showTab = showTab;
+  /* Phone: period chips and filters sit right above the orders chart on the overview tab */
+  (function () {
+    const mq = window.matchMedia('(max-width: 640px)');
+    const f = document.getElementById('filters'), bar = document.getElementById('bar'), ov = document.getElementById('overview'), ch = document.getElementById('ordchart');
+    if (!f || !bar || !ov || !ch) return;
+    const place = () => {
+      const inOv = mq.matches && !ov.hidden;
+      if (inOv && f.parentElement !== ov) ov.insertBefore(f, ch);
+      if (!inOv && f.parentElement !== bar) bar.append(f);
+      bar.classList.toggle('ts-bar-nof', inOv); f.classList.toggle('ts-filters-in', inOv);
+    };
+    if (mq.addEventListener) mq.addEventListener('change', place); else mq.addListener(place);
+    new MutationObserver(place).observe(ov, { attributes: true, attributeFilter: ['hidden'] });
+    place();
+  })();
   document.querySelectorAll('[data-jump]').forEach((b) => b.addEventListener('click', () => {
     const [sub, show] = b.getAttribute('data-jump').split(':');
     if (sub === 'all') {
@@ -2172,7 +2202,16 @@ dash.loader('sales', {
     d.title = 'Все площадки: ' + mpsHave + '. День ещё идёт.'; d.append(T.el('span', null, 'Заказы сегодня'), T.el('b', null, T.num(a[0]) + ' шт.'), T.el('small', null, T.rub(a[1]) + ' · все площадки'));
     const two = T.el('div', 'ts-ord-two');
     const half = (v, l) => { const h = T.el('div'); h.append(T.el('b', null, v), T.el('small', null, l)); return h; };
-    two.append(half(T.num(a[0]) + ' шт.', 'в штуках'), half(T.rubFull ? T.rubFull(a[1]) : T.rub(a[1]), 'в рублях'));
+    // expected profit: each store's today orders × its net margin (net profit ÷ revenue) for the selected period
+    const v = T.view(); let pot = null;
+    if (v && v.stores && v.stores.length) {
+      const rate = {}; let R = 0, N = 0;
+      v.stores.forEach((st) => { if (st.rev > 0) { rate[st.store] = st.np / st.rev; R += st.rev; N += st.np; } });
+      const avg = R > 0 ? N / R : 0; pot = 0;
+      Object.entries(M.orders).forEach(([id, o]) => { if (!T.sidPass(id, p)) return; const dd = o[today]; if (!dd) return; const nm = T.SID[id] && T.SID[id].name; pot += dd[1] * (nm in rate ? rate[nm] : avg); });
+    }
+    two.append(half(T.num(a[0]) + ' шт.', 'в штуках'), half(T.rub(a[1]), 'в рублях'));
+    if (pot != null) { const h = half('≈ ' + T.rub(pot), 'прибыль'); h.className = 'ts-ord-pot' + (pot < 0 ? ' ts-neg' : ''); h.title = 'Ожидаемая чистая прибыль с сегодняшних заказов: сумма заказов каждого магазина × его рентабельность (чистая прибыль ÷ выручка) за выбранный период'; two.append(h); }
     d.append(two);
     e.append(d);
   });
@@ -2437,7 +2476,7 @@ dash.loader('sales', {
     const days = (main === 'b' ? S.days.filter((d) => d.hasB) : S.days).filter((d) => d.d !== S.partial);
     if (!days.length) { e.append(T.el('p', 'ts-chart-msg', 'Нет данных за этот период')); return; }
     const mps = T.MP_ORDER.filter((mp) => days.some((d) => d[main][mp]));
-    const W = Math.max(280, e.clientWidth), H = W < 520 ? 165 : 320;
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 150 : 320;
     const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', (main === 'o' ? 'Заказы' : 'Выкупы') + ' по дням, линия на каждую площадку');
     const val = (d, mp) => (d[main][mp] ? d[main][mp][k] : 0);
     const ymax = Math.max(1, d3.max(days, (d) => d3.max(mps, (mp) => val(d, mp))) || 1);
