@@ -63,12 +63,12 @@ img { max-width:100%; }
   #dash-root .ts-tabs { position:fixed; left:0; right:0; bottom:0; z-index:30; width:auto; max-width:none; border-radius:16px 16px 0 0; margin:0; border:0; border-top:1px solid var(--color-border-line);
     padding:6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); background:var(--color-panel);
     box-shadow:0 -6px 20px rgba(0,0,0,.18); justify-content:space-between; gap:2px; overflow:visible; }
-  #dash-root .ts-tabs button { flex:1 1 0; padding:10px 0; font-size:11px; letter-spacing:-0.02em; border-radius:10px; min-width:0; overflow:hidden; text-overflow:clip; }
+  #dash-root .ts-tabs button { flex:1 1 0; padding:10px 0; font-size:10.5px; letter-spacing:-0.02em; border-radius:10px; min-width:0; overflow:hidden; text-overflow:clip; }
 }
 </style>
 <script>
 (function () {
-  const DEF = { period: '30', mp: '', store: '', brand: '', cat: '' };
+  const DEF = { period: '7', mp: '', store: '', brand: '', cat: '' };
   const SOURCES = { sales: 'data.json', images: 'images.json', market: 'market.json' };
   const S = { loaders: {}, drawers: {}, order: [], on: [], data: {}, req: {}, started: false, params: Object.assign({}, DEF) };
   let msg = null;
@@ -348,6 +348,37 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-crow-n { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ts-crow-bar { height:4px; background:var(--cds-chart-grid); border-radius:2px; overflow:hidden; }
 .ts-crow-bar i { display:block; height:100%; border-radius:2px; }
+.ts-och-ctl { display:flex; gap:6px; flex-wrap:wrap; margin-left:auto; }
+.ts-och-mp { display:flex; flex-wrap:wrap; gap:2px 8px; font-size:11px; color:var(--color-fg-muted); }
+.ts-och-mp span { display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
+.ts-och-mp i { width:7px; height:7px; border-radius:2px; display:inline-block; }
+.ts-rk-groups { display:flex; flex-direction:column; gap:16px; }
+.ts-rk-gh { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.ts-rk-gh .ts-btn { margin-left:auto; }
+.ts-rk { display:flex; flex-direction:column; gap:6px; padding:12px 0; border-bottom:1px solid var(--color-border-line); }
+.ts-rk:last-of-type { border-bottom:0; }
+.ts-rk-top { display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12px; }
+.ts-rk-id { font-weight:700; font-variant-numeric:tabular-nums; background:var(--color-bg); border:1px solid var(--color-border-line); border-radius:6px; padding:1px 7px; user-select:all; }
+.ts-rk-st { color:var(--color-fg-muted); }
+.ts-rk-st.ts-rk-live { color:var(--color-ok); font-weight:600; }
+.ts-rk-st.ts-rk-live::before { content:'● '; }
+.ts-rk-name { font-weight:600; font-size:13.5px; line-height:1.3; }
+.ts-rk-why { margin:0; font-size:12.5px; line-height:1.45; }
+.ts-rk-bad { color:var(--color-bad); } .ts-rk-warn { color:var(--color-warn); } .ts-rk-good { color:var(--color-ok); } .ts-rk-ok, .ts-rk-info { color:var(--color-fg-muted); }
+.ts-rk-nums { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:6px; }
+.ts-rk-nums div { display:flex; flex-direction:column; background:var(--color-bg); border-radius:8px; padding:5px 8px; min-width:0; }
+.ts-rk-nums span { font-size:10.5px; color:var(--color-fg-muted); white-space:nowrap; }
+.ts-rk-nums b { font-size:13px; font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ts-rk-nums b.ts-neg { color:var(--color-bad); } .ts-rk-nums b.ts-good { color:var(--color-ok); }
+.ts-rk-prods { display:flex; flex-direction:column; gap:6px; }
+.ts-rk-p { display:grid; grid-template-columns:40px minmax(0,1fr); gap:8px; align-items:center; font-size:12px; }
+.ts-rk-p .ts-ph { width:40px; height:40px; }
+.ts-rk-p small { color:var(--color-fg-muted); font-size:11px; }
+.ts-rk-pn { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ts-rk-pn a { color:inherit; text-decoration:none; }
+.ts-kpi-go { cursor:pointer; }
+.ts-kpi-go:hover { border-color:var(--color-fg-muted); }
+@media (max-width:640px) { .ts-rk-nums { grid-template-columns:repeat(3, minmax(0,1fr)); } }
 .ts-in-more { font-size:12px; font-weight:600; color:var(--ts-c2, var(--color-fg)); }
 .ts-in-more::after { content:" ▾"; }
 .ts-in.ts-open .ts-in-more::after { content:" ▴"; }
@@ -514,6 +545,7 @@ th[aria-sort] { color:var(--color-fg); }
       <button type="button" role="tab" data-tab="pnl" aria-selected="false">P&amp;L</button>
       <button type="button" role="tab" data-tab="goods" aria-selected="false">Товары</button>
       <button type="button" role="tab" data-tab="stock" aria-selected="false">Склад</button>
+      <button type="button" role="tab" data-tab="rk" aria-selected="false">Реклама</button>
     </nav>
     <div class="ts-filters" id="filters">
       <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
@@ -547,13 +579,6 @@ th[aria-sort] { color:var(--color-fg); }
   <section class="ts-page" id="overview" role="tabpanel">
     <p class="ts-lede" id="takeaway" data-source="sales">На счёт пришло <b data-draw="tk-payout" data-source="sales" data-field="rev">—</b>, из них чистая прибыль <b data-draw="tk-np" data-source="sales" data-field="np">—</b>. В минусе <b data-draw="tk-loss" class="ts-hl-bad" data-source="sales" data-field="sku">—</b> из <b data-draw="tk-sold" data-source="sales" data-field="sku">—</b> товаров.</p>
     <div class="ts-orders" data-draw="ord-strip" data-source="sales"></div>
-    <div class="ts-panel ts-bigchart" id="ordchart">
-      <div class="ts-panel-h"><h3>Заказы и выкупы по дням</h3>
-        <div class="ts-seg ts-seg-sm" role="tablist" aria-label="Единицы графика"><button type="button" role="tab" data-och="n" aria-selected="true">Штуки</button><button type="button" role="tab" data-och="s" aria-selected="false">Рубли</button></div></div>
-      <div class="ts-och-sum" data-draw="och-sum" data-source="sales"></div>
-      <div class="ts-chart ts-chart-big" data-draw="och" data-source="sales"></div>
-      <p class="ts-muted" data-draw="och-note" data-source="sales"></p>
-    </div>
     <div class="ts-kpis">
       <div class="ts-kpi" id="kpi-payout"><div class="ts-kpi-l" title="Сколько площадки перечисляют на счёт: продажи минус комиссия, логистика, хранение, реклама и удержания">Выплата на счёт</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="payout" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="payout"></div><div class="ts-kspark" data-draw="kspark" data-k="payout" data-source="sales"></div></div>
       <div class="ts-kpi" id="kpi-rev"><div class="ts-kpi-l" title="Продажи по цене продавца до удержаний площадки">Выручка (продажи)</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="rev" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="rev"></div><div class="ts-kspark" data-draw="kspark" data-k="rev" data-source="sales"></div></div>
@@ -561,6 +586,13 @@ th[aria-sort] { color:var(--color-fg); }
       <div class="ts-kpi" id="kpi-margin"><div class="ts-kpi-l" title="Чистая прибыль ÷ выплата на счёт">Маржа от выплат</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="margin" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="margin"></div><div class="ts-kspark" data-draw="kspark" data-k="margin" data-source="sales"></div></div>
       <div class="ts-kpi" id="kpi-drr"><div class="ts-kpi-l" title="Доля рекламных расходов: реклама ÷ выручка">ДРР</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="drr" data-source="sales" data-field="adv">—</div><div class="ts-kpi-d" data-draw="delta" data-k="drr"></div><div class="ts-kspark" data-draw="kspark" data-k="drr" data-source="sales"></div></div>
       <div class="ts-kpi" id="kpi-ret"><div class="ts-kpi-l">Возвраты</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="retr" data-source="sales" data-field="ret">—</div><div class="ts-kpi-d" data-draw="delta" data-k="retr"></div><div class="ts-kspark" data-draw="kspark" data-k="retr" data-source="sales"></div></div>
+    </div>
+    <div class="ts-panel ts-bigchart" id="ordchart">
+      <div class="ts-panel-h"><h3>Заказы и выкупы по дням и площадкам</h3>
+        <div class="ts-och-ctl"><div class="ts-seg ts-seg-sm" role="tablist" aria-label="Что на столбцах"><button type="button" role="tab" data-ochm="o" aria-selected="true">Заказы</button><button type="button" role="tab" data-ochm="b" aria-selected="false">Выкупы</button></div><div class="ts-seg ts-seg-sm" role="tablist" aria-label="Единицы графика"><button type="button" role="tab" data-och="s" aria-selected="true">Рубли</button><button type="button" role="tab" data-och="n" aria-selected="false">Штуки</button></div></div></div>
+      <div class="ts-och-sum" data-draw="och-sum" data-source="sales"></div>
+      <div class="ts-chart ts-chart-big" data-draw="och" data-source="sales"></div>
+      <p class="ts-muted" data-draw="och-note" data-source="sales"></p>
     </div>
     <div class="ts-grid-main">
       <div class="ts-panel" id="trend">
@@ -606,9 +638,6 @@ th[aria-sort] { color:var(--color-fg); }
         <tbody data-draw="storerows"></tbody>
       </table>
     </div>
-    <h2 id="ads">Реклама WB: кампании за 30 дней</h2>
-    <div class="ts-adsum" data-draw="ads-sum" data-source="sales"></div>
-    <div class="ts-xlist" data-draw="ads-list" data-source="sales"></div>
     <h2 id="reviews">Отзывы</h2>
     <div class="ts-kpis" data-draw="rev-kpis" data-source="sales"></div>
     <div class="ts-sec"><h3>Свежие негативные отзывы (1–3★)</h3><div class="ts-xlist" data-draw="rev-list" data-source="sales"></div></div>
@@ -641,6 +670,13 @@ th[aria-sort] { color:var(--color-fg); }
         </div>
       </div>
     </div>
+  </section>
+
+  <section class="ts-page" id="rk" role="tabpanel" hidden>
+    <p class="ts-muted" data-draw="rk-note" data-source="sales">Разбор рекламного кабинета.</p>
+    <div class="ts-kpis" data-draw="rk-kpis" data-source="sales"></div>
+    <div class="ts-adsum" data-draw="ads-sum" data-source="sales"></div>
+    <div class="ts-rk-groups" data-draw="rk-groups" data-source="sales"></div>
   </section>
 
   <section class="ts-page" id="stock" role="tabpanel" hidden>
@@ -828,7 +864,7 @@ window.T = (function () {
   }
 
   function range(period, last) {
-    period = period || '30';
+    period = period || '7';
     if (/^\d+$/.test(period)) {
       const n = Number(period), a = Math.max(0, last - n + 1);
       return { a, b: last, prev: a - n >= 0 ? { a: a - n, b: a - 1 } : null };
@@ -980,7 +1016,7 @@ window.T = (function () {
   }
 
   /* Marketplace API data (market.json): stocks, funnel, reviews, prices, orders, ads, weekly payouts */
-  const SID = { wb1: { name: 'ВБ Саковский', mp: 'WB' }, wb2: { name: 'Дармил', mp: 'WB' }, oz1: { name: 'Озон Саковский', mp: 'Ozon' }, oz2: { name: 'Suaviss Озон', mp: 'Ozon' } };
+  const SID = { wb1: { name: 'ВБ Саковский', mp: 'WB' }, wb2: { name: 'Дармил', mp: 'WB' }, oz1: { name: 'Озон Саковский', mp: 'Ozon' }, oz2: { name: 'Suaviss Озон', mp: 'Ozon' }, ym1: { name: 'Яндекс Саковский', mp: 'Яндекс' } };
   function mk() { const s = dash.data('market'); return s.status === 'ok' && s.data[0] ? s.data[0] : null; }
   const sidPass = (id, p) => { const s = SID[id]; return !!s && !(p.mp && s.mp !== p.mp) && !(p.store && s.name !== p.store); };
   let velC = { data: null, map: null };
@@ -989,16 +1025,17 @@ window.T = (function () {
     const s = dash.data('sales'), m = meta();
     if (s.status !== 'ok' || !m) return null;
     if (velC.data === s.data) return velC.map;
-    const A = iso(m.last - 14), B = iso(m.last - 1), A60 = iso(m.last - 60);
+    const A = iso(m.last - 14), B = iso(m.last - 1), A60 = iso(m.last - 60), A30 = iso(m.last - 30);
     const map = new Map();
     for (const o of s.data) {
       const k = o.store + '|' + o.sku;
       let x = map.get(k);
-      if (!x) map.set(k, x = { key: k, store: o.store, mp: o.mp, sku: o.sku, article: o.article, name: o.name, brand: o.brand, category: o.category, url: o.url, q14: 0, rev14: 0, q60: 0, cogs60: 0, qAll: 0, cogsAll: 0 });
+      if (!x) map.set(k, x = { key: k, store: o.store, mp: o.mp, sku: o.sku, article: o.article, name: o.name, brand: o.brand, category: o.category, url: o.url, q14: 0, rev14: 0, q60: 0, cogs60: 0, qAll: 0, cogsAll: 0, rev30: 0, np30: 0, adv30: 0 });
       const q = Number(o.q) || 0, cg = -(Number(o.cogs) || 0);
       x.qAll += q; x.cogsAll += cg;
       if (o.date >= A60) { x.q60 += q; x.cogs60 += cg; }
       if (o.date >= A && o.date <= B) { x.q14 += q; x.rev14 += Number(o.rev) || 0; }
+      if (o.date >= A30 && o.date <= B) { x.rev30 += Number(o.rev) || 0; x.np30 += Number(o.np) || 0; x.adv30 += Number(o.adv) || 0; }
     }
     map.forEach((x) => { x.perDay = Math.max(0, x.q14 / 14); x.revDay = Math.max(0, x.rev14 / 14); x.unitCost = x.q60 > 0 ? x.cogs60 / x.q60 : (x.qAll > 0 ? x.cogsAll / x.qAll : 0); });
     velC = { data: s.data, map };
@@ -1375,7 +1412,7 @@ dash.loader('sales', {
     root.querySelectorAll('[data-draw]').forEach((e) => names.add(e.getAttribute('data-draw')));
     names.forEach((n) => dash.draw(n));
   }
-  const PAGES = ['overview', 'insights', 'mps', 'pnl', 'goods', 'stock'];
+  const PAGES = ['overview', 'insights', 'mps', 'pnl', 'goods', 'stock', 'rk'];
   const SUBS = ['best', 'problems', 'growth', 'all', 'cats', 'abc'];
   function showTab(id, link) {
     if (!PAGES.includes(id)) return;
@@ -1445,11 +1482,11 @@ dash.loader('sales', {
     Object.keys(map).forEach((id) => {
       document.querySelectorAll('select#' + id).forEach((el) => {
         if (document.activeElement === el) return;
-        const val = p[map[id]] || (id === 'f-period' ? '30' : '');
+        const val = p[map[id]] || (id === 'f-period' ? '7' : '');
         if ([...el.options].some((o) => o.value === val)) el.value = val;
       });
     });
-    document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '30') ? 'true' : 'false'));
+    document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '7') ? 'true' : 'false'));
     document.querySelectorAll('.ts-sw-rev').forEach((e) => { e.style.background = dash.colors[0]; });
     document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = dash.colors[1]; });
     const v = T.view();
@@ -1912,7 +1949,7 @@ dash.loader('sales', {
     if (!mv) { box.append(el('p', 'ts-empty', '—')); return; }
     const vals = mv.keys.map((k) => mv.months.get(k));
     const mx = Math.max(1, ...vals.map((t) => Math.abs(t.np)));
-    const cur = dash.params().period || '30';
+    const cur = dash.params().period || '7';
     mv.keys.forEach((k, i) => {
       const t = vals[i];
       const row = el('button', 'ts-mbar' + (cur === 'm' + k ? ' ts-on' : '')); row.type = 'button';
@@ -1933,7 +1970,7 @@ dash.loader('sales', {
     const mv = T.monthly(); th.replaceChildren(); const tr = th.insertRow();
     const h0 = document.createElement('th'); h0.textContent = 'Статья'; tr.append(h0);
     if (!mv) return;
-    const cur = dash.params().period || '30';
+    const cur = dash.params().period || '7';
     mv.keys.forEach((k) => {
       const h = document.createElement('th'); h.className = 'ts-click'; h.tabIndex = 0;
       h.textContent = MONTHS[Number(k.slice(5)) - 1] + ' ' + k.slice(2, 4);
@@ -1972,7 +2009,7 @@ dash.loader('sales', {
   dash.draw('opt-period', (sel) => {
     const m = T.meta(); if (!m) return;
     const last = T.iso(m.last), first = T.iso(0);
-    if (perKey === last) { sel.value = dash.params().period || '30'; return; }
+    if (perKey === last) { sel.value = dash.params().period || '7'; return; }
     perKey = last;
     const o = [['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
     let y = +first.slice(0, 4), mo = +first.slice(5, 7);
@@ -1984,7 +2021,7 @@ dash.loader('sales', {
     }
     o.push(['all', 'Весь период']);
     sel.replaceChildren(...o.map(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; return op; }));
-    sel.value = dash.params().period || '30';
+    sel.value = dash.params().period || '7';
   });
 
   /* ---- Orders today / yesterday (API, live) ---- */
@@ -1999,7 +2036,8 @@ dash.loader('sales', {
     e.style.display = '';
     const cell = (label, v, cmp) => { const d = T.el('div', 'ts-ord'); d.append(T.el('span', null, label), T.el('b', null, T.num(v[0]) + ' шт.'), T.el('small', null, T.rub(v[1]) + (cmp ? ' · ' + cmp : ''))); return d; };
     const ch = c[1] ? T.signed(b[1] / c[1] - 1, (x) => T.pct(x, 0)) + ' к тому же дню нед. назад' : '';
-    e.append(T.el('div', 'ts-ord-h', 'Заказы WB + Ozon'), cell('Сегодня (неполный день)', a), cell('Вчера', b, ch));
+    const mpsHave = [...new Set(Object.keys(M.orders).filter((id) => T.sidPass(id, p) && T.SID[id]).map((id) => T.SID[id].mp))].map((mp) => T.MP[mp].short).join(' + ');
+    e.append(T.el('div', 'ts-ord-h', 'Заказы ' + mpsHave + ' (из кабинетов)'), cell('Сегодня (неполный день)', a), cell('Вчера', b, ch));
   });
 
   /* ---- Stock page ---- */
@@ -2173,61 +2211,98 @@ dash.loader('sales', {
     box.append(T.el('p', 'ts-muted', '* текущая неделя, ещё не закрыта. WB публикует финотчёт раз в неделю с задержкой, поэтому последняя неделя WB появляется позже Ozon.'));
   });
 
-  /* ---- Orders & buyouts per day (like the WB cabinet), all stores with order data ---- */
+  /* ---- Orders & buyouts per day by marketplace (like the WB cabinet) ---- */
+  // Orders: WB and Ozon APIs by order date. Buyouts: WB sales API (exactly as in the cabinet), Ozon and Яндекс from Торгстат.
   function ordSeries() {
     const M = T.mk(), v = T.view(), s = dash.data('sales');
     if (!M || !M.orders || !v || s.status !== 'ok') return null;
     const p = dash.params();
     const ids = Object.keys(M.orders).filter((id) => T.sidPass(id, p));
-    if (!ids.length) return { days: [], ids };
-    const names = new Set(ids.map((id) => T.SID[id].name));
+    const A = T.iso(v.r.a), B = T.iso(v.r.b), today = M.today || B;
     let first = '9999';
     ids.forEach((id) => Object.keys(M.orders[id]).forEach((d) => { if (d < first) first = d; }));
-    const A = T.iso(v.r.a), B = T.iso(v.r.b), lastOrd = M.today;
-    const from = A > first ? A : first, to = lastOrd > B ? lastOrd : B;
+    const from = A > first ? A : first, to = today > B ? today : B;
+    if (from > to) return { days: [] };
     const map = new Map();
-    for (let t = Date.parse(from + 'T00:00:00Z'); t <= Date.parse(to + 'T00:00:00Z'); t += 864e5) { const d = new Date(t).toISOString().slice(0, 10); map.set(d, { d, on: 0, os: 0, oc: 0, bn: 0, bs: 0, hasB: d <= B }); }
-    ids.forEach((id) => Object.entries(M.orders[id]).forEach(([d, x]) => { const r = map.get(d); if (r) { r.on += x[0]; r.os += x[1]; r.oc += x[2] || 0; } }));
-    for (const o of s.data) {
-      if (o.date < from || o.date > to || !names.has(o.store) || !T.passDims(o, Object.assign({}, p, { store: p.store, mp: p.mp }))) continue;
-      const r = map.get(o.date); if (r) { r.bn += Number(o.q) || 0; r.bs += Number(o.rev) || 0; }
+    for (let t = Date.parse(from + 'T00:00:00Z'); t <= Date.parse(to + 'T00:00:00Z'); t += 864e5) {
+      const d = new Date(t).toISOString().slice(0, 10);
+      map.set(d, { d, o: {}, b: {}, oc: 0, hasB: false });
     }
-    return { days: [...map.values()], ids, from, to, B, partial: lastOrd };
+    const addv = (obj, mp, n, sum) => { const x = (obj[mp] = obj[mp] || [0, 0]); x[0] += n; x[1] += sum; };
+    ids.forEach((id) => Object.entries(M.orders[id]).forEach(([d, x]) => { const r = map.get(d); if (r) { addv(r.o, T.SID[id].mp, x[0], x[1]); r.oc += x[2] || 0; } }));
+    // WB buyouts straight from the cabinet when the brand/category filters are off
+    const dimF = !!(p.brand || p.cat);
+    const wbApi = new Set();
+    if (!dimF && M.sales) Object.entries(M.sales).forEach(([id, days]) => {
+      if (!T.sidPass(id, p)) return;
+      wbApi.add(T.SID[id].name);
+      Object.entries(days).forEach(([d, x]) => { const r = map.get(d); if (r) { addv(r.b, 'WB', x[0], x[1]); r.hasB = true; } });
+    });
+    for (const o of s.data) {
+      if (o.date < from || o.date > to || wbApi.has(o.store) || !T.passDims(o, p)) continue;
+      const r = map.get(o.date); if (!r) continue;
+      addv(r.b, o.mp, Number(o.q) || 0, Number(o.rev) || 0); r.hasB = true;
+    }
+    return { days: [...map.values()], ids, from, to, partial: today, dimF, wbApi: wbApi.size > 0 };
   }
-  if (!T.state.och) T.state.och = 'n';
+  if (!T.state.och) T.state.och = 's';
+  if (!T.state.ochm) T.state.ochm = 'o';
   document.querySelectorAll('[data-och]').forEach((b) => b.addEventListener('click', () => {
     T.state.och = b.getAttribute('data-och');
     document.querySelectorAll('[data-och]').forEach((x) => x.setAttribute('aria-selected', x === b ? 'true' : 'false'));
     dash.draw('och'); dash.draw('och-sum');
   }));
+  document.querySelectorAll('[data-ochm]').forEach((b) => b.addEventListener('click', () => {
+    T.state.ochm = b.getAttribute('data-ochm');
+    document.querySelectorAll('[data-ochm]').forEach((x) => x.setAttribute('aria-selected', x === b ? 'true' : 'false'));
+    dash.draw('och'); dash.draw('och-sum');
+  }));
+  const otot = (obj, k) => Object.values(obj).reduce((a, x) => a + x[k], 0);
   dash.draw('och-sum', (e) => {
     const S = ordSeries(); e.replaceChildren();
     const panel = document.getElementById('ordchart');
     if (!S || !S.days.length) { if (panel) panel.style.display = 'none'; return; }
     if (panel) panel.style.display = '';
-    const full = S.days.filter((d) => d.hasB);
-    const on = full.reduce((a, d) => a + d.on, 0), os = full.reduce((a, d) => a + d.os, 0), oc = full.reduce((a, d) => a + d.oc, 0);
-    const bn = full.reduce((a, d) => a + d.bn, 0), bs = full.reduce((a, d) => a + d.bs, 0);
-    const cell = (cls, l, v1, v2) => { const d = T.el('div', 'ts-och-c ' + cls); d.append(T.el('span', null, l), T.el('b', null, v1), T.el('small', null, v2)); e.append(d); };
-    cell('ts-och-o', 'Заказы', T.num(on) + ' шт.', T.rub(os) + (oc ? ' · отмен ' + T.num(oc) : ''));
-    cell('ts-och-b', 'Выкупы', T.num(bn) + ' шт.', T.rub(bs));
-    cell('', 'Выкуп от заказов', on ? T.pct(bn / on, 0) : '—', 'за те же дни');
+    const SUM = T.state.och === 's', k = SUM ? 1 : 0;
+    const fmt = (x) => (SUM ? T.rub(x) : T.num(x) + ' шт.');
+    const D = S.days;
+    const sumMp = (key, mp) => D.reduce((a, d) => a + ((d[key][mp] || [0, 0])[k]), 0);
+    const oAll = D.reduce((a, d) => a + otot(d.o, k), 0), bAll = D.reduce((a, d) => a + otot(d.b, k), 0);
+    const on = D.reduce((a, d) => a + otot(d.o, 0), 0), os = D.reduce((a, d) => a + otot(d.o, 1), 0), oc = D.reduce((a, d) => a + d.oc, 0);
+    const bn = D.reduce((a, d) => a + otot(d.b, 0), 0), bs = D.reduce((a, d) => a + otot(d.b, 1), 0);
+    const cell = (cls, l, v1, v2, mpKey) => {
+      const d = T.el('div', 'ts-och-c ' + cls);
+      d.append(T.el('span', null, l), T.el('b', null, v1));
+      if (mpKey) {
+        const m = T.el('div', 'ts-och-mp');
+        T.MP_ORDER.forEach((mp) => { const val = sumMp(mpKey, mp); if (!val) return; const sp = T.el('span'); const i = T.el('i'); i.style.background = T.MP[mp].color; sp.append(i, document.createTextNode(T.MP[mp].short + ' ' + (SUM ? T.rub(val) : T.num(val)))); m.append(sp); });
+        d.append(m);
+      }
+      if (v2) d.append(T.el('small', null, v2));
+      e.append(d);
+    };
+    cell('ts-och-o', 'Заказы', fmt(oAll), (SUM ? T.num(on) + ' шт.' : T.rub(os)) + (oc ? ' · отмен ' + T.num(oc) : ''), 'o');
+    cell('ts-och-b', 'Выкупы', fmt(bAll), SUM ? T.num(bn) + ' шт.' : T.rub(bs), 'b');
+    const onWO = D.reduce((a, d) => a + ((d.o.WB || [0])[0]) + ((d.o.Ozon || [0])[0]), 0), bnWO = D.reduce((a, d) => a + ((d.b.WB || [0])[0]) + ((d.b.Ozon || [0])[0]), 0);
+    cell('', 'Выкуп от заказов', onWO ? T.pct(bnWO / onWO, 0) : '—', 'WB + Ozon, за те же дни');
     cell('', 'Средний заказ', on ? T.rubFull(os / on) : '—', 'выкуп ' + (bn ? T.rubFull(bs / bn) : '—'));
   });
   dash.draw('och-note', (e) => {
     const S = ordSeries();
     if (!S || !S.days.length) { e.textContent = ''; return; }
-    const nm = S.ids.map((id) => T.SID[id].name).join(', ');
-    e.textContent = 'Магазины: ' + nm + '. Заказы — из API WB и Ozon по дате заказа (доступны с ' + S.from.slice(8, 10) + '.' + S.from.slice(5, 7) + '), выкупы — продажи из Торгстат по дате продажи. Яндекс Маркет пока без заказов: его API не подключён. Последний день неполный.';
+    e.textContent = 'Заказы WB и Ozon — из API кабинетов по дате заказа, сумма по цене со скидкой продавца. Выкупы ' + (S.wbApi ? 'WB — из API кабинета (продажи по дате продажи), Ozon и Яндекс — из Торгстат.' : '— из Торгстат.') + ' Заказы Яндекс Маркета пока недоступны: его API не подключён.' + (S.dimF ? ' Фильтр бренда или категории к заказам не применяется.' : '') + ' Последний день неполный.';
   });
   dash.draw('och', (e) => {
     const S = ordSeries(); e.replaceChildren();
     if (!S || !S.days.length) return;
-    const SUM = T.state.och === 's';
-    const D = S.days.map((d) => ({ d: d.d, o: SUM ? d.os : d.on, b: d.hasB ? (SUM ? d.bs : d.bn) : null, raw: d }));
+    const SUM = T.state.och === 's', k = SUM ? 1 : 0, main = T.state.ochm === 'b' ? 'b' : 'o', other = main === 'o' ? 'b' : 'o';
+    const oMps = new Set(); S.days.forEach((d) => Object.keys(d.o).forEach((mp) => oMps.add(mp)));
+    const lineOf = (d) => Object.entries(d[other]).reduce((a, [mp, x]) => a + (main === 'o' && !oMps.has(mp) ? 0 : x[k]), 0);
+    const D = S.days.map((d) => ({ d: d.d, raw: d, parts: T.MP_ORDER.map((mp) => [mp, (d[main][mp] || [0, 0])[k]]), line: other === 'b' && !d.hasB ? null : lineOf(d) }));
+    D.forEach((d) => { d.total = d.parts.reduce((a, x) => a + x[1], 0); });
     const W = Math.max(280, e.clientWidth), H = W < 520 ? 280 : 340;
-    const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', 'Заказы и выкупы по дням');
-    const ymax = Math.max(1, d3.max(D, (d) => Math.max(d.o, d.b || 0)));
+    const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', (main === 'o' ? 'Заказы' : 'Выкупы') + ' по дням по площадкам');
+    const ymax = Math.max(1, d3.max(D, (d) => Math.max(d.total, d.line || 0)));
     const y = d3.scaleLinear().domain([0, ymax]).nice();
     const ticks = y.ticks(W < 520 ? 4 : 6);
     const fmt = SUM ? T.short : (x) => T.num(x);
@@ -2237,49 +2312,186 @@ dash.loader('sales', {
     const m = { t: 12, r: 8, b: 24, l: Math.ceil(tw) + 10 };
     const iw = W - m.l - m.r, ih = H - m.t - m.b;
     y.range([m.t + ih, m.t]);
-    const x = d3.scalePoint().domain(D.map((d, i) => i)).range([m.l + 6, m.l + iw - 6]);
+    const x = d3.scaleBand().domain(D.map((d, i) => i)).range([m.l, m.l + iw]).paddingInner(D.length > 45 ? 0.18 : 0.32).paddingOuter(0.1);
+    const bw = x.bandwidth(), cx = (i) => x(i) + bw / 2;
     svg.append('g').selectAll('line').data(ticks).join('line').attr('class', (t) => (t === 0 ? 'ts-zero' : 'ts-gridl')).attr('x1', m.l).attr('x2', m.l + iw).attr('y1', (t) => y(t)).attr('y2', (t) => y(t));
     svg.append('g').selectAll('text').data(ticks).join('text').attr('class', 'ts-tick').attr('x', m.l - 6).attr('y', (t) => y(t)).attr('dy', '0.32em').attr('text-anchor', 'end').text(fmt);
-    const defs = svg.append('defs');
-    const grad = (id, col) => { const g = defs.append('linearGradient').attr('id', id).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1); g.append('stop').attr('offset', '0%').style('stop-color', col).style('stop-opacity', 0.28); g.append('stop').attr('offset', '100%').style('stop-color', col).style('stop-opacity', 0); };
-    grad('ogr', 'var(--ts-och-o)'); grad('bgr', 'var(--ts-och-b)');
-    const B = D.filter((d) => d.b != null);
-    const area = (k) => d3.area().x((d) => x(D.indexOf(d))).y0(y(0)).y1((d) => y(d[k])).curve(d3.curveMonotoneX);
-    const line = (k) => d3.line().x((d) => x(D.indexOf(d))).y((d) => y(d[k])).curve(d3.curveMonotoneX);
-    svg.append('path').datum(D).attr('d', area('o')).style('fill', 'url(#ogr)');
-    svg.append('path').datum(B).attr('d', area('b')).style('fill', 'url(#bgr)');
-    svg.append('path').datum(D).attr('d', line('o')).style('fill', 'none').style('stroke', 'var(--ts-och-o)').style('stroke-width', 2.4);
-    svg.append('path').datum(B).attr('d', line('b')).style('fill', 'none').style('stroke', 'var(--ts-och-b)').style('stroke-width', 2.4);
-    const lastI = D.length - 1;
-    svg.append('circle').attr('cx', x(lastI)).attr('cy', y(D[lastI].o)).attr('r', 3.5).style('fill', 'var(--ts-och-o)');
-    const tickW = 38, step = Math.max(1, Math.ceil(D.length * (tickW + 10) / iw));
+    const segs = [];
+    D.forEach((d, i) => { let acc = 0; d.parts.forEach(([mp, val]) => { if (val <= 0) return; segs.push({ i, mp, y0: acc, y1: acc + val }); acc += val; }); if (segs.length && segs[segs.length - 1].i === i) segs[segs.length - 1].top = true; });
+    svg.append('g').selectAll('rect').data(segs).join('rect')
+      .attr('x', (s) => x(s.i)).attr('width', bw).attr('y', (s) => y(s.y1)).attr('height', (s) => Math.max(0, y(s.y0) - y(s.y1)))
+      .attr('rx', (s) => (s.top ? Math.min(4, bw / 3) : 0)).style('fill', (s) => T.MP[s.mp].color)
+      .style('opacity', (s) => (D[s.i].d === S.partial ? 0.55 : 1));
+    const L = D.map((d, i) => ({ i, v: d.line })).filter((o) => o.v != null);
+    svg.append('path').datum(L).attr('d', d3.line().x((o) => cx(o.i)).y((o) => y(o.v)).curve(d3.curveMonotoneX))
+      .style('fill', 'none').style('stroke', 'var(--color-fg)').style('stroke-width', 2.2).style('stroke-dasharray', other === 'b' ? null : '5 4');
+    if (L.length <= 40) svg.append('g').selectAll('circle').data(L).join('circle').attr('cx', (o) => cx(o.i)).attr('cy', (o) => y(o.v)).attr('r', 3).style('fill', 'var(--color-fg)');
+    const lastI = D.length - 1, step = Math.max(1, Math.ceil(D.length * 48 / iw));
     svg.append('g').selectAll('text').data(D.map((d, i) => ({ d, i })).filter((o) => (lastI - o.i) % step === 0)).join('text')
-      .attr('class', 'ts-tick').attr('x', (o) => x(o.i)).attr('y', H - 6).attr('text-anchor', 'middle').text((o) => o.d.d.slice(8, 10) + '.' + o.d.d.slice(5, 7));
-    const guide = svg.append('line').attr('y1', m.t).attr('y2', m.t + ih).style('stroke', 'var(--cds-chart-axis)').style('stroke-dasharray', '3 3').style('opacity', 0);
-    const dotO = svg.append('circle').attr('r', 4.5).style('fill', 'var(--ts-och-o)').style('stroke', 'var(--color-panel)').style('stroke-width', 2).style('opacity', 0);
-    const dotB = svg.append('circle').attr('r', 4.5).style('fill', 'var(--ts-och-b)').style('stroke', 'var(--color-panel)').style('stroke-width', 2).style('opacity', 0);
+      .attr('class', 'ts-tick').attr('x', (o) => cx(o.i)).attr('y', H - 6).attr('text-anchor', 'middle').text((o) => o.d.d.slice(8, 10) + '.' + o.d.d.slice(5, 7));
     const tip = T.el('div', 'ts-tip'); tip.hidden = true; e.append(tip);
-    const show = (ev) => {
-      const [px] = d3.pointer(ev, svg.node());
-      let i = Math.round((px - x(0)) / (x.step() || 1)); i = Math.max(0, Math.min(lastI, i));
-      const d = D[i], r = d.raw;
-      guide.attr('x1', x(i)).attr('x2', x(i)).style('opacity', 1);
-      dotO.attr('cx', x(i)).attr('cy', y(d.o)).style('opacity', 1);
-      if (d.b != null) dotB.attr('cx', x(i)).attr('cy', y(d.b)).style('opacity', 1); else dotB.style('opacity', 0);
+    const show = (ev, d) => {
+      const i = D.indexOf(d), r = d.raw;
       const dd = d.d.slice(8, 10) + '.' + d.d.slice(5, 7) + (d.d === S.partial ? ' (неполный день)' : '');
-      const l1 = T.el('div'); l1.append(T.el('i', 'ts-sw ts-sw-o'), document.createTextNode('Заказы: ' + T.num(r.on) + ' шт. · ' + T.rubFull(r.os)));
-      const lines = [T.el('div', 'ts-tip-h', dd), l1];
+      const lines = [T.el('div', 'ts-tip-h', dd)];
+      const blk = (key, title) => {
+        const n = otot(r[key], 0), sm = otot(r[key], 1);
+        lines.push(T.el('div', null, title + ': ' + T.rubFull(sm) + ' · ' + T.num(n) + ' шт.'));
+        T.MP_ORDER.forEach((mp) => { const v2 = r[key][mp]; if (!v2 || !v2[0]) return; const ln = T.el('div', 'ts-tip-h'); ln.append(T.mpChip(mp), document.createTextNode(' ' + T.rubFull(v2[1]) + ' · ' + T.num(v2[0]) + ' шт.')); lines.push(ln); });
+      };
+      blk('o', 'Заказы');
       if (r.oc) lines.push(T.el('div', 'ts-tip-h', 'отмены: ' + T.num(r.oc)));
-      if (d.b != null) { const l2 = T.el('div'); l2.append(T.el('i', 'ts-sw ts-sw-b'), document.createTextNode('Выкупы: ' + T.num(r.bn) + ' шт. · ' + T.rubFull(r.bs))); lines.push(l2); }
-      else lines.push(T.el('div', 'ts-tip-h', 'Выкупы за этот день ещё не выгружены'));
+      if (r.hasB) blk('b', 'Выкупы'); else lines.push(T.el('div', 'ts-tip-h', 'Выкупы за этот день ещё не выгружены'));
       tip.replaceChildren(...lines); tip.hidden = false;
       const sc = e.clientWidth / W, w2 = tip.offsetWidth;
-      let left = x(i) * sc + 12; if (left + w2 > e.clientWidth) left = x(i) * sc - w2 - 12;
+      let left = cx(i) * sc + 12; if (left + w2 > e.clientWidth) left = cx(i) * sc - w2 - 12;
       tip.style.left = Math.max(0, left) + 'px'; tip.style.top = (m.t + 4) + 'px';
     };
-    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', iw).attr('height', ih).style('fill', 'transparent').style('cursor', 'crosshair')
-      .on('mousemove', show).on('click', show).on('touchstart', (ev) => show(ev.touches ? ev.touches[0] : ev), { passive: true }).on('mouseleave', () => { tip.hidden = true; guide.style('opacity', 0); dotO.style('opacity', 0); dotB.style('opacity', 0); });
+    svg.append('g').selectAll('rect').data(D).join('rect').attr('class', 'ts-hit')
+      .attr('x', (d, i) => x(i) - (x.step() - bw) / 2).attr('width', x.step()).attr('y', m.t).attr('height', ih)
+      .on('mouseenter', show).on('click', show).on('mouseleave', () => { tip.hidden = true; });
+    const lg = T.el('div', 'ts-legend'); lg.style.fontSize = '11.5px';
+    T.MP_ORDER.forEach((mp) => { if (!segs.some((s) => s.mp === mp)) return; const sp = T.el('span'); const sw = T.el('i', 'ts-sw'); sw.style.background = T.MP[mp].color; sp.append(sw, document.createTextNode(T.MP[mp].short)); lg.append(sp); });
+    const ls = T.el('span'); ls.append(T.el('i', 'ts-sw ts-sw-line ts-sw-np'), document.createTextNode(other === 'b' ? 'выкупы ' + [...oMps].map((mp) => T.MP[mp].short).join(' + ') + ' (линия)' : 'заказы (линия)')); lg.append(ls);
+    e.append(lg);
   });
+
+  /* ---- Ad cabinet audit (WB): verdict per campaign ---- */
+  // Margin before ads of the advertised products (last 30 days, Торгстат) vs campaign ДРР (WB ad stats, 30 days).
+  const RK_ST = { 9: 'идёт', 11: 'на паузе', 7: 'завершена', 4: 'готова к запуску', 8: 'отказ' };
+  const RK_V = {
+    off: { t: 'Отключить', cls: 'bad', ord: 0 },
+    pause: { t: 'Пауза до поставки', cls: 'warn', ord: 1 },
+    down: { t: 'Снизить ставку', cls: 'warn', ord: 2 },
+    up: { t: 'Можно масштабировать', cls: 'good', ord: 3 },
+    check: { t: 'Проверить вручную', cls: 'info', ord: 4 },
+    ok: { t: 'Работает нормально', cls: 'ok', ord: 5 }
+  };
+  let rkCache = { key: null, list: null };
+  function rkAudit() {
+    const M = T.mk(), V = T.vel();
+    if (!M || !M.ads || !V) return null;
+    const p = dash.params();
+    const key = M.generated + '|' + p.mp + '|' + p.store + '|' + p.brand + '|' + p.cat;
+    if (rkCache.key === key) return rkCache.list;
+    const list = [];
+    M.ads.filter((a) => T.sidPass(a.s, p)).forEach((a) => {
+      const keys = a.nms || [];
+      const w = (k) => (a.nmS && a.nmS[k] != null ? a.nmS[k] : 1);
+      if ((p.brand || p.cat) && !keys.some((k) => { const x = V.get(k); return x && T.passDims(x, p); })) return;
+      let wm = 0, sm = 0, wb = 0, sb = 0, outW = 0, allW = 0, minDays = Infinity;
+      const prods = [];
+      keys.forEach((k) => {
+        const x = V.get(k), wk = w(k);
+        allW += wk;
+        if (x) prods.push(x);
+        if (x && x.rev30 > 0) { wm += wk * ((x.np30 - x.adv30) / x.rev30); sm += wk; }
+        const f = M.funnel && M.funnel[k];
+        if (f && f.bp) { wb += wk * (f.bp / 100); sb += wk; }
+        const so = T.stockOf(k);
+        if (so) { if (so.q <= 0 || so.days < 3) outW += wk; if (isFinite(so.days)) minDays = Math.min(minDays, so.days); }
+      });
+      const be = sm ? wm / sm : null;
+      const buy = sb ? Math.min(1, Math.max(0.3, wb / sb)) : 0.9;
+      const ordB = a.ordSum * buy;
+      const drr = a.ordSum ? a.spend / a.ordSum : Infinity, drrB = ordB ? a.spend / ordB : Infinity;
+      const outShare = allW ? outW / allW : 0;
+      let v = 'ok', why = '', save = 0, gain = 0;
+      const P = (x) => T.pct(x, 0);
+      if (a.spend >= 500 && !a.orders) { v = 'off'; why = 'За 30 дней ни одного заказа, потрачено ' + T.rub(a.spend) + '.'; save = a.spend; }
+      else if (outShare >= 0.6 && a.st === 9) { v = 'pause'; why = 'Рекламируемый товар закончился или кончится через пару дней — реклама ведёт на пустую карточку. Остановить до поставки.'; save = a.spend * 0.5; }
+      else if (be != null && be <= 0.02) { v = 'off'; why = 'Товары убыточны даже без рекламы (маржа до рекламы ' + P(be) + '): реклама только увеличивает минус. Сначала цена или вывод.'; save = a.spend; }
+      else if (be != null && drrB > be * 1.4) { const loss = (drrB - be) * ordB; v = 'off'; why = 'ДРР ' + P(drrB) + ' от выкупов при запасе маржи ' + P(be) + ': каждый рекламный заказ в минус, около ' + T.rub(loss) + ' убытка за 30 дней.'; save = loss; }
+      else if (be != null && drrB > be) { const cut = Math.min(60, Math.max(10, Math.round((1 - be / drrB) * 100 / 5) * 5)); v = 'down'; why = 'ДРР ' + P(drrB) + ' чуть выше запаса маржи ' + P(be) + '. Снизить ставку примерно на ' + cut + '% или убрать дорогие фразы/плейсменты.'; save = (drrB - be) * ordB; }
+      else if (be != null && drrB < be * 0.5 && a.orders >= 10 && minDays > 21 && a.st !== 7) { v = 'up'; why = 'Запас большой: ДРР ' + P(drrB) + ' при марже ' + P(be) + '. Поднять ставку или бюджет на 20–30%' + (isFinite(minDays) ? ', остатка хватит на ' + T.num(Math.round(minDays)) + ' дн.' : '.'); gain = a.ordSum * 0.25 * (be - drrB) * buy; }
+      else if (be == null) { v = 'check'; why = 'По товарам кампании нет продаж в данных за 30 дней — проверить, на что идут показы.'; }
+      else { why = 'ДРР ' + P(drrB) + ' в пределах маржи ' + P(be) + '.'; }
+      const active = a.st === 9;
+      if (!active && (v === 'off' || v === 'down' || v === 'pause')) { why = 'Сейчас ' + (RK_ST[a.st] || 'не работает') + ' — не возобновлять. ' + why; save = 0; }
+      list.push({ a, v, why, be, drr, drrB, buy, save, gain, prods, minDays, outShare, active });
+    });
+    list.sort((x, y) => RK_V[x.v].ord - RK_V[y.v].ord || (y.active - x.active) || (y.save + y.gain) - (x.save + x.gain) || y.a.spend - x.a.spend);
+    rkCache = { key, list };
+    return list;
+  }
+  dash.draw('rk-note', (e) => {
+    const M = T.mk();
+    e.textContent = !M || !M.ads ? 'Данные рекламы появятся после выгрузки из API.' :
+      'Кампании WB за последние 30 дней (API рекламного кабинета). Маржа до рекламы — по товарам кампании за те же 30 дней из Торгстат, ДРР пересчитан с заказов на выкупы. Реклама Ozon пока не подключена (нужен ключ Performance API).';
+  });
+  dash.draw('rk-kpis', (e) => {
+    const L = rkAudit(); e.replaceChildren();
+    if (!L) return;
+    const sp = L.reduce((s, x) => s + x.a.spend, 0), os = L.reduce((s, x) => s + x.a.ordSum, 0);
+    const cnt = (v) => L.filter((x) => x.v === v);
+    const off = cnt('off'), pause = cnt('pause'), down = cnt('down'), up = cnt('up');
+    const k = (l, val, sub, cls, go) => { const d = T.el('div', 'ts-kpi' + (go ? ' ts-kpi-go' : '')); d.append(T.el('div', 'ts-kpi-l', l), T.el('div', 'ts-kpi-v' + (cls ? ' ' + cls : ''), val), T.el('div', 'ts-kpi-d', sub)); if (go) { d.tabIndex = 0; d.addEventListener('click', () => { const t = document.getElementById('rk-g-' + go); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); } e.append(d); };
+    k('Расход за 30 дней', T.rub(sp), L.length + ' кампаний с расходом');
+    k('ДРР от заказов', T.pct(os ? sp / os : NaN, 0), 'заказы с рекламы ' + T.rub(os));
+    const offA = off.filter((x) => x.active);
+    k('Отключить сейчас', offA.length + ' РК', 'идут и сливают ≈ ' + T.rub(offA.reduce((s, x) => s + x.save, 0)) + ' в месяц' + (off.length > offA.length ? ' · ещё ' + (off.length - offA.length) + ' на паузе не включать' : ''), offA.length ? 'ts-hl-bad' : null, 'off');
+    k('Пауза до поставки', pause.length + ' РК', 'товар закончился', pause.length ? 'ts-hl-bad' : null, 'pause');
+    k('Снизить ставку', down.length + ' РК', 'сбережёт ≈ ' + T.rub(down.reduce((s, x) => s + x.save, 0)), down.length ? 'ts-warn' : null, 'down');
+    k('Масштабировать', up.length + ' РК', 'доп. прибыль ≈ ' + T.rub(up.reduce((s, x) => s + x.gain, 0)), up.length ? 'ts-hl-good' : null, 'up');
+  });
+  const rkOpen = { ok: false, check: false };
+  dash.draw('rk-groups', (box) => {
+    const L = rkAudit(); box.replaceChildren();
+    if (!L) { box.append(T.el('p', 'ts-empty', 'Нет данных о рекламе.')); return; }
+    Object.keys(RK_V).forEach((v) => {
+      const G = L.filter((x) => x.v === v);
+      if (!G.length) return;
+      const sec = T.el('div', 'ts-sec ts-rk-g'); sec.id = 'rk-g-' + v;
+      const h = T.el('div', 'ts-rk-gh');
+      h.append(T.el('h3', 'ts-rk-' + RK_V[v].cls, RK_V[v].t + ' · ' + G.length));
+      const cp = T.el('button', 'ts-btn ts-btn-sm', 'Скопировать номера'); cp.type = 'button';
+      cp.addEventListener('click', () => { const txt = G.map((x) => x.a.id + '\t' + (x.a.name || '')).join('\n'); const done = () => { cp.textContent = 'Скопировано'; setTimeout(() => { cp.textContent = 'Скопировать номера'; }, 1500); }; if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done, () => {}); });
+      h.append(cp);
+      sec.append(h);
+      const list = T.el('div', 'ts-xlist');
+      const lim = (v === 'ok' || v === 'check') && !rkOpen[v] ? 5 : 999;
+      G.slice(0, lim).forEach((x) => list.append(rkRow(x)));
+      if (G.length > lim) { const more = T.el('button', 'ts-btn ts-morebtn', 'Показать все ' + G.length); more.type = 'button'; more.addEventListener('click', () => { rkOpen[v] = true; dash.draw('rk-groups'); }); list.append(more); }
+      sec.append(list);
+      box.append(sec);
+    });
+  });
+  function rkRow(x) {
+    const a = x.a;
+    const row = T.el('div', 'ts-rk');
+    const top = T.el('div', 'ts-rk-top');
+    top.append(T.el('span', 'ts-rk-id', '№ ' + a.id), T.el('span', 'ts-rk-st' + (x.active ? ' ts-rk-live' : ''), RK_ST[a.st] || ''), T.el('span', 'ts-muted', (T.SID[a.s] || {}).name || ''));
+    row.append(top);
+    row.append(T.el('div', 'ts-rk-name', a.name || ('Кампания ' + a.id)));
+    const verdict = T.el('p', 'ts-rk-why');
+    verdict.append(T.el('b', 'ts-rk-' + RK_V[x.v].cls, RK_V[x.v].t + '. '), document.createTextNode(x.why));
+    row.append(verdict);
+    const nums = T.el('div', 'ts-rk-nums');
+    const n = (l, val, cls) => { const d = T.el('div'); d.append(T.el('span', null, l), T.el('b', cls || null, val)); nums.append(d); };
+    n('Расход', T.rub(a.spend));
+    n('Заказы', T.num(a.orders) + ' · ' + T.rub(a.ordSum));
+    n('ДРР', isFinite(x.drrB) ? T.pct(x.drrB, 0) : '—', x.be != null && x.drrB > x.be ? 'ts-neg' : 'ts-good');
+    n('Маржа до рекл.', x.be != null ? T.pct(x.be, 0) : '—', x.be != null && x.be <= 0 ? 'ts-neg' : null);
+    n('Цена заказа', a.orders ? T.rubFull(a.spend / a.orders) : '—');
+    n('CTR', T.pct(a.views ? a.clicks / a.views : NaN, 1));
+    row.append(nums);
+    if (x.prods.length) {
+      const pr = T.el('div', 'ts-rk-prods');
+      x.prods.slice(0, 4).forEach((p) => {
+        const it = T.el('div', 'ts-rk-p');
+        it.append(T.photo(p.key, true));
+        const so = T.stockOf(p.key);
+        const t = T.el('div');
+        const nm = T.el('div', 'ts-rk-pn'); nm.append(T.link(p)); t.append(nm);
+        t.append(T.el('small', null, 'арт. ' + (p.article || '—') + ' · SKU ' + p.sku + (so ? ' · остаток ' + T.num(so.q) + ' шт.' : '')));
+        it.append(t);
+        pr.append(it);
+      });
+      if (x.prods.length > 4) pr.append(T.el('small', 'ts-muted', 'и ещё ' + (x.prods.length - 4) + ' товаров'));
+      row.append(pr);
+    }
+    return row;
+  }
 
   dash.draw('catlist', (box) => {
     const v = T.view(); box.replaceChildren();

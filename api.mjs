@@ -9,6 +9,7 @@ const STORES = [
   { id: 'wb2', name: 'Дармил', mp: 'WB', token: env('WB_DARMIL_TOKEN') },
   { id: 'oz1', name: 'Озон Саковский', mp: 'Ozon', cid: env('OZON_SAKOVSKY_CLIENT_ID'), key: env('OZON_SAKOVSKY_API_KEY') },
   { id: 'oz2', name: 'Suaviss Озон', mp: 'Ozon', cid: env('OZON_SUAVISS_CLIENT_ID'), key: env('OZON_SUAVISS_API_KEY') },
+  { id: 'ym1', name: 'Яндекс Саковский', mp: 'Яндекс', key: env('YM_API_KEY') },
 ];
 
 const DAY = 864e5;
@@ -34,7 +35,7 @@ async function http(url, opt = {}, tries = 4) {
 const wb = (st, url, body) => http(url, { method: body ? 'POST' : 'GET', headers: { Authorization: st.token, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
 const oz = (st, path, body) => http('https://api-seller.ozon.ru' + path, { method: 'POST', headers: { 'Client-Id': st.cid, 'Api-Key': st.key, 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
 
-const OUT = { generated: new Date().toISOString(), today: TODAY, status: {}, stocks: {}, funnel: {}, orders: {}, fin: {}, ads: [], reviews: {}, revStore: {}, prices: {} };
+const OUT = { generated: new Date().toISOString(), today: TODAY, status: {}, stocks: {}, funnel: {}, orders: {}, sales: {}, fin: {}, ads: [], reviews: {}, revStore: {}, prices: {} };
 const status = (st, src, ok, info) => { (OUT.status[st.id] = OUT.status[st.id] || {})[src] = ok ? (info || 'ok') : 'ERR ' + String(info).slice(0, 160); log(st.id, src, ok ? 'ok' : 'ERR', String(info || '').slice(0, 300)); };
 async function step(st, src, fn) { try { const info = await fn(); status(st, src, true, info); } catch (e) { status(st, src, false, e.message); } }
 const K = (st, sku) => st.name + '|' + sku;
@@ -69,6 +70,19 @@ async function wbStore(st) {
     const rows = await wb(st, 'https://statistics-api.wildberries.ru/api/v1/supplier/orders?dateFrom=' + ago(91) + '&flag=0');
     (rows || []).forEach((r) => { const d = String(r.date).slice(0, 10); if (d < ago(90)) return; addOrders(st, d, 1, +r.priceWithDisc || 0, r.isCancel ? 1 : 0); });
     return (rows || []).length + ' orders';
+  });
+  // Buyouts (sales) per day exactly as in the WB cabinet: sale date, price after seller discount; returns separately
+  await step(st, 'sales', async () => {
+    const rows = await wb(st, 'https://statistics-api.wildberries.ru/api/v1/supplier/sales?dateFrom=' + ago(91) + '&flag=0');
+    const o = (OUT.sales[st.id] = OUT.sales[st.id] || {});
+    (rows || []).forEach((r) => {
+      const d = String(r.date).slice(0, 10); if (d < ago(90)) return;
+      const x = (o[d] = o[d] || [0, 0, 0, 0]);
+      const isRet = String(r.saleID || '').startsWith('R') || (+r.priceWithDisc || 0) < 0;
+      if (isRet) { x[2] += 1; x[3] += Math.abs(+r.priceWithDisc || 0); } else { x[0] += 1; x[1] += +r.priceWithDisc || 0; }
+    });
+    Object.values(o).forEach((x) => { x[1] = R(x[1]); x[3] = R(x[3]); });
+    return (rows || []).length + ' sales';
   });
   // Card funnel for the last 30 days (WB moved this method in 2026: v3 sales-funnel)
   await step(st, 'funnel', async () => {
@@ -183,13 +197,73 @@ async function wbStore(st) {
         if (!s || !(+s.sum > 0)) return;
         const nm = {};
         (s.days || []).forEach((d) => (d.apps || []).forEach((ap) => (ap.nm || ap.nms || []).forEach((x) => { nm[x.nmId] = (nm[x.nmId] || 0) + (+x.sum || 0); })));
-        const top = Object.entries(nm).sort((a, b) => b[1] - a[1]).slice(0, 60).map(([k]) => K(st, k));
-        OUT.ads.push({ s: st.id, id: s.advertId, name: (names[s.advertId] || {}).name || ('Кампания ' + s.advertId), st: (names[s.advertId] || {}).status || 0, spend: R(s.sum), views: R(s.views), clicks: R(s.clicks), cart: R(s.atbs), orders: R(s.orders), ordSum: R(s.sum_price), nms: top });
+        const topE = Object.entries(nm).sort((a, b) => b[1] - a[1]).slice(0, 60);
+        const top = topE.map(([k]) => K(st, k));
+        const nmS = Object.fromEntries(topE.map(([k, v]) => [K(st, k), R(v)]));
+        OUT.ads.push({ s: st.id, id: s.advertId, name: (names[s.advertId] || {}).name || ('Кампания ' + s.advertId), st: (names[s.advertId] || {}).status || 0, spend: R(s.sum), views: R(s.views), clicks: R(s.clicks), cart: R(s.atbs), orders: R(s.orders), ordSum: R(s.sum_price), nms: top, nmS, days: (s.days || []).map((d) => [String(d.date).slice(0, 10), R(d.sum), R(d.orders), R(d.sum_price)]) });
         got++;
       });
       if (i + 50 < ids.length) await sleep(21000);
     }
     return got + ' campaigns with spend';
+  });
+}
+
+/* ----------------------------- Яндекс Маркет ------------------------------ */
+const ym = (st, path, body) => http('https://api.partner.market.yandex.ru' + path, { method: body ? 'POST' : 'GET', headers: { 'Api-Key': st.key, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+async function ymStore(st) {
+  let camps = [];
+  await step(st, 'campaigns', async () => {
+    const j = await ym(st, '/campaigns');
+    camps = ((j && j.campaigns) || []).filter((c) => !c.placementType || c.placementType !== 'DBS' || true);
+    log('  ym campaigns', JSON.stringify(camps.map((c) => ({ id: c.id, domain: c.domain, type: c.placementType }))).slice(0, 300));
+    return camps.length + ' campaigns';
+  });
+  const ymDate = (s) => { s = String(s || ''); const m = /^(\d{2})-(\d{2})-(\d{4})/.exec(s); return m ? m[3] + '-' + m[2] + '-' + m[1] : s.slice(0, 10); };
+  await step(st, 'orders', async () => {
+    let n = 0, sample = false;
+    for (const c of camps) {
+      for (const [a, b] of [[ago(90), ago(61)], [ago(60), ago(31)], [ago(30), TODAY]]) {
+        let token = '';
+        for (let page = 0; page < 200; page++) {
+          const j = await ym(st, '/campaigns/' + c.id + '/stats/orders?limit=200' + (token ? '&page_token=' + encodeURIComponent(token) : ''), { dateFrom: a, dateTo: b });
+          const r = (j && j.result) || {};
+          const list = r.orders || [];
+          if (!sample && list[0]) { sample = true; log('  ym order sample', JSON.stringify(list[0]).slice(0, 500)); }
+          list.forEach((o) => {
+            const d = ymDate(o.creationDate);
+            const sum = (o.items || []).reduce((s, it) => { const pr = (it.prices || []).find((x) => x.type === 'BUYER') || (it.prices || [])[0] || {}; return s + (+pr.total || (+pr.costPerItem || 0) * (+it.count || 1)); }, 0);
+            const cnt = (o.items || []).reduce((s, it) => s + (+it.count || 1), 0) || 1;
+            addOrders(st, d, cnt, sum, /CANCEL/i.test(o.status) ? cnt : 0);
+            n++;
+          });
+          token = r.paging && r.paging.nextPageToken;
+          if (!token || !list.length) break;
+          await sleep(300);
+        }
+      }
+    }
+    return n + ' orders';
+  });
+  await step(st, 'stocks', async () => {
+    let n = 0;
+    for (const c of camps) {
+      let token = '';
+      for (let page = 0; page < 100; page++) {
+        const j = await ym(st, '/campaigns/' + c.id + '/offers/stocks?limit=200' + (token ? '&page_token=' + encodeURIComponent(token) : ''), {});
+        const r = (j && j.result) || {};
+        (r.warehouses || []).forEach((w) => (w.offers || []).forEach((of) => {
+          const k = K(st, of.offerId);
+          const s = (OUT.stocks[k] = OUT.stocks[k] || { q: 0, toCl: 0, fromCl: 0, wh: 0 });
+          (of.stocks || []).forEach((x) => { if (x.type === 'FIT' || x.type === 'AVAILABLE') s.q += +x.count || 0; });
+          n++;
+        }));
+        token = r.paging && r.paging.nextPageToken;
+        if (!token) break;
+        await sleep(300);
+      }
+    }
+    return n + ' offers';
   });
 }
 
@@ -305,8 +379,9 @@ function reviewsAgg(st, all) {
 for (const st of STORES) {
   if (st.mp === 'WB' && !st.token) { status(st, 'all', false, 'no token'); continue; }
   if (st.mp === 'Ozon' && !(st.cid && st.key)) { status(st, 'all', false, 'no key'); continue; }
+  if (st.mp === 'Яндекс' && !st.key) { log('ym1 skipped: no YM_API_KEY'); continue; }
   log('==', st.id, st.name);
-  if (st.mp === 'WB') await wbStore(st); else await ozStore(st);
+  if (st.mp === 'WB') await wbStore(st); else if (st.mp === 'Ozon') await ozStore(st); else await ymStore(st);
 }
 // Round order sums
 Object.values(OUT.orders).forEach((o) => Object.values(o).forEach((d) => { d[1] = R(d[1]); }));
@@ -320,6 +395,7 @@ if (prev) {
     const failed = (src) => !s[src] || String(s[src]).startsWith('ERR');
     if (failed('fin') && prev.fin && prev.fin[st.id]) OUT.fin[st.id] = prev.fin[st.id];
     if (failed('orders') && prev.orders && prev.orders[st.id]) OUT.orders[st.id] = prev.orders[st.id];
+    if (st.mp === 'WB' && failed('sales') && prev.sales && prev.sales[st.id]) OUT.sales[st.id] = prev.sales[st.id];
     const keepMap = (src, map) => { if (failed(src) && prev[map]) Object.entries(prev[map]).forEach(([k, v]) => { if (k.startsWith(st.name + '|') && !OUT[map][k]) OUT[map][k] = v; }); };
     keepMap('stocks', 'stocks'); keepMap('funnel', 'funnel'); keepMap('prices', 'prices'); keepMap('reviews', 'reviews');
     if (failed('reviews') && prev.revStore && prev.revStore[st.id]) OUT.revStore[st.id] = prev.revStore[st.id];
