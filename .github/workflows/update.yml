@@ -27,14 +27,25 @@ jobs:
           TORGSTAT_SESSION: ${{ secrets.TORGSTAT_SESSION }}
         run: node update.mjs
 
-      - name: Закоммитить data.json
+      - name: Данные из API WB и Ozon
+        continue-on-error: true
+        env:
+          WB_SAKOVSKY_TOKEN: ${{ secrets.WB_SAKOVSKY_TOKEN }}
+          WB_DARMIL_TOKEN: ${{ secrets.WB_DARMIL_TOKEN }}
+          OZON_SAKOVSKY_CLIENT_ID: ${{ secrets.OZON_SAKOVSKY_CLIENT_ID }}
+          OZON_SAKOVSKY_API_KEY: ${{ secrets.OZON_SAKOVSKY_API_KEY }}
+          OZON_SUAVISS_CLIENT_ID: ${{ secrets.OZON_SUAVISS_CLIENT_ID }}
+          OZON_SUAVISS_API_KEY: ${{ secrets.OZON_SUAVISS_API_KEY }}
+        run: node api.mjs
+
+      - name: Закоммитить данные
         run: |
           git config user.name "data-bot"
           git config user.email "data-bot@users.noreply.github.com"
-          if git diff --quiet -- data.json; then
+          git add data.json market.json 2>/dev/null || git add data.json
+          if git diff --cached --quiet; then
             echo "Данные не изменились"
           else
-            git add data.json
-            git commit -m "Данные Торгстат на $(TZ=Europe/Moscow date +%d.%m.%Y)"
+            git commit -m "Данные на $(TZ=Europe/Moscow date +%d.%m.%Y)"
             git push
           fi
