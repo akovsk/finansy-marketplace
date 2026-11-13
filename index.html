@@ -74,7 +74,7 @@ img { max-width:100%; }
   let msg = null;
   function load(id) {
     if (S.req[id]) return; S.req[id] = true;
-    fetch(SOURCES[id]).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    fetch(SOURCES[id], { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then((answer) => { const out = S.loaders[id] ? S.loaders[id]({ answer }) : answer; S.data[id] = { status: 'ok', data: Array.isArray(out) ? out : out.rows || out.data || [] }; })
       .catch((e) => { console.error(id, e); S.data[id] = { status: 'error', data: [], message: String(e) }; })
       .finally(() => { if (id === 'sales' && msg) { msg.remove(); msg = null; } render(); });
