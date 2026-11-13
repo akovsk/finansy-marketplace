@@ -1,0 +1,40 @@
+name: Обновить данные из Торгстат
+
+on:
+  schedule:
+    - cron: '30 3 * * *'   # каждый день в 06:30 по Москве
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Выгрузить данные
+        env:
+          TORGSTAT_SESSION: ${{ secrets.TORGSTAT_SESSION }}
+        run: node update.mjs
+
+      - name: Закоммитить data.json
+        run: |
+          git config user.name "data-bot"
+          git config user.email "data-bot@users.noreply.github.com"
+          if git diff --quiet -- data.json; then
+            echo "Данные не изменились"
+          else
+            git add data.json
+            git commit -m "Данные Торгстат на $(TZ=Europe/Moscow date +%d.%m.%Y)"
+            git push
+          fi
