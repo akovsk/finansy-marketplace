@@ -68,7 +68,7 @@ img { max-width:100%; }
 </style>
 <script>
 (function () {
-  const DEF = { period: '3', mp: '', store: '', brand: '', cat: '' };
+  const DEF = { period: '7', mp: '', store: '', brand: '', cat: '' };
   const SOURCES = { sales: 'data.json', images: 'images.json', market: 'market.json' };
   const S = { loaders: {}, drawers: {}, order: [], on: [], data: {}, req: {}, started: false, params: Object.assign({}, DEF) };
   let msg = null;
@@ -501,8 +501,8 @@ th[aria-sort] { color:var(--color-fg); }
       <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" data-period="1">1 дн</button><button type="button" data-period="3">3 дн</button><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
       <select class="dash-select" id="f-period" aria-label="Период" data-draw="opt-period" data-source="sales">
         <option value="1">1 день</option>
-        <option value="3" selected>3 дня</option>
-        <option value="7">7 дней</option>
+        <option value="3">3 дня</option>
+        <option value="7" selected>7 дней</option>
         <option value="14">14 дней</option>
         <option value="30">30 дней</option>
         <option value="90">90 дней</option>
@@ -805,7 +805,7 @@ window.T = (function () {
   }
 
   function range(period, last) {
-    period = period || '3';
+    period = period || '7';
     if (/^\d+$/.test(period)) {
       const n = Number(period), a = Math.max(0, last - n + 1);
       return { a, b: last, prev: a - n >= 0 ? { a: a - n, b: a - 1 } : null };
@@ -1413,11 +1413,11 @@ dash.loader('sales', {
     Object.keys(map).forEach((id) => {
       document.querySelectorAll('select#' + id).forEach((el) => {
         if (document.activeElement === el) return;
-        const val = p[map[id]] || (id === 'f-period' ? '3' : '');
+        const val = p[map[id]] || (id === 'f-period' ? '7' : '');
         if ([...el.options].some((o) => o.value === val)) el.value = val;
       });
     });
-    document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '3') ? 'true' : 'false'));
+    document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '7') ? 'true' : 'false'));
     document.querySelectorAll('.ts-sw-rev').forEach((e) => { e.style.background = dash.colors[0]; });
     document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = dash.colors[1]; });
     const v = T.view();
@@ -1784,7 +1784,7 @@ dash.loader('sales', {
     if (!mv) { box.append(el('p', 'ts-empty', '—')); return; }
     const vals = mv.keys.map((k) => mv.months.get(k));
     const mx = Math.max(1, ...vals.map((t) => Math.abs(t.np)));
-    const cur = dash.params().period || '3';
+    const cur = dash.params().period || '7';
     mv.keys.forEach((k, i) => {
       const t = vals[i];
       const row = el('button', 'ts-mbar' + (cur === 'm' + k ? ' ts-on' : '')); row.type = 'button';
@@ -1805,7 +1805,7 @@ dash.loader('sales', {
     const mv = T.monthly(); th.replaceChildren(); const tr = th.insertRow();
     const h0 = document.createElement('th'); h0.textContent = 'Статья'; tr.append(h0);
     if (!mv) return;
-    const cur = dash.params().period || '3';
+    const cur = dash.params().period || '7';
     mv.keys.forEach((k) => {
       const h = document.createElement('th'); h.className = 'ts-click'; h.tabIndex = 0;
       h.textContent = MONTHS[Number(k.slice(5)) - 1] + ' ' + k.slice(2, 4);
@@ -1844,7 +1844,7 @@ dash.loader('sales', {
   dash.draw('opt-period', (sel) => {
     const m = T.meta(); if (!m) return;
     const last = T.iso(m.last), first = T.iso(0);
-    if (perKey === last) { sel.value = dash.params().period || '3'; return; }
+    if (perKey === last) { sel.value = dash.params().period || '7'; return; }
     perKey = last;
     const o = [['1', '1 день'], ['3', '3 дня'], ['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
     let y = +first.slice(0, 4), mo = +first.slice(5, 7);
@@ -1856,7 +1856,7 @@ dash.loader('sales', {
     }
     o.push(['all', 'Весь период']);
     sel.replaceChildren(...o.map(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; return op; }));
-    sel.value = dash.params().period || '3';
+    sel.value = dash.params().period || '7';
   });
 
   /* ---- Orders today / yesterday (API, live) ---- */
