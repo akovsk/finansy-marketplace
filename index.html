@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f5f8">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121519">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e0e0e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,15 +16,15 @@
 <title>Финансы маркетплейсы</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
 :root {
-  --color-fg:#1a2030; --color-fg-muted:#5f6878; --color-bg:#f4f5f8; --color-panel:#ffffff; --color-border-line:#e4e7ec;
-  --ts-track:#e9ecf1; --ts-thumb:#ffffff; --ts-subtle:#f7f8fa;
+  --color-fg:#111111; --color-fg-muted:#6b6b6b; --color-bg:#ffffff; --color-panel:#ffffff; --color-border-line:#e5e5e5;
+  --ts-track:#f3f3f3; --ts-thumb:#ffffff; --ts-subtle:#fafafa;
   --color-ok:#2f7d4f; --color-warn:#a66a00; --color-bad:#c0392b;
   --c1:#3b6fb6; --c2:#e08a2c;
-  --font-anthropic-sans:'Onest', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-anthropic-sans:'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --font-anthropic-serif:'Source Serif 4', Georgia, 'Times New Roman', serif;
   --cds-font-size-caption:12.5px; --cds-font-size-body:14.5px; --cds-font-size-heading:16px; --cds-font-size-title:2rem;
   --cds-font-weight-medium:600;
@@ -36,15 +36,15 @@
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#121519; --color-panel:#1b1f26; --color-border-line:#2a3039;
-  --ts-track:#0d1014; --ts-thumb:#2a303a; --ts-subtle:#21262e;
+  --color-fg:#ededed; --color-fg-muted:#8c8c8c; --color-bg:#0e0e0e; --color-panel:#0e0e0e; --color-border-line:#262626;
+  --ts-track:#1a1a1a; --ts-thumb:#2a2a2a; --ts-subtle:#151515;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
   --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
   --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.45);
   color-scheme:dark; } }
 :root[data-theme="dark"] {
-  --color-fg:#e7e9ee; --color-fg-muted:#9aa3b2; --color-bg:#121519; --color-panel:#1b1f26; --color-border-line:#2a3039;
-  --ts-track:#0d1014; --ts-thumb:#2a303a; --ts-subtle:#21262e;
+  --color-fg:#ededed; --color-fg-muted:#8c8c8c; --color-bg:#0e0e0e; --color-panel:#0e0e0e; --color-border-line:#262626;
+  --ts-track:#1a1a1a; --ts-thumb:#2a2a2a; --ts-subtle:#151515;
   --color-ok:#5cc28a; --color-warn:#e0a640; --color-bad:#ef6b5e; --c1:#6d9be0; --c2:#f0a35a;
   --cds-chart-muted:#6b7380; --cds-chart-status-critical:#ef6b5e; --cds-chart-grid:#2a2f37; --cds-chart-axis:#6b7380; --cds-chart-reference:#6b7380;
   --cds-text-secondary:#9aa3b2; --cds-surface-popover:#222730; --cds-border:#353c47; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.45);
@@ -441,62 +441,79 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-tools .ts-search { width:100%; }
 }
 
-/* ===== Visual refresh ===== */
-.ts { gap:20px; }
-.ts-brandrow { display:flex; align-items:center; gap:14px; }
-.ts-logo { width:44px; height:44px; border-radius:12px; flex:none; box-shadow:0 0 0 1px var(--color-border-line), 0 2px 8px rgba(15,20,30,.18); }
-.ts h1 { font-size:26px; letter-spacing:-0.02em; }
-.ts-bar { background:color-mix(in srgb, var(--color-bg) 82%, transparent); -webkit-backdrop-filter:saturate(1.4) blur(12px); backdrop-filter:saturate(1.4) blur(12px); padding-block:10px; margin-inline:-16px; padding-inline:16px; }
-.ts-tabs, .ts-seg, .ts-chips { background:var(--ts-track); border-color:transparent; }
-.ts-tabs button[aria-selected="true"], .ts-seg button[aria-selected="true"] { background:var(--ts-thumb); box-shadow:0 1px 2px rgba(15,20,30,.10), 0 1px 6px rgba(15,20,30,.06); }
-.ts-tabs button, .ts-seg button, .ts-chips button, .ts-btn, .ts-hl, .ts-mpc, .ts-in, .ts-kpi, .ts-card, .ts-abcc, .dash-select { transition:background-color .15s, color .15s, border-color .15s, box-shadow .2s, transform .2s; }
-.dash-select, .ts-search { background-color:var(--color-panel); border-color:var(--color-border-line); }
-.dash-select:hover, .ts-search:hover { border-color:var(--color-fg-muted); }
-.ts-btn { background:var(--color-panel); }
-.ts { --ts-shadow:0 1px 2px rgba(16,24,40,.04), 0 2px 10px rgba(16,24,40,.04); --ts-shadow-hi:0 2px 4px rgba(16,24,40,.06), 0 10px 28px rgba(16,24,40,.10); --ts-r:16px; }
-.ts-panel { padding:18px 20px; gap:12px; }
-.ts-kpi { padding:14px 16px; gap:3px; position:relative; overflow:hidden; }
-.ts-kpi-l { font-size:12.5px; }
-.ts-kpi-v { font-size:24px; font-weight:700; }
-.ts-kpi:hover, .ts-mpc:hover, .ts-in:hover, .ts-card:hover, .ts-abcc:hover { box-shadow:var(--ts-shadow-hi); border-color:var(--color-border-line); }
-.ts-hl { background:var(--color-panel); box-shadow:var(--ts-shadow); }
-.ts-hl:hover { box-shadow:var(--ts-shadow-hi); border-color:var(--color-border-line); }
-@media (prefers-reduced-motion: no-preference) { .ts-mpc:hover, .ts-in:hover, .ts-hl:hover, .ts-card:hover { transform:translateY(-2px); } }
-.ts-tablewrap { background:var(--color-panel); }
-.ts-table th { background:var(--ts-subtle); }
-.ts-table tbody tr:hover td, .ts-table tr.ts-strong td, .ts-store-row.ts-on td { background:var(--ts-subtle); }
-.ts-ph { border-radius:12px; }
+/* layout fixes */
 .ts-grid-main { align-items:stretch; gap:16px; }
 .ts-grid-main > .ts-sec { gap:16px; }
 .ts-grid-main > .ts-sec > .ts-panel:last-child { flex:1; }
 #trend .ts-chart { flex:1; display:flex; flex-direction:column; justify-content:center; }
 #todo { grid-column:1 / -1; }
-@media (min-width: 901px) {
-  #todo .ts-acts { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px 36px; padding-left:20px; }
+@media (min-width: 901px) { #todo .ts-acts { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px 36px; padding-left:20px; } }
+.ts-bar { margin-inline:-16px; padding-inline:16px; }
+@media (max-width: 640px) { .ts-bar { margin-inline:-12px; padding-inline:12px; } .ts-grid-main { align-items:stretch; } }
+
+/* ===== Minimal theme ===== */
+.ts { --ts-shadow:none; --ts-r:6px; --ts-r-sm:4px; gap:24px; font-size:13.5px; }
+.ts h1 { font-size:22px; font-weight:600; letter-spacing:-0.02em; }
+.ts h2 { font-size:16px; font-weight:600; }
+.ts h3 { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--color-fg-muted); }
+.ts-top { padding-bottom:4px; }
+/* bar & controls */
+.ts-bar { background:color-mix(in srgb, var(--color-bg) 92%, transparent); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); padding-block:0 12px; gap:12px; }
+.ts-chips { background:transparent; border:1px solid var(--color-border-line); border-radius:4px; padding:0; gap:0; }
+.ts-chips button { border-radius:0; padding:6px 12px; border-left:1px solid var(--color-border-line); }
+.ts-chips button:first-child { border-left:0; }
+.ts-chips button[aria-pressed="true"] { background:var(--color-fg); color:var(--color-bg); }
+.ts-seg { background:transparent; border:1px solid var(--color-border-line); border-radius:4px; padding:0; gap:0; }
+.ts-seg button { border-radius:0; border-left:1px solid var(--color-border-line); }
+.ts-seg button:first-child { border-left:0; }
+.ts-seg button[aria-selected="true"] { background:var(--ts-track); box-shadow:none; }
+.dash-select, .ts-search, .ts-btn, .ts-filters select { border-radius:4px; background-color:var(--color-bg); }
+.dash-select:hover, .ts-search:hover, .ts-btn:hover { border-color:var(--color-fg); }
+@media (min-width: 641px) {
+  .ts-tabs { background:transparent; border:0; border-bottom:1px solid var(--color-border-line); border-radius:0; padding:0; gap:24px; width:100%; }
+  .ts-tabs button { border-radius:0; padding:12px 0 11px; font-size:14px; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .ts-tabs button[aria-selected="true"] { background:transparent; box-shadow:none; border-bottom-color:var(--color-fg); }
 }
-.ts-acts li::marker { color:var(--color-ok); }
+/* surfaces: flat, hairlines */
+.ts-panel, .ts-mpc, .ts-in, .ts-card, .ts-abcc, .ts-glist, .ts-mlist, .ts-hl, .ts-tablewrap { background:var(--color-bg); box-shadow:none; border-radius:6px; }
+.ts-panel { padding:20px; gap:14px; }
+.ts-mpc::before { height:3px; }
+.ts-in { border-left-width:3px; }
+.ts-hl:hover, .ts-mpc:hover, .ts-in:hover, .ts-card:hover { border-color:var(--color-fg-muted); box-shadow:none; transform:none; }
+/* KPI strip: one ruled grid, large numbers */
+.ts-kpis { gap:1px; background:var(--color-border-line); border:1px solid var(--color-border-line); border-radius:6px; overflow:hidden; }
+.ts-kpi { background:var(--color-bg); border:0; border-radius:0; box-shadow:none; padding:16px 18px 14px; gap:4px; }
+.ts-kpi:hover { box-shadow:none; }
+.ts-kpi-l { font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:500; }
+.ts-kpi-v { font-size:28px; font-weight:600; letter-spacing:-0.03em; }
+.ts-mpc-big { font-size:26px; font-weight:600; letter-spacing:-0.03em; }
+.ts-lede { font-size:15px; }
+/* tables */
+.ts-table th { background:var(--color-bg); text-transform:uppercase; letter-spacing:.05em; font-size:10.5px; font-weight:600; border-bottom-color:var(--color-fg); }
+.ts-table tbody tr:hover td, .ts-store-row.ts-on td { background:var(--ts-subtle); }
+.ts-table tr.ts-strong td { background:var(--color-bg); border-top:1px solid var(--color-fg); }
+/* badges flatter */
+.ts-mp { border-radius:3px; letter-spacing:.02em; }
+.ts-badge { border-radius:3px; }
+.ts-ph { border-radius:4px; }
+.ts-acts li::marker { color:var(--color-fg-muted); font-weight:600; }
 @media (max-width: 640px) {
   .ts h1 { font-size:20px; }
-  .ts-logo { width:36px; height:36px; border-radius:10px; }
-  .ts-brandrow { gap:10px; }
-  .ts-bar { margin-inline:-12px; padding-inline:12px; }
-  .ts-grid-main { align-items:stretch; }
-  .ts-kpi-v { font-size:20px; }
-  .ts-panel { padding:14px 15px; }
-  #dash-root .ts-tabs { background:color-mix(in srgb, var(--color-panel) 88%, transparent); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
-  #dash-root .ts-tabs button[aria-selected="true"] { background:var(--ts-track); box-shadow:none; }
-  .ts-table th:first-child, .ts-table td:first-child { background:var(--color-panel); }
-  .ts-table th:first-child, .ts-table tr.ts-strong td:first-child { background:var(--ts-subtle); }
+  .ts-kpi { padding:12px 14px; }
+  .ts-kpi-v { font-size:22px; }
+  .ts-panel { padding:14px; }
+  #dash-root .ts-tabs { background:var(--color-bg); border-radius:0; box-shadow:none; border-top:1px solid var(--color-border-line); }
+  #dash-root .ts-tabs button[aria-selected="true"] { background:transparent; box-shadow:none; color:var(--color-fg); font-weight:600; text-decoration:underline; text-underline-offset:6px; text-decoration-thickness:2px; }
+  .ts-table th:first-child, .ts-table td:first-child { background:var(--color-bg); }
 }
 </style>
 
 <div class="ts">
   <header class="ts-top" id="top">
-    <div class="ts-brandrow"><img class="ts-logo" src="icon-180.png" alt="" width="44" height="44">
     <div class="ts-brand">
       <h1>Финансы маркетплейсы</h1>
       <p class="ts-muted"><span class="ts-mp ts-mp-wb">Wildberries</span><span class="ts-mp ts-mp-oz">Ozon</span><span class="ts-mp ts-mp-ym">Яндекс Маркет</span> 5 магазинов · данные Торгстат 01.06–12.11.2026</p>
-    </div></div>
+    </div>
   </header>
 
   <div class="ts-bar" id="bar">
