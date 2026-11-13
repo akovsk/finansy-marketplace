@@ -68,7 +68,7 @@ img { max-width:100%; }
 </style>
 <script>
 (function () {
-  const DEF = { period: '7', mp: '', store: '', brand: '', cat: '' };
+  const DEF = { period: '30', mp: '', store: '', brand: '', cat: '' };
   const SOURCES = { sales: 'data.json', images: 'images.json', market: 'market.json' };
   const S = { loaders: {}, drawers: {}, order: [], on: [], data: {}, req: {}, started: false, params: Object.assign({}, DEF) };
   let msg = null;
@@ -348,6 +348,29 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-crow-n { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ts-crow-bar { height:4px; background:var(--cds-chart-grid); border-radius:2px; overflow:hidden; }
 .ts-crow-bar i { display:block; height:100%; border-radius:2px; }
+.ts-in-more { font-size:12px; font-weight:600; color:var(--ts-c2, var(--color-fg)); }
+.ts-in-more::after { content:" ▾"; }
+.ts-in.ts-open .ts-in-more::after { content:" ▴"; }
+.ts-in-list { display:flex; flex-direction:column; gap:6px; margin-top:6px; padding-top:8px; border-top:1px solid var(--color-border-line); cursor:default; }
+.ts-in-lh { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; }
+.ts-in-lh .ts-btn { margin-left:auto; }
+.ts-in-lh2 { margin-top:8px; }
+.ts-in-rows { display:flex; flex-direction:column; }
+.ts-in-rows .ts-xrow { padding:8px 0; }
+.ts-btn-sm { font-size:11.5px; padding:4px 10px; align-self:flex-start; }
+.ts-xrow-ad { color:var(--ts-wb); font-weight:500; }
+.ts-camp-id { width:52px; font-size:11px; font-weight:600; font-variant-numeric:tabular-nums; color:var(--color-fg-muted); word-break:break-all; text-align:center; background:var(--color-bg); border-radius:8px; padding:6px 2px; }
+:root { --ts-och-o:#8b5cf6; --ts-och-b:#22c55e; }
+.ts-bigchart { margin-top:2px; }
+.ts-chart-big { min-height:280px; }
+.ts-och-sum { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; }
+.ts-och-c { display:flex; flex-direction:column; gap:1px; padding:6px 10px; border-radius:var(--ts-r-sm); background:var(--color-bg); border-left:3px solid var(--color-border-line); min-width:0; }
+.ts-och-c span { font-size:11.5px; color:var(--color-fg-muted); }
+.ts-och-c b { font-size:18px; font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ts-och-c small { font-size:11.5px; color:var(--color-fg-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ts-och-o { border-left-color:var(--ts-och-o); } .ts-och-b { border-left-color:var(--ts-och-b); }
+.ts-sw-o { background:var(--ts-och-o); } .ts-sw-b { background:var(--ts-och-b); }
+@media (max-width:640px) { .ts-och-sum { grid-template-columns:repeat(2, minmax(0,1fr)); } }
 .ts-orders { display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; }
 .ts-orders[hidden] { display:none; }
 .ts-ord-h { width:100%; font-size:12px; color:var(--color-fg-muted); }
@@ -411,11 +434,6 @@ th[aria-sort] { color:var(--color-fg); }
 [data-dash-source-state=refreshing] { opacity:.5; }
 .ts-notes summary { cursor:pointer; color:var(--color-fg-muted); font-size:12px; }
 .ts-notes ul { margin:8px 0 0; padding-left:1.2em; line-height:1.6; font-size:12px; color:var(--color-fg-muted); max-width:90ch; }
-.ts-grid-main { align-items:stretch; }
-.ts-grid-main > .ts-sec > .ts-panel:last-child { flex:1; }
-#trend .ts-chart { flex:1; display:flex; flex-direction:column; justify-content:center; }
-#todo { grid-column:1 / -1; }
-@media (min-width: 901px) { #todo .ts-acts { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px 36px; } }
 /* Phone-first adjustments */
 @media (max-width: 640px) {
   .ts { gap:14px; font-size:14px; }
@@ -468,7 +486,7 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-acts { padding-left:18px; }
   .ts-grid-main { display:flex; flex-direction:column; gap:12px; }
   .ts-grid-main > .ts-sec { display:contents; }
-  #trend { order:1; } #cash { order:2; } #todo { order:3; } #mpshare { order:4; }
+  #cash { order:1; } #todo { order:2; } #trend { order:3; } #mpshare { order:4; }
   .ts-pnl th:nth-child(4), .ts-pnl td:nth-child(4) { display:none; }
   .ts-pnl .ts-pctbar i { display:none; }
   .ts-pnl td:first-child { white-space:normal; min-width:0; max-width:7.5rem; line-height:1.25; }
@@ -498,11 +516,9 @@ th[aria-sort] { color:var(--color-fg); }
       <button type="button" role="tab" data-tab="stock" aria-selected="false">Склад</button>
     </nav>
     <div class="ts-filters" id="filters">
-      <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" data-period="1">1 дн</button><button type="button" data-period="3">3 дн</button><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
+      <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
       <select class="dash-select" id="f-period" aria-label="Период" data-draw="opt-period" data-source="sales">
-        <option value="1">1 день</option>
-        <option value="3">3 дня</option>
-        <option value="7" selected>7 дней</option>
+        <option value="7">7 дней</option>
         <option value="14">14 дней</option>
         <option value="30">30 дней</option>
         <option value="90">90 дней</option>
@@ -529,6 +545,23 @@ th[aria-sort] { color:var(--color-fg); }
   </div>
 
   <section class="ts-page" id="overview" role="tabpanel">
+    <p class="ts-lede" id="takeaway" data-source="sales">На счёт пришло <b data-draw="tk-payout" data-source="sales" data-field="rev">—</b>, из них чистая прибыль <b data-draw="tk-np" data-source="sales" data-field="np">—</b>. В минусе <b data-draw="tk-loss" class="ts-hl-bad" data-source="sales" data-field="sku">—</b> из <b data-draw="tk-sold" data-source="sales" data-field="sku">—</b> товаров.</p>
+    <div class="ts-orders" data-draw="ord-strip" data-source="sales"></div>
+    <div class="ts-panel ts-bigchart" id="ordchart">
+      <div class="ts-panel-h"><h3>Заказы и выкупы по дням</h3>
+        <div class="ts-seg ts-seg-sm" role="tablist" aria-label="Единицы графика"><button type="button" role="tab" data-och="n" aria-selected="true">Штуки</button><button type="button" role="tab" data-och="s" aria-selected="false">Рубли</button></div></div>
+      <div class="ts-och-sum" data-draw="och-sum" data-source="sales"></div>
+      <div class="ts-chart ts-chart-big" data-draw="och" data-source="sales"></div>
+      <p class="ts-muted" data-draw="och-note" data-source="sales"></p>
+    </div>
+    <div class="ts-kpis">
+      <div class="ts-kpi" id="kpi-payout"><div class="ts-kpi-l" title="Сколько площадки перечисляют на счёт: продажи минус комиссия, логистика, хранение, реклама и удержания">Выплата на счёт</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="payout" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="payout"></div><div class="ts-kspark" data-draw="kspark" data-k="payout" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-rev"><div class="ts-kpi-l" title="Продажи по цене продавца до удержаний площадки">Выручка (продажи)</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="rev" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="rev"></div><div class="ts-kspark" data-draw="kspark" data-k="rev" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-np"><div class="ts-kpi-l">Чистая прибыль</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="np" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="np"></div><div class="ts-kspark" data-draw="kspark" data-k="np" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-margin"><div class="ts-kpi-l" title="Чистая прибыль ÷ выплата на счёт">Маржа от выплат</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="margin" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="margin"></div><div class="ts-kspark" data-draw="kspark" data-k="margin" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-drr"><div class="ts-kpi-l" title="Доля рекламных расходов: реклама ÷ выручка">ДРР</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="drr" data-source="sales" data-field="adv">—</div><div class="ts-kpi-d" data-draw="delta" data-k="drr"></div><div class="ts-kspark" data-draw="kspark" data-k="drr" data-source="sales"></div></div>
+      <div class="ts-kpi" id="kpi-ret"><div class="ts-kpi-l">Возвраты</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="retr" data-source="sales" data-field="ret">—</div><div class="ts-kpi-d" data-draw="delta" data-k="retr"></div><div class="ts-kspark" data-draw="kspark" data-k="retr" data-source="sales"></div></div>
+    </div>
     <div class="ts-grid-main">
       <div class="ts-panel" id="trend">
         <div class="ts-panel-h"><h3><span class="ts-mode-rev">Выручка</span><span class="ts-mode-pay" hidden>Выплаты на счёт</span> и прибыль, <span data-draw="trend-gran">—</span></h3>
@@ -545,22 +578,12 @@ th[aria-sort] { color:var(--color-fg); }
           <h3>Площадки</h3>
           <div class="ts-mprows" data-draw="mpshare" data-source="sales"></div>
         </div>
+        <div class="ts-panel" id="todo">
+          <h3>Сделать в первую очередь</h3>
+          <ol class="ts-acts" data-draw="topacts" data-source="sales"></ol>
+          <button type="button" class="ts-btn" data-goto="insights" style="width:fit-content">Все рекомендации</button>
+        </div>
       </div>
-      <div class="ts-panel" id="todo">
-        <h3>Сделать в первую очередь</h3>
-        <ol class="ts-acts" data-draw="topacts" data-source="sales"></ol>
-        <button type="button" class="ts-btn" data-goto="insights" style="width:fit-content">Все рекомендации</button>
-      </div>
-    </div>
-    <p class="ts-lede" id="takeaway" data-source="sales">На счёт пришло <b data-draw="tk-payout" data-source="sales" data-field="rev">—</b>, из них чистая прибыль <b data-draw="tk-np" data-source="sales" data-field="np">—</b>. В минусе <b data-draw="tk-loss" class="ts-hl-bad" data-source="sales" data-field="sku">—</b> из <b data-draw="tk-sold" data-source="sales" data-field="sku">—</b> товаров.</p>
-    <div class="ts-orders" data-draw="ord-strip" data-source="sales"></div>
-    <div class="ts-kpis">
-      <div class="ts-kpi" id="kpi-payout"><div class="ts-kpi-l" title="Сколько площадки перечисляют на счёт: продажи минус комиссия, логистика, хранение, реклама и удержания">Выплата на счёт</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="payout" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="payout"></div><div class="ts-kspark" data-draw="kspark" data-k="payout" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-rev"><div class="ts-kpi-l" title="Продажи по цене продавца до удержаний площадки">Выручка (продажи)</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="rev" data-source="sales" data-field="rev">—</div><div class="ts-kpi-d" data-draw="delta" data-k="rev"></div><div class="ts-kspark" data-draw="kspark" data-k="rev" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-np"><div class="ts-kpi-l">Чистая прибыль</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="np" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="np"></div><div class="ts-kspark" data-draw="kspark" data-k="np" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-margin"><div class="ts-kpi-l" title="Чистая прибыль ÷ выплата на счёт">Маржа от выплат</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="margin" data-source="sales" data-field="np">—</div><div class="ts-kpi-d" data-draw="delta" data-k="margin"></div><div class="ts-kspark" data-draw="kspark" data-k="margin" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-drr"><div class="ts-kpi-l" title="Доля рекламных расходов: реклама ÷ выручка">ДРР</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="drr" data-source="sales" data-field="adv">—</div><div class="ts-kpi-d" data-draw="delta" data-k="drr"></div><div class="ts-kspark" data-draw="kspark" data-k="drr" data-source="sales"></div></div>
-      <div class="ts-kpi" id="kpi-ret"><div class="ts-kpi-l">Возвраты</div><div class="ts-kpi-v dash-skeleton" data-draw="kpi" data-k="retr" data-source="sales" data-field="ret">—</div><div class="ts-kpi-d" data-draw="delta" data-k="retr"></div><div class="ts-kspark" data-draw="kspark" data-k="retr" data-source="sales"></div></div>
     </div>
   </section>
 
@@ -805,7 +828,7 @@ window.T = (function () {
   }
 
   function range(period, last) {
-    period = period || '7';
+    period = period || '30';
     if (/^\d+$/.test(period)) {
       const n = Number(period), a = Math.max(0, last - n + 1);
       return { a, b: last, prev: a - n >= 0 ? { a: a - n, b: a - 1 } : null };
@@ -1149,7 +1172,7 @@ window.T = (function () {
     node.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target === node) tog(); });
   }
 
-  return { mk, vel, stockOf, SID, sidPass, passDims, KEYS, expandable, COST_LABELS, TH, MP, MP_ORDER, mpChip, storeCell, rub, rubFull, short, pct, num, signed, meta, view, monthly, buckets: null, photo, link, el, abcChip, badges, card,
+  return { mk, vel, stockOf, SID, sidPass, passDims, breakEven, KEYS, expandable, COST_LABELS, TH, MP, MP_ORDER, mpChip, storeCell, rub, rubFull, short, pct, num, signed, meta, view, monthly, buckets: null, photo, link, el, abcChip, badges, card,
     iso: (i) => iso(i), dm: (i) => dm(i), dmy: (i) => dmy(i), dayDow: (i) => new Date(s0 + i * DAY).getUTCDay(),
     state: { sort: 'rev', dir: -1, q: '', show: '', limit: 50 } };
 })();
@@ -1193,6 +1216,7 @@ T.insights = function (v) {
     comm: ['комиссия', 'Заложить комиссию в цену, проверить тарифы категорий']
   };
   const out = [];
+  const worstFirst = (arr) => arr.slice().sort((a, b) => a.np - b.np), bestFirst = (arr) => arr.slice().sort((a, b) => b.np - a.np);
   const mps = v.mps.filter((m) => m.rev > 0);
 
   mps.forEach((m) => {
@@ -1206,11 +1230,13 @@ T.insights = function (v) {
     if (m.np < 0) {
       out.push({ mp: m.mp, tone: 'bad', pot: -m.np, t: NAME(m.mp) + ' работает в минус:', val: rub(m.np),
         x: 'Маржа от выплат ' + pct(m.margin) + ', выплата ' + rub(m.payout) + '.' + (drv ? ' Главная причина: ' + COST[drv.k][0] + ' ' + pct(share(m, drv.k), 0) + ' выручки, на других площадках ' + pct(drv.o, 0) + '.' : '') + chg,
-        a: drv ? COST[drv.k][1] : 'Разобрать убыточные товары этой площадки в разделе «Проблемные товары»' });
+        a: drv ? COST[drv.k][1] : 'Разобрать убыточные товары этой площадки в разделе «Проблемные товары»',
+        items: worstFirst(v.active.filter((x) => x.mp === m.mp && x.np < 0)), lbl: 'Убыточные товары площадки', ads: true });
     } else {
       out.push({ mp: m.mp, tone: 'good', w: m.np, t: NAME(m.mp) + ' приносит', val: '+' + rub(m.np),
         x: 'Маржа от выплат ' + pct(m.margin) + ', это ' + pct(m.rev / (v.cur.rev || 1), 0) + ' всей выручки.' + chg + (drv ? ' Слабое место: ' + COST[drv.k][0] + ' ' + pct(share(m, drv.k), 0) + ' выручки.' : ''),
-        a: m.margin >= 0.2 ? 'Расширять ассортимент и рекламу на этой площадке' : (drv ? COST[drv.k][1] : 'Держать курс, следить за ДРР и комиссией') });
+        a: m.margin >= 0.2 ? 'Расширять ассортимент и рекламу на этой площадке' : (drv ? COST[drv.k][1] : 'Держать курс, следить за ДРР и комиссией'),
+        items: bestFirst(v.active.filter((x) => x.mp === m.mp && x.np > 0)), lbl: 'Самые прибыльные товары площадки' });
     }
   });
 
@@ -1220,7 +1246,7 @@ T.insights = function (v) {
     if (cheap.length >= 3 && t.np < -Math.max(20000, 0.01 * m.rev)) {
       out.push({ mp: m.mp, tone: 'bad', pot: -t.np, t: 'Дешёвые товары на ' + LOC(m.mp) + ' теряют', val: rub(t.np),
         x: plural(cheap.length, 'товар', 'товара', 'товаров') + ' дешевле 600 ₽: логистика ' + pct(-t.log / t.rev, 0) + ' и комиссия ' + pct(-t.comm / t.rev, 0) + ' выручки. Минус ' + rub(Math.abs(t.np / t.q)) + ' с каждой продажи.',
-        a: 'Продавать наборами по 2–3 шт., поднять цену или вывести' });
+        a: 'Продавать наборами по 2–3 шт., поднять цену или вывести', items: worstFirst(cheap), lbl: 'Дешёвые товары', be: true });
     }
   });
 
@@ -1228,24 +1254,25 @@ T.insights = function (v) {
   if (adOnly.length) {
     out.push({ mp: domMp(adOnly), tone: 'bad', pot: -sum(adOnly, (x) => x.np), t: plural(adOnly.length, 'товар', 'товара', 'товаров') + ' в минусе только из-за рекламы:', val: rub(sum(adOnly, (x) => x.np)),
       x: 'На них потрачено ' + rub(-sum(adOnly, (x) => x.adv)) + ' рекламы. Без неё они дали бы ' + rub(sum(adOnly, (x) => x.np - x.adv)) + ' прибыли.',
-      a: 'Снизить ставки или отключить кампании на этих товарах' });
+      a: 'Снизить ставки или отключить кампании на этих товарах', items: worstFirst(adOnly), lbl: 'Товары в минусе из-за рекламы', ads: true });
   }
   const ue = v.active.filter((x) => x.rev > 0 && x.np - x.adv < 0);
   if (ue.length) {
     const worst = ue.slice().sort((a, b) => a.np - b.np).slice(0, 3).map(shortName);
     out.push({ mp: domMp(ue), tone: 'bad', pot: -sum(ue, (x) => x.np), t: plural(ue.length, 'товар', 'товара', 'товаров') + ' убыточны даже без рекламы:', val: rub(sum(ue, (x) => x.np)),
       x: 'Цена не покрывает себестоимость, комиссию и логистику. Больше всего теряют: ' + worst.join('; ') + '.',
-      a: 'Поднять цену до безубыточной или вывести из ассортимента' });
+      a: 'Поднять цену до безубыточной или вывести из ассортимента', items: worstFirst(ue), lbl: 'Убыточные товары', be: true });
   }
   const idle = v.active.filter((x) => x.rev <= 0 && x.np < 0);
   if (idle.length) {
     out.push({ mp: domMp(idle), tone: 'bad', pot: -sum(idle, (x) => x.np), t: plural(idle.length, 'товар', 'товара', 'товаров') + ' без продаж тратят', val: rub(sum(idle, (x) => x.np)),
-      x: 'Платим за хранение и рекламу, а продаж за период нет.', a: 'Отключить рекламу, распродать остатки и убрать с витрины' });
+      x: 'Платим за хранение и рекламу, а продаж за период нет.', a: 'Отключить рекламу, распродать остатки и убрать с витрины', items: worstFirst(idle), lbl: 'Товары без продаж', ads: true });
   }
 
   v.stores.forEach((s) => {
     if (s.rev > 0 && s.drr > 0.15) out.push({ mp: s.mp, tone: s.np < 0 ? 'bad' : 'warn', pot: s.np < 0 ? -s.np : 0, t: s.store + ': реклама съедает', val: pct(s.drr, 0) + ' выручки',
-      x: 'Прибыль магазина ' + rub(s.np) + '. Без рекламы было бы ' + rub(s.np - s.adv) + '.', a: 'Оставить рекламу только товарам с маржой выше ДРР, остальные кампании выключить' });
+      x: 'Прибыль магазина ' + rub(s.np) + '. Без рекламы было бы ' + rub(s.np - s.adv) + '.', a: 'Оставить рекламу только товарам с маржой выше ДРР, остальные кампании выключить',
+      items: v.active.filter((x) => x.store === s.store && x.adv < 0).sort((a, b) => (a.np - b.np)), lbl: 'Товары с рекламой, сначала убыточные', ads: true });
   });
   v.stores.forEach((s) => {
     if (s.q >= 50 && s.retr > 0.05) {
@@ -1255,14 +1282,16 @@ T.insights = function (v) {
       const topc = [...cats.entries()].sort((a, b) => b[1].ret - a[1].ret).slice(0, 2).map(([c, t]) => c + ' (' + pct(t.q ? t.ret / t.q : NaN, 0) + ')');
       out.push({ mp: s.mp, tone: 'warn', pot: 0, t: s.store + ': возвращают', val: pct(s.retr, 0) + ' проданного',
         x: (oq ? 'В других магазинах ' + pct(oret / oq, 1) + '. ' : '') + (topc.length ? 'Больше всего возвратов: ' + topc.join(', ') + '.' : ''),
-        a: 'Проверить упаковку, сроки доставки и описание в карточках этих категорий' });
+        a: 'Проверить упаковку, сроки доставки и описание в карточках этих категорий',
+        items: v.active.filter((x) => x.store === s.store && x.ret > 0).sort((a, b) => b.ret - a.ret), lbl: 'Товары с возвратами', ret: true });
     }
   });
   mps.forEach((m) => {
     if (m.prev && m.prev.rev > 0) {
       const c = share(m, 'comm'), p = share(m.prev, 'comm');
       if (c - p > 0.02) out.push({ mp: m.mp, tone: 'warn', pot: 0, t: 'Комиссия ' + NAME(m.mp) + ' выросла:', val: pct(p, 0) + ' → ' + pct(c, 0),
-        x: 'Это ' + rub((c - p) * m.rev) + ' дополнительных расходов за период.', a: 'Заложить рост комиссии в цены, проверить смену тарифов' });
+        x: 'Это ' + rub((c - p) * m.rev) + ' дополнительных расходов за период.', a: 'Заложить рост комиссии в цены, проверить смену тарифов',
+        items: v.active.filter((x) => x.mp === m.mp && x.rev > 0).sort((a, b) => a.comm / a.rev - b.comm / b.rev), lbl: 'Товары с самой высокой комиссией' });
     }
   });
 
@@ -1270,27 +1299,30 @@ T.insights = function (v) {
   const bl = v.brands.filter((b) => b.rev > 0 && b.np < -minLoss).sort((a, b) => a.np - b.np).slice(0, 4);
   if (bl.length) out.push({ mp: null, tone: 'bad', pot: 0, t: 'Бренды в минусе:', val: bl.map((b) => b.brand).join(', '),
     x: bl.map((b) => b.brand + ' ' + rub(b.np) + ' (ДРР ' + pct(b.drr, 0) + ', логистика ' + pct(-b.log / b.rev, 0) + ')').join('; ') + '.',
-    a: 'Пересчитать цены и рекламу по этим брендам, слабые позиции выводить' });
+    a: 'Пересчитать цены и рекламу по этим брендам, слабые позиции выводить',
+    items: worstFirst(v.active.filter((x) => x.np < 0 && bl.some((b) => b.brand === x.brand))), lbl: 'Убыточные товары этих брендов', ads: true });
   const bg = v.brands.filter((b) => b.np >= minLoss && b.margin >= 0.2).sort((a, b) => b.np - a.np).slice(0, 3);
   if (bg.length) out.push({ mp: null, tone: 'good', w: sum(bg, (b) => b.np), t: 'Зарабатывают бренды:', val: bg.map((b) => b.brand).join(', '),
-    x: bg.map((b) => b.brand + ' +' + rub(b.np) + ', маржа ' + pct(b.margin, 0)).join('; ') + '.', a: 'Расширять линейки этих брендов и держать их в наличии' });
+    x: bg.map((b) => b.brand + ' +' + rub(b.np) + ', маржа ' + pct(b.margin, 0)).join('; ') + '.', a: 'Расширять линейки этих брендов и держать их в наличии',
+    items: bestFirst(v.active.filter((x) => x.np > 0 && bg.some((b) => b.brand === x.brand))), lbl: 'Прибыльные товары этих брендов', stock: true });
 
   mps.forEach((m) => {
     const pr = v.active.filter((x) => x.mp === m.mp && x.q > 0 && x.rev / x.q >= 2000), t = tot(pr);
     if (pr.length >= 3 && t.np > 0 && t.rev && t.np / t.rev >= 0.08) out.push({ mp: m.mp, tone: 'good', w: t.np, t: 'На ' + LOC(m.mp) + ' зарабатывают товары дороже 2000 ₽:', val: '+' + rub(t.np),
-      x: plural(pr.length, 'товар', 'товара', 'товаров') + ', маржа ' + pct(t.np / t.rev) + '.', a: 'Делать упор на дорогие позиции и наборы' });
+      x: plural(pr.length, 'товар', 'товара', 'товаров') + ', маржа ' + pct(t.np / t.rev) + '.', a: 'Делать упор на дорогие позиции и наборы', items: bestFirst(pr), lbl: 'Дорогие товары', stock: true });
   });
   if (v.sold.length > 20 && v.totRev > 0) {
     const top = sum(v.sold.slice(0, 10), (x) => x.rev) / v.totRev;
     out.push({ mp: null, tone: 'info', w: 0, t: '10 товаров дают', val: pct(top, 0) + ' выручки',
       x: top > 0.4 ? 'Сильная зависимость от нескольких позиций: перебои с ними ударят по всему обороту.' : 'Выручка распределена по ассортименту, сильной зависимости от отдельных позиций нет.',
-      a: top > 0.4 ? 'Держать запас по лидерам и развивать следующие за ними товары' : 'Растить прибыльность лидеров, а не количество позиций' });
+      a: top > 0.4 ? 'Держать запас по лидерам и развивать следующие за ними товары' : 'Растить прибыльность лидеров, а не количество позиций', items: v.sold.slice(0, 10), lbl: '10 лидеров по выручке', stock: true });
   }
   if (v.cur.payout > 0) {
     const cg = -v.cur.cogs / v.cur.payout;
     if (cg > 0.7) out.push({ mp: null, tone: cg > 0.85 ? 'bad' : 'warn', pot: 0, t: 'Из каждых 100 ₽ на счёте на закупку уходит', val: Math.round(cg * 100) + ' ₽',
       x: 'Выплата ' + rub(v.cur.payout) + ', себестоимость проданного ' + rub(-v.cur.cogs) + '. После налога остаётся ' + rub(v.cur.np) + '.',
-      a: 'Поднимать цены на товары с низкой наценкой или снижать закупочную стоимость' });
+      a: 'Поднимать цены на товары с низкой наценкой или снижать закупочную стоимость',
+      items: v.active.filter((x) => x.q > 0 && x.payout > 0 && -x.cogs / x.payout > 0.8).sort((a, b) => b.cogs / b.payout - a.cogs / a.payout), lbl: 'Закупка съедает больше 80% выплаты', cg: true, be: true });
   }
   const rank = { bad: 0, warn: 1, good: 2, info: 3 };
   out.sort((a, b) => rank[a.tone] - rank[b.tone] || (b.pot || 0) - (a.pot || 0) || (b.w || 0) - (a.w || 0));
@@ -1413,11 +1445,11 @@ dash.loader('sales', {
     Object.keys(map).forEach((id) => {
       document.querySelectorAll('select#' + id).forEach((el) => {
         if (document.activeElement === el) return;
-        const val = p[map[id]] || (id === 'f-period' ? '7' : '');
+        const val = p[map[id]] || (id === 'f-period' ? '30' : '');
         if ([...el.options].some((o) => o.value === val)) el.value = val;
       });
     });
-    document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '7') ? 'true' : 'false'));
+    document.querySelectorAll('.ts-chips [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-period') === (p.period || '30') ? 'true' : 'false'));
     document.querySelectorAll('.ts-sw-rev').forEach((e) => { e.style.background = dash.colors[0]; });
     document.querySelectorAll('.ts-sw-np').forEach((e) => { e.style.background = dash.colors[1]; });
     const v = T.view();
@@ -1537,10 +1569,106 @@ dash.loader('sales', {
     const t = el('p', 'ts-in-t', it.t + ' '); t.append(el('span', VALCLS[it.tone] || null, it.val));
     if (top.childNodes.length) c.append(top);
     c.append(t, el('p', 'ts-in-a', it.a), el('p', 'ts-in-x', it.x));
-    const tog = () => c.classList.toggle('ts-open');
-    c.addEventListener('click', (ev) => { if (!ev.target.closest('a')) tog(); });
+    const n = (it.items || []).length;
+    if (n) c.append(el('span', 'ts-in-more', 'Показать ' + (n === 1 ? 'товар' : 'товары (' + n + ')') + (it.ads ? ' и кампании' : '')));
+    const tog = () => {
+      c.classList.toggle('ts-open');
+      if (!n) return;
+      let d = c.querySelector(':scope > .ts-in-list');
+      if (!d) { d = insItems(it); c.append(d); } else d.hidden = !c.classList.contains('ts-open');
+    };
+    c.addEventListener('click', (ev) => { if (!ev.target.closest('a, .ts-in-list')) tog(); });
     c.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') tog(); });
     return c;
+  }
+  // Products behind an insight: article, SKU, store, numbers; ad campaigns that advertise them (WB)
+  function campaignsFor(keys) {
+    const M = T.mk(); if (!M || !M.ads) return [];
+    const set = new Set(keys);
+    return M.ads.map((a) => ({ a, hit: (a.nms || []).filter((k) => set.has(k)) })).filter((x) => x.hit.length).sort((p, q) => q.a.spend - p.a.spend);
+  }
+  function copyText(txt, btn) {
+    const done = () => { const o = btn.textContent; btn.textContent = 'Скопировано'; setTimeout(() => { btn.textContent = o; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, () => fallback());
+    else fallback();
+    function fallback() { const ta = document.createElement('textarea'); ta.value = txt; document.body.append(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { /* ignore */ } ta.remove(); }
+  }
+  function insItems(it) {
+    const box = el('div', 'ts-in-list');
+    const items = it.items || [];
+    let limit = 15;
+    const head = el('div', 'ts-in-lh');
+    head.append(el('b', null, it.lbl || 'Товары'), el('span', 'ts-muted', items.length + ' шт.'));
+    const cp = el('button', 'ts-btn ts-btn-sm', 'Скопировать артикулы'); cp.type = 'button';
+    cp.addEventListener('click', () => copyText(items.map((x) => [x.store, x.article || '', x.sku, x.name || ''].join('\t')).join('\n'), cp));
+    head.append(cp);
+    box.append(head);
+    const list = el('div', 'ts-in-rows');
+    const camps = it.ads ? campaignsFor(items.map((x) => x.key)) : [];
+    const campByKey = new Map();
+    camps.forEach(({ a, hit }) => hit.forEach((k) => { if (!campByKey.has(k)) campByKey.set(k, []); campByKey.get(k).push(a.id); }));
+    const row = (x) => {
+      const r = el('div', 'ts-xrow');
+      r.append(T.photo(x.key, true));
+      const b = el('div', 'ts-xrow-b');
+      const t = el('div', 'ts-xrow-t'); t.append(T.link(x)); b.append(t);
+      const s = el('div', 'ts-xrow-s'); s.append(T.mpChip(x.mp), document.createTextNode(x.store + ' · арт. ' + (x.article || '—') + ' · SKU ' + x.sku)); b.append(s);
+      const parts = ['выручка ' + T.rub(x.rev), T.num(x.q) + ' шт.'];
+      if (x.adv < 0) parts.push('реклама ' + T.rub(-x.adv) + (x.rev > 0 ? ' (ДРР ' + T.pct(-x.adv / x.rev, 0) + ')' : ''));
+      if (it.ret && x.q) parts.push('возвраты ' + T.num(x.ret) + ' шт. (' + T.pct(x.ret / x.q, 0) + ')');
+      if (it.cg && x.payout > 0) parts.push('закупка ' + T.pct(-x.cogs / x.payout, 0) + ' выплаты');
+      const so = T.stockOf(x.key);
+      if (so) parts.push('остаток ' + T.num(so.q) + ' шт.' + (isFinite(so.days) && so.q > 0 ? ' (' + T.num(Math.round(so.days)) + ' дн.)' : ''));
+      b.append(el('div', 'ts-xrow-n', parts.join(' · ')));
+      if (it.be && x.np < 0) { const bk = T.breakEven(x); if (bk) b.append(el('div', 'ts-xrow-n', 'В ноль при цене ≈ ' + T.rubFull(Math.ceil(bk.be / 10) * 10) + ' (сейчас ' + T.rubFull(bk.price) + ')')); }
+      const ck = campByKey.get(x.key);
+      if (ck) b.append(el('div', 'ts-xrow-n ts-xrow-ad', 'Реклама WB: кампании ' + ck.slice(0, 4).join(', ') + (ck.length > 4 ? ' и ещё ' + (ck.length - 4) : '')));
+      r.append(b);
+      const rr = el('div', 'ts-xrow-r');
+      rr.append(el('b', x.np < 0 ? 'ts-neg' : 'ts-good', (x.np > 0 ? '+' : '') + T.rub(x.np)), el('small', null, 'прибыль'));
+      r.append(rr);
+      return r;
+    };
+    const draw = () => {
+      list.replaceChildren(...items.slice(0, limit).map(row));
+      if (items.length > limit) {
+        const more = el('button', 'ts-btn ts-morebtn', 'Показать ещё ' + Math.min(30, items.length - limit) + ' из ' + (items.length - limit)); more.type = 'button';
+        more.addEventListener('click', () => { limit += 30; draw(); });
+        list.append(more);
+      }
+    };
+    draw();
+    box.append(list);
+    if (it.ads) {
+      const M = T.mk();
+      const ch = el('div', 'ts-in-lh ts-in-lh2');
+      ch.append(el('b', null, 'Рекламные кампании WB с этими товарами'));
+      box.append(ch);
+      if (!M || !M.ads) box.append(el('p', 'ts-muted', 'Данные о кампаниях появятся после выгрузки из API.'));
+      else if (!camps.length) box.append(el('p', 'ts-muted', 'Активных кампаний WB с этими товарами за 30 дней нет' + (items.some((x) => x.mp !== 'WB') ? ' (реклама Ozon и Яндекса в API пока не подключена).' : '.')));
+      else {
+        const cl = el('div', 'ts-in-rows');
+        camps.slice(0, 20).forEach(({ a, hit }) => {
+          const drr = a.ordSum ? a.spend / a.ordSum : Infinity;
+          const r = el('div', 'ts-xrow ts-camp');
+          const idb = el('div', 'ts-camp-id', String(a.id));
+          r.append(idb);
+          const b = el('div', 'ts-xrow-b');
+          b.append(el('div', 'ts-xrow-t', a.name || ('Кампания ' + a.id)));
+          b.append(el('div', 'ts-xrow-n', (T.SID[a.s] || {}).name + ' · ' + T.num(a.orders) + ' заказов на ' + T.rub(a.ordSum) + ' · товаров из списка: ' + hit.length));
+          r.append(b);
+          const rr = el('div', 'ts-xrow-r');
+          rr.append(el('b', null, T.rub(a.spend)), el('small', drr > 0.25 ? 'ts-neg' : null, isFinite(drr) ? 'ДРР ' + T.pct(drr, 0) : 'без заказов'));
+          r.append(rr);
+          cl.append(r);
+        });
+        box.append(cl);
+        const cp2 = el('button', 'ts-btn ts-btn-sm', 'Скопировать номера кампаний'); cp2.type = 'button';
+        cp2.addEventListener('click', () => copyText(camps.map(({ a }) => a.id + '\t' + (a.name || '')).join('\n'), cp2));
+        box.append(cp2);
+      }
+    }
+    return box;
   }
   function insList(box, tones, empty) {
     const v = T.view(); box.replaceChildren();
@@ -1681,7 +1809,7 @@ dash.loader('sales', {
     const { weekly, out } = T.buckets(v);
     const PAY = T.state.chart === 'pay';
     out.forEach((d) => { d.val = PAY ? d.pay : d.rev; d.parts = PAY ? d.byp : d.by; });
-    const W = Math.max(280, e.clientWidth), H = W < 520 ? 210 : Math.round(Math.min(420, Math.max(250, W * 0.47)));
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 250 : 300;
     const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
       .attr('aria-label', `Выручка ${weekly ? 'по неделям' : 'по дням'} столбцами и чистая прибыль линией за ${v.label}`);
     const ymin = Math.min(0, d3.min(out, (d) => d.np) || 0, d3.min(out, (d) => d.val) || 0);
@@ -1784,7 +1912,7 @@ dash.loader('sales', {
     if (!mv) { box.append(el('p', 'ts-empty', '—')); return; }
     const vals = mv.keys.map((k) => mv.months.get(k));
     const mx = Math.max(1, ...vals.map((t) => Math.abs(t.np)));
-    const cur = dash.params().period || '7';
+    const cur = dash.params().period || '30';
     mv.keys.forEach((k, i) => {
       const t = vals[i];
       const row = el('button', 'ts-mbar' + (cur === 'm' + k ? ' ts-on' : '')); row.type = 'button';
@@ -1805,7 +1933,7 @@ dash.loader('sales', {
     const mv = T.monthly(); th.replaceChildren(); const tr = th.insertRow();
     const h0 = document.createElement('th'); h0.textContent = 'Статья'; tr.append(h0);
     if (!mv) return;
-    const cur = dash.params().period || '7';
+    const cur = dash.params().period || '30';
     mv.keys.forEach((k) => {
       const h = document.createElement('th'); h.className = 'ts-click'; h.tabIndex = 0;
       h.textContent = MONTHS[Number(k.slice(5)) - 1] + ' ' + k.slice(2, 4);
@@ -1844,9 +1972,9 @@ dash.loader('sales', {
   dash.draw('opt-period', (sel) => {
     const m = T.meta(); if (!m) return;
     const last = T.iso(m.last), first = T.iso(0);
-    if (perKey === last) { sel.value = dash.params().period || '7'; return; }
+    if (perKey === last) { sel.value = dash.params().period || '30'; return; }
     perKey = last;
-    const o = [['1', '1 день'], ['3', '3 дня'], ['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
+    const o = [['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
     let y = +first.slice(0, 4), mo = +first.slice(5, 7);
     const ly = +last.slice(0, 4), lm = +last.slice(5, 7);
     while (y < ly || (y === ly && mo <= lm)) {
@@ -1856,7 +1984,7 @@ dash.loader('sales', {
     }
     o.push(['all', 'Весь период']);
     sel.replaceChildren(...o.map(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; return op; }));
-    sel.value = dash.params().period || '7';
+    sel.value = dash.params().period || '30';
   });
 
   /* ---- Orders today / yesterday (API, live) ---- */
@@ -2043,6 +2171,114 @@ dash.loader('sales', {
     ids.forEach((id) => { const sp = T.el('span'); const sw = T.el('i', 'ts-sw'); sw.style.background = T.MP[T.SID[id].mp].color; sp.append(sw, document.createTextNode(T.SID[id].name)); lg.append(sp); });
     box.append(lg);
     box.append(T.el('p', 'ts-muted', '* текущая неделя, ещё не закрыта. WB публикует финотчёт раз в неделю с задержкой, поэтому последняя неделя WB появляется позже Ozon.'));
+  });
+
+  /* ---- Orders & buyouts per day (like the WB cabinet), all stores with order data ---- */
+  function ordSeries() {
+    const M = T.mk(), v = T.view(), s = dash.data('sales');
+    if (!M || !M.orders || !v || s.status !== 'ok') return null;
+    const p = dash.params();
+    const ids = Object.keys(M.orders).filter((id) => T.sidPass(id, p));
+    if (!ids.length) return { days: [], ids };
+    const names = new Set(ids.map((id) => T.SID[id].name));
+    let first = '9999';
+    ids.forEach((id) => Object.keys(M.orders[id]).forEach((d) => { if (d < first) first = d; }));
+    const A = T.iso(v.r.a), B = T.iso(v.r.b), lastOrd = M.today;
+    const from = A > first ? A : first, to = lastOrd > B ? lastOrd : B;
+    const map = new Map();
+    for (let t = Date.parse(from + 'T00:00:00Z'); t <= Date.parse(to + 'T00:00:00Z'); t += 864e5) { const d = new Date(t).toISOString().slice(0, 10); map.set(d, { d, on: 0, os: 0, oc: 0, bn: 0, bs: 0, hasB: d <= B }); }
+    ids.forEach((id) => Object.entries(M.orders[id]).forEach(([d, x]) => { const r = map.get(d); if (r) { r.on += x[0]; r.os += x[1]; r.oc += x[2] || 0; } }));
+    for (const o of s.data) {
+      if (o.date < from || o.date > to || !names.has(o.store) || !T.passDims(o, Object.assign({}, p, { store: p.store, mp: p.mp }))) continue;
+      const r = map.get(o.date); if (r) { r.bn += Number(o.q) || 0; r.bs += Number(o.rev) || 0; }
+    }
+    return { days: [...map.values()], ids, from, to, B, partial: lastOrd };
+  }
+  if (!T.state.och) T.state.och = 'n';
+  document.querySelectorAll('[data-och]').forEach((b) => b.addEventListener('click', () => {
+    T.state.och = b.getAttribute('data-och');
+    document.querySelectorAll('[data-och]').forEach((x) => x.setAttribute('aria-selected', x === b ? 'true' : 'false'));
+    dash.draw('och'); dash.draw('och-sum');
+  }));
+  dash.draw('och-sum', (e) => {
+    const S = ordSeries(); e.replaceChildren();
+    const panel = document.getElementById('ordchart');
+    if (!S || !S.days.length) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    const full = S.days.filter((d) => d.hasB);
+    const on = full.reduce((a, d) => a + d.on, 0), os = full.reduce((a, d) => a + d.os, 0), oc = full.reduce((a, d) => a + d.oc, 0);
+    const bn = full.reduce((a, d) => a + d.bn, 0), bs = full.reduce((a, d) => a + d.bs, 0);
+    const cell = (cls, l, v1, v2) => { const d = T.el('div', 'ts-och-c ' + cls); d.append(T.el('span', null, l), T.el('b', null, v1), T.el('small', null, v2)); e.append(d); };
+    cell('ts-och-o', 'Заказы', T.num(on) + ' шт.', T.rub(os) + (oc ? ' · отмен ' + T.num(oc) : ''));
+    cell('ts-och-b', 'Выкупы', T.num(bn) + ' шт.', T.rub(bs));
+    cell('', 'Выкуп от заказов', on ? T.pct(bn / on, 0) : '—', 'за те же дни');
+    cell('', 'Средний заказ', on ? T.rubFull(os / on) : '—', 'выкуп ' + (bn ? T.rubFull(bs / bn) : '—'));
+  });
+  dash.draw('och-note', (e) => {
+    const S = ordSeries();
+    if (!S || !S.days.length) { e.textContent = ''; return; }
+    const nm = S.ids.map((id) => T.SID[id].name).join(', ');
+    e.textContent = 'Магазины: ' + nm + '. Заказы — из API WB и Ozon по дате заказа (доступны с ' + S.from.slice(8, 10) + '.' + S.from.slice(5, 7) + '), выкупы — продажи из Торгстат по дате продажи. Яндекс Маркет пока без заказов: его API не подключён. Последний день неполный.';
+  });
+  dash.draw('och', (e) => {
+    const S = ordSeries(); e.replaceChildren();
+    if (!S || !S.days.length) return;
+    const SUM = T.state.och === 's';
+    const D = S.days.map((d) => ({ d: d.d, o: SUM ? d.os : d.on, b: d.hasB ? (SUM ? d.bs : d.bn) : null, raw: d }));
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 280 : 340;
+    const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', 'Заказы и выкупы по дням');
+    const ymax = Math.max(1, d3.max(D, (d) => Math.max(d.o, d.b || 0)));
+    const y = d3.scaleLinear().domain([0, ymax]).nice();
+    const ticks = y.ticks(W < 520 ? 4 : 6);
+    const fmt = SUM ? T.short : (x) => T.num(x);
+    const probe = svg.append('g');
+    const tw = d3.max(ticks, (t) => probe.append('text').attr('class', 'ts-tick').text(fmt(t)).node().getComputedTextLength()) || 30;
+    probe.remove();
+    const m = { t: 12, r: 8, b: 24, l: Math.ceil(tw) + 10 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    y.range([m.t + ih, m.t]);
+    const x = d3.scalePoint().domain(D.map((d, i) => i)).range([m.l + 6, m.l + iw - 6]);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('class', (t) => (t === 0 ? 'ts-zero' : 'ts-gridl')).attr('x1', m.l).attr('x2', m.l + iw).attr('y1', (t) => y(t)).attr('y2', (t) => y(t));
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('class', 'ts-tick').attr('x', m.l - 6).attr('y', (t) => y(t)).attr('dy', '0.32em').attr('text-anchor', 'end').text(fmt);
+    const defs = svg.append('defs');
+    const grad = (id, col) => { const g = defs.append('linearGradient').attr('id', id).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1); g.append('stop').attr('offset', '0%').style('stop-color', col).style('stop-opacity', 0.28); g.append('stop').attr('offset', '100%').style('stop-color', col).style('stop-opacity', 0); };
+    grad('ogr', 'var(--ts-och-o)'); grad('bgr', 'var(--ts-och-b)');
+    const B = D.filter((d) => d.b != null);
+    const area = (k) => d3.area().x((d) => x(D.indexOf(d))).y0(y(0)).y1((d) => y(d[k])).curve(d3.curveMonotoneX);
+    const line = (k) => d3.line().x((d) => x(D.indexOf(d))).y((d) => y(d[k])).curve(d3.curveMonotoneX);
+    svg.append('path').datum(D).attr('d', area('o')).style('fill', 'url(#ogr)');
+    svg.append('path').datum(B).attr('d', area('b')).style('fill', 'url(#bgr)');
+    svg.append('path').datum(D).attr('d', line('o')).style('fill', 'none').style('stroke', 'var(--ts-och-o)').style('stroke-width', 2.4);
+    svg.append('path').datum(B).attr('d', line('b')).style('fill', 'none').style('stroke', 'var(--ts-och-b)').style('stroke-width', 2.4);
+    const lastI = D.length - 1;
+    svg.append('circle').attr('cx', x(lastI)).attr('cy', y(D[lastI].o)).attr('r', 3.5).style('fill', 'var(--ts-och-o)');
+    const tickW = 38, step = Math.max(1, Math.ceil(D.length * (tickW + 10) / iw));
+    svg.append('g').selectAll('text').data(D.map((d, i) => ({ d, i })).filter((o) => (lastI - o.i) % step === 0)).join('text')
+      .attr('class', 'ts-tick').attr('x', (o) => x(o.i)).attr('y', H - 6).attr('text-anchor', 'middle').text((o) => o.d.d.slice(8, 10) + '.' + o.d.d.slice(5, 7));
+    const guide = svg.append('line').attr('y1', m.t).attr('y2', m.t + ih).style('stroke', 'var(--cds-chart-axis)').style('stroke-dasharray', '3 3').style('opacity', 0);
+    const dotO = svg.append('circle').attr('r', 4.5).style('fill', 'var(--ts-och-o)').style('stroke', 'var(--color-panel)').style('stroke-width', 2).style('opacity', 0);
+    const dotB = svg.append('circle').attr('r', 4.5).style('fill', 'var(--ts-och-b)').style('stroke', 'var(--color-panel)').style('stroke-width', 2).style('opacity', 0);
+    const tip = T.el('div', 'ts-tip'); tip.hidden = true; e.append(tip);
+    const show = (ev) => {
+      const [px] = d3.pointer(ev, svg.node());
+      let i = Math.round((px - x(0)) / (x.step() || 1)); i = Math.max(0, Math.min(lastI, i));
+      const d = D[i], r = d.raw;
+      guide.attr('x1', x(i)).attr('x2', x(i)).style('opacity', 1);
+      dotO.attr('cx', x(i)).attr('cy', y(d.o)).style('opacity', 1);
+      if (d.b != null) dotB.attr('cx', x(i)).attr('cy', y(d.b)).style('opacity', 1); else dotB.style('opacity', 0);
+      const dd = d.d.slice(8, 10) + '.' + d.d.slice(5, 7) + (d.d === S.partial ? ' (неполный день)' : '');
+      const l1 = T.el('div'); l1.append(T.el('i', 'ts-sw ts-sw-o'), document.createTextNode('Заказы: ' + T.num(r.on) + ' шт. · ' + T.rubFull(r.os)));
+      const lines = [T.el('div', 'ts-tip-h', dd), l1];
+      if (r.oc) lines.push(T.el('div', 'ts-tip-h', 'отмены: ' + T.num(r.oc)));
+      if (d.b != null) { const l2 = T.el('div'); l2.append(T.el('i', 'ts-sw ts-sw-b'), document.createTextNode('Выкупы: ' + T.num(r.bn) + ' шт. · ' + T.rubFull(r.bs))); lines.push(l2); }
+      else lines.push(T.el('div', 'ts-tip-h', 'Выкупы за этот день ещё не выгружены'));
+      tip.replaceChildren(...lines); tip.hidden = false;
+      const sc = e.clientWidth / W, w2 = tip.offsetWidth;
+      let left = x(i) * sc + 12; if (left + w2 > e.clientWidth) left = x(i) * sc - w2 - 12;
+      tip.style.left = Math.max(0, left) + 'px'; tip.style.top = (m.t + 4) + 'px';
+    };
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', iw).attr('height', ih).style('fill', 'transparent').style('cursor', 'crosshair')
+      .on('mousemove', show).on('click', show).on('touchstart', (ev) => show(ev.touches ? ev.touches[0] : ev), { passive: true }).on('mouseleave', () => { tip.hidden = true; guide.style('opacity', 0); dotO.style('opacity', 0); dotB.style('opacity', 0); });
   });
 
   dash.draw('catlist', (box) => {

@@ -66,8 +66,8 @@ async function wbStore(st) {
   });
   // Orders for the last 30 days (by order date, cancellations separately)
   await step(st, 'orders', async () => {
-    const rows = await wb(st, 'https://statistics-api.wildberries.ru/api/v1/supplier/orders?dateFrom=' + ago(31) + '&flag=0');
-    (rows || []).forEach((r) => { const d = String(r.date).slice(0, 10); if (d < ago(30)) return; addOrders(st, d, 1, +r.priceWithDisc || 0, r.isCancel ? 1 : 0); });
+    const rows = await wb(st, 'https://statistics-api.wildberries.ru/api/v1/supplier/orders?dateFrom=' + ago(91) + '&flag=0');
+    (rows || []).forEach((r) => { const d = String(r.date).slice(0, 10); if (d < ago(90)) return; addOrders(st, d, 1, +r.priceWithDisc || 0, r.isCancel ? 1 : 0); });
     return (rows || []).length + ' orders';
   });
   // Card funnel for the last 30 days (WB moved this method in 2026: v3 sales-funnel)
@@ -183,7 +183,7 @@ async function wbStore(st) {
         if (!s || !(+s.sum > 0)) return;
         const nm = {};
         (s.days || []).forEach((d) => (d.apps || []).forEach((ap) => (ap.nm || ap.nms || []).forEach((x) => { nm[x.nmId] = (nm[x.nmId] || 0) + (+x.sum || 0); })));
-        const top = Object.entries(nm).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => K(st, k));
+        const top = Object.entries(nm).sort((a, b) => b[1] - a[1]).slice(0, 60).map(([k]) => K(st, k));
         OUT.ads.push({ s: st.id, id: s.advertId, name: (names[s.advertId] || {}).name || ('Кампания ' + s.advertId), st: (names[s.advertId] || {}).status || 0, spend: R(s.sum), views: R(s.views), clicks: R(s.clicks), cart: R(s.atbs), orders: R(s.orders), ordSum: R(s.sum_price), nms: top });
         got++;
       });
@@ -223,7 +223,7 @@ async function ozStore(st) {
   });
   await sleep(2000);
   await step(st, 'orders', async () => {
-    const j = await oz(st, '/v1/analytics/data', { date_from: ago(30), date_to: TODAY, metrics: ['ordered_units', 'revenue', 'cancellations'], dimension: ['day'], limit: 1000, offset: 0 });
+    const j = await oz(st, '/v1/analytics/data', { date_from: ago(90), date_to: TODAY, metrics: ['ordered_units', 'revenue', 'cancellations'], dimension: ['day'], limit: 1000, offset: 0 });
     const rows = (j && j.result && j.result.data) || [];
     rows.forEach((r) => { const m = r.metrics || []; addOrders(st, String(r.dimensions[0].id).slice(0, 10), +m[0] || 0, +m[1] || 0, +m[2] || 0); });
     return rows.length + ' days';
