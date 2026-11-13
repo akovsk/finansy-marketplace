@@ -622,6 +622,23 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-ord-today span { color:#5b8cff; font-weight:600; }
 .ts-ord-today b { color:var(--color-fg); }
 @media (max-width: 640px) { .ts-ord-today { flex:0 1 calc(50% - 4px); max-width:calc(50% - 4px); } .ts-ord-today span { white-space:normal; line-height:1.2; } .ts-ord-today small { white-space:normal; } }
+/* Phone: centred cards, full-width switches in the orders block */
+@media (max-width: 640px) {
+  .ts-ord, .ts-kpi, .ts-och-c { text-align:center; align-items:center; }
+  .ts-kpi-l, .ts-kpi-d, .ts-ord span, .ts-ord small, .ts-och-c span { max-width:100%; }
+  .ts-kpi-v, .ts-ord b, .ts-och-c b { letter-spacing:-0.02em; }
+  .ts-kpi { padding-inline:5px; }
+  .ts-kpi-l { letter-spacing:-0.02em; }
+  .ts-ord-today { border-left-width:1px; border-width:1.5px; }
+  .ts-ord-today b { font-size:22px; }
+  .ts-och-c { border-left:0; border-top:2px solid transparent; padding:6px 4px; }
+  .ts-och-c.ts-och-o { border-top-color:var(--ts-och-o); } .ts-och-c.ts-och-b { border-top-color:var(--ts-och-b); }
+  #ordchart .ts-panel-h h3 { text-align:center; }
+  .ts-och-ctl { gap:8px; }
+  .ts-och-ctl .ts-seg { flex:1 1 0; width:auto; min-width:0; overflow:visible; }
+  .ts-och-ctl .ts-seg button { flex:1 1 0; text-align:center; padding:6px 0; font-size:13px; }
+  #ordchart .ts-legend, #ordchart svg + div { justify-content:center; }
+}
 </style>
 
 <div class="ts">
