@@ -2266,7 +2266,8 @@ dash.loader('sales', {
     e.style.display = '';
     const mpsHave = [...new Set(Object.keys(M.orders).filter((id) => T.sidPass(id, p) && T.SID[id]).map((id) => T.SID[id].mp))].map((mp) => T.MP[mp].short).join(' + ');
     const d = T.el('div', 'ts-ord ts-ord-today');
-    d.title = 'Все площадки: ' + mpsHave + '. День ещё идёт.'; d.append(T.el('span', null, 'Заказы сегодня'), T.el('b', null, T.num(a[0]) + ' шт.'), T.el('small', null, T.rub(a[1]) + ' · все площадки'));
+    d.title = 'Все площадки: ' + mpsHave + '. День ещё идёт.'; let at = ''; try { if (M.generated) at = ' · на ' + new Date(M.generated).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' }); } catch (err) {}
+    d.append(T.el('span', null, 'Заказы сегодня' + at), T.el('b', null, T.num(a[0]) + ' шт.'), T.el('small', null, T.rub(a[1]) + ' · все площадки'));
     const two = T.el('div', 'ts-ord-two');
     const half = (v, l) => { const h = T.el('div'); h.append(T.el('b', null, v), T.el('small', null, l)); return h; };
     // expected profit: each store's today orders × its net margin (net profit ÷ revenue) over the last 30 days
