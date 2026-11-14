@@ -2,7 +2,9 @@ name: Обновить данные из Торгстат
 
 on:
   schedule:
-    - cron: '30 3 * * *'   # каждый день в 06:30 по Москве
+    # каждые 1,5 часа круглые сутки: 00:00, 01:30, 03:00, 04:30 … UTC (по Москве +3 часа)
+    - cron: '0 0-23/3 * * *'
+    - cron: '30 1-23/3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -47,6 +49,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Данные не изменились"
           else
-            git commit -m "Данные на $(TZ=Europe/Moscow date +%d.%m.%Y)"
+            git commit -m "Данные на $(TZ=Europe/Moscow date '+%d.%m.%Y %H:%M')"
             git pull --rebase -X theirs --autostash && git push
           fi
