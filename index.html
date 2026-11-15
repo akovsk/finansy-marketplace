@@ -178,6 +178,9 @@ img { max-width:100%; }
 .ts-kspark svg { display:block; overflow:visible; }
 .ts-kpi-d { font-size:11.5px; font-variant-numeric:tabular-nums; min-height:1.2em; color:var(--color-fg-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ts-grid-main { display:grid; grid-template-columns:minmax(0,1.75fr) minmax(0,1fr); gap:14px; align-items:start; }
+#overview .ts-grid-main { grid-template-columns:repeat(3, minmax(0,1fr)); }
+#overview .ts-grid-main > .ts-sec { display:contents; }
+@media (max-width: 900px) { #overview .ts-grid-main { grid-template-columns:minmax(0,1fr); } }
 .ts-grid2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; align-items:start; }
 @media (max-width: 900px) { .ts-grid-main, .ts-grid2 { grid-template-columns:minmax(0,1fr); } }
 .ts-health { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
@@ -596,6 +599,39 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-tablewrap { overflow-x:auto; }
   h2 { scroll-margin-top:12px; }
 }
+
+/* funnel */
+.ts-fun { display:flex; flex-direction:column; margin-top:8px; }
+.ts-fun-row { display:grid; grid-template-columns:190px minmax(0,1fr) 130px; align-items:center; gap:14px; }
+.ts-fun-l { display:flex; flex-direction:column; line-height:1.25; }
+.ts-fun-l span { font-size:13.5px; font-weight:600; }
+.ts-fun-l small { font-size:11.5px; color:var(--color-fg-muted); }
+.ts-fun-v { font-size:18px; font-weight:700; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ts-fun-m { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.ts-fun-bar { display:flex; height:34px; border-radius:8px; overflow:hidden; background:var(--color-panel); border:1px solid var(--color-border-line); transition:width .3s; gap:2px; }
+.ts-fun-bar i { display:block; height:100%; }
+.ts-fun-muted .ts-fun-bar { background:transparent; border-style:dashed; }
+.ts-fun-pay .ts-fun-bar { background:color-mix(in srgb, var(--color-fg) 14%, transparent); }
+.ts-fun-good .ts-fun-bar { background:color-mix(in srgb, var(--color-ok) 30%, transparent); border-color:color-mix(in srgb, var(--color-ok) 55%, transparent); }
+.ts-fun-bad .ts-fun-bar { background:color-mix(in srgb, var(--color-bad) 25%, transparent); border-color:color-mix(in srgb, var(--color-bad) 55%, transparent); }
+.ts-fun-mp { display:flex; justify-content:center; flex-wrap:wrap; gap:2px 12px; font-size:11.5px; color:var(--color-fg-muted); }
+.ts-fun-row .ts-fun-mp { grid-column:2; margin-top:-8px; }
+.ts-fun-mp span { display:inline-flex; align-items:center; gap:5px; }
+.ts-fun-mp i { width:8px; height:8px; border-radius:2px; display:inline-block; }
+.ts-fun-cv { display:grid; grid-template-columns:190px minmax(0,1fr) 130px; gap:14px; font-size:12px; color:var(--color-fg-muted); padding:5px 0; }
+.ts-fun-cv span { grid-column:2; text-align:center; }
+.ts-fun-cv span::before { content:"↓ "; opacity:.6; }
+.ts-fun-cv b { color:var(--color-fg); font-weight:600; }
+@media (max-width: 640px) {
+  .ts-fun-row { grid-template-columns:minmax(0,1fr) auto; gap:4px 10px; }
+  .ts-fun-l { grid-column:1; grid-row:1; }
+  .ts-fun-v { grid-column:2; grid-row:1; font-size:17px; }
+  .ts-fun-m { grid-column:1 / -1; grid-row:2; }
+  .ts-fun-row .ts-fun-mp { grid-column:1 / -1; margin-top:0; }
+  .ts-fun-bar { height:22px; }
+  .ts-fun-cv { grid-template-columns:minmax(0,1fr); }
+  .ts-fun-cv span { grid-column:1; }
+}
 </style>
 
 <div class="ts">
@@ -665,32 +701,18 @@ th[aria-sort] { color:var(--color-fg); }
       <div class="ts-chart ts-chart-big" data-draw="och" data-source="sales"></div>
       <p class="ts-muted" data-draw="och-note" data-source="sales"></p>
     </div>
-    <div class="ts-grid-main">
-      <div class="ts-panel" id="trend">
-        <div class="ts-panel-h"><h3><span class="ts-mode-rev">Выручка</span><span class="ts-mode-pay" hidden>Выплаты на счёт</span> и прибыль, <span data-draw="trend-gran">—</span></h3>
-          <div class="ts-seg ts-seg-sm" role="tablist" aria-label="Что показывать на графике"><button type="button" role="tab" data-chart="rev" aria-selected="true">Выручка</button><button type="button" role="tab" data-chart="pay" aria-selected="false">Выплаты</button></div>
-          <div class="ts-legend"><span><i class="ts-sw ts-sw-wb"></i>WB</span><span><i class="ts-sw ts-sw-oz"></i>Ozon</span><span><i class="ts-sw ts-sw-ym"></i>Яндекс</span><span><i class="ts-sw ts-sw-line ts-sw-np"></i>Прибыль</span></div></div>
-        <div class="ts-chart" data-draw="trend" data-source="sales"></div>
-      </div>
-      <div class="ts-sec">
-        <div class="ts-panel" id="cash">
-          <div class="ts-panel-h"><h3>Деньги на счёт</h3><span class="ts-muted">расчёт</span></div>
-          <div data-draw="cash" data-source="sales"></div>
-        </div>
-        <div class="ts-panel" id="mpshare">
-          <h3>Площадки</h3>
-          <div class="ts-mprows" data-draw="mpshare" data-source="sales"></div>
-        </div>
-        <div class="ts-panel" id="todo">
-          <h3>Сделать в первую очередь</h3>
-          <ol class="ts-acts" data-draw="topacts" data-source="sales"></ol>
-          <button type="button" class="ts-btn" data-goto="insights" style="width:fit-content">Все рекомендации</button>
-        </div>
-      </div>
+    <div class="ts-panel" id="funnel">
+      <div class="ts-panel-h"><h3>Воронка · все магазины</h3><span class="ts-muted" data-draw="fun-per" data-source="sales"></span></div>
+      <div class="ts-fun" data-draw="funnel" data-source="sales"></div>
+      <p class="ts-muted" data-draw="fun-note" data-source="sales"></p>
     </div>
   </section>
 
   <section class="ts-page" id="insights" role="tabpanel" hidden>
+    <div class="ts-panel" id="todo">
+      <h3>Сделать в первую очередь</h3>
+      <ol class="ts-acts" data-draw="topacts" data-source="sales"></ol>
+    </div>
     <p class="ts-muted">Под выбранный период и фильтры. «До +…» — сколько прибыли можно вернуть. Нажмите на карточку для подробностей.</p>
     <div class="ts-grid2">
       <div class="ts-sec"><h2 class="ts-bad">Что исправить</h2><div class="ts-ins" data-draw="ins-bad" data-source="sales"></div></div>
@@ -700,6 +722,10 @@ th[aria-sort] { color:var(--color-fg); }
 
   <section class="ts-page" id="mps" role="tabpanel" hidden>
     <p class="ts-muted">Нажмите на карточку площадки или строку магазина, чтобы отфильтровать весь сайт.</p>
+    <div class="ts-panel" id="mpshare">
+      <h3>Площадки</h3>
+      <div class="ts-mprows" data-draw="mpshare" data-source="sales"></div>
+    </div>
     <div class="ts-mpc-grid" data-draw="mpcards" data-source="sales"></div>
     <h2 id="stores">Магазины</h2>
     <div class="ts-mlist ts-stlist" data-draw="storelist" data-source="sales"></div>
@@ -715,6 +741,16 @@ th[aria-sort] { color:var(--color-fg); }
   </section>
 
   <section class="ts-page" id="pnl" role="tabpanel" hidden>
+    <div class="ts-panel" id="trend">
+        <div class="ts-panel-h"><h3><span class="ts-mode-rev">Выручка</span><span class="ts-mode-pay" hidden>Выплаты на счёт</span> и прибыль, <span data-draw="trend-gran">—</span></h3>
+          <div class="ts-seg ts-seg-sm" role="tablist" aria-label="Что показывать на графике"><button type="button" role="tab" data-chart="rev" aria-selected="true">Выручка</button><button type="button" role="tab" data-chart="pay" aria-selected="false">Выплаты</button></div>
+          <div class="ts-legend"><span><i class="ts-sw ts-sw-wb"></i>WB</span><span><i class="ts-sw ts-sw-oz"></i>Ozon</span><span><i class="ts-sw ts-sw-ym"></i>Яндекс</span><span><i class="ts-sw ts-sw-line ts-sw-np"></i>Прибыль</span></div></div>
+        <div class="ts-chart" data-draw="trend" data-source="sales"></div>
+      </div>
+    <div class="ts-panel" id="cash">
+      <div class="ts-panel-h"><h3>Деньги на счёт</h3><span class="ts-muted">расчёт</span></div>
+      <div data-draw="cash" data-source="sales"></div>
+    </div>
     <div class="ts-sec" id="weekpay"><h2>Фактические выплаты по неделям</h2><p class="ts-muted">Из финансовых отчётов WB и начислений Ozon (API площадок). Это то, что реально пришло к перечислению.</p><div data-draw="fin-weeks" data-source="sales"></div></div>
     <div class="ts-sec" style="gap:18px">
       <div class="ts-sec">
@@ -2293,6 +2329,72 @@ dash.loader('sales', {
 
   /* ---- Orders & buyouts per day by marketplace (like the WB cabinet) ---- */
   // Orders: WB and Ozon APIs by order date. Buyouts: WB sales API (exactly as in the cabinet), Ozon and Яндекс from Торгстат.
+  /* ---- Funnel: orders → buyouts → payout → profit, all stores, with WB card views on top ---- */
+  function funData() {
+    const S = ordSeries(), v = T.view();
+    if (!S || !S.days.length || !v) return null;
+    const D = S.days, sum = (key, k) => D.reduce((a, d) => a + Object.values(d[key]).reduce((b, x) => b + x[k], 0), 0);
+    const byMp = (key) => { const o = {}; D.forEach((d) => Object.entries(d[key]).forEach(([mp, x]) => { o[mp] = (o[mp] || 0) + x[1]; })); return o; };
+    const r = { on: sum('o', 0), os: sum('o', 1), oc: D.reduce((a, d) => a + d.oc, 0), bn: sum('b', 0), bs: sum('b', 1), oMp: byMp('o'), bMp: byMp('b'), cur: v.cur, from: S.from, to: S.to };
+    // WB card funnel (last 30 days from the WB cabinet): views → cart → orders
+    const M = T.mk(), p = dash.params(), V = T.vel();
+    const names = new Set(Object.keys(T.SID).filter((id) => T.sidPass(id, p) && T.SID[id].mp === 'WB').map((id) => T.SID[id].name));
+    let fv = 0, fc = 0, fo = 0;
+    if (M && M.funnel) Object.entries(M.funnel).forEach(([k, f]) => {
+      if (!names.has(k.split('|')[0]) || !f.v) return;
+      if ((p.brand || p.cat) && !(V && V.has(k) && T.passDims(V.get(k), p))) return;
+      fv += f.v || 0; fc += f.c || 0; fo += f.o || 0;
+    });
+    if (fv) r.wb = { v: fv, c: fc, o: fo };
+    return r;
+  }
+  dash.draw('fun-per', (e) => {
+    const F = funData();
+    e.textContent = F ? new Date(F.from + 'T00:00:00Z').toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }) + '–' + new Date(F.to + 'T00:00:00Z').toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }) : '';
+  });
+  dash.draw('funnel', (box) => {
+    const F = funData(); box.replaceChildren();
+    const panel = document.getElementById('funnel');
+    if (!F) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    const c = F.cur, rows = [];
+    if (F.wb) {
+      rows.push({ l: 'Просмотры карточек', v: T.num(F.wb.v), s: 'WB, 30 дней', mp: null, tone: 'muted' });
+      rows.push({ l: 'Добавили в корзину', v: T.num(F.wb.c), s: 'WB, 30 дней', conv: F.wb.v ? F.wb.c / F.wb.v : NaN, convL: 'в корзину', tone: 'muted' });
+    }
+    rows.push({ l: 'Заказы', v: T.rub(F.os), s: T.num(F.on) + ' шт.' + (F.oc ? ' · отмен ' + T.num(F.oc) : ''), mp: F.oMp, total: F.os,
+      conv: F.wb && F.wb.c ? F.wb.o / F.wb.c : null, convL: 'корзина → заказ (WB)' });
+    rows.push({ l: 'Выкупы', v: T.rub(F.bs), s: T.num(F.bn) + ' шт.', mp: F.bMp, total: F.bs, conv: F.os ? F.bs / F.os : NaN, convL: 'от суммы заказов' });
+    rows.push({ l: 'Выплата на счёт', v: T.rub(c.payout), s: 'после комиссий, логистики и рекламы', conv: c.rev ? c.payout / c.rev : NaN, convL: 'от выручки', tone: 'pay' });
+    rows.push({ l: c.np < 0 ? 'Убыток' : 'Чистая прибыль', v: T.rub(c.np), s: 'после закупки и налога', conv: c.payout ? c.np / c.payout : NaN, convL: 'маржа от выплат', tone: c.np < 0 ? 'bad' : 'good' });
+    const n = rows.length;
+    rows.forEach((r, i) => {
+      if (r.conv != null && isFinite(r.conv)) {
+        const cv = T.el('div', 'ts-fun-cv');
+        const ci = T.el('span'); ci.append(T.el('b', null, T.pct(r.conv, r.conv < 0.1 && r.conv > -0.1 ? 1 : 0)), document.createTextNode(' ' + r.convL)); cv.append(ci);
+        box.append(cv);
+      }
+      const row = T.el('div', 'ts-fun-row ts-fun-' + (r.tone || 'main'));
+      const bar = T.el('div', 'ts-fun-bar');
+      bar.style.width = (100 - i * (46 / Math.max(1, n - 1))) + '%';
+      if (r.mp && r.total > 0) T.MP_ORDER.forEach((mp) => { const x = r.mp[mp]; if (!x) return; const seg = T.el('i'); seg.style.flexGrow = String(x); seg.style.background = T.MP[mp].color; seg.title = T.MP[mp].name + ': ' + T.rub(x) + ' (' + T.pct(x / r.total, 0) + ')'; bar.append(seg); });
+      const lab = T.el('div', 'ts-fun-l'); lab.append(T.el('span', null, r.l), T.el('small', null, r.s));
+      const val = T.el('b', 'ts-fun-v' + (r.tone === 'bad' ? ' ts-neg' : r.tone === 'good' ? ' ts-good' : ''), r.v);
+      const mid = T.el('div', 'ts-fun-m'); mid.append(bar);
+      row.append(lab, mid, val);
+      if (r.mp && r.total > 0) {
+        const lg = T.el('div', 'ts-fun-mp');
+        T.MP_ORDER.forEach((mp) => { const x = r.mp[mp]; if (!x) return; const sp = T.el('span'); const ic = T.el('i'); ic.style.background = T.MP[mp].color; sp.append(ic, document.createTextNode(T.MP[mp].short + ' ' + T.pct(x / r.total, 0))); lg.append(sp); });
+        row.append(lg);
+      }
+      box.append(row);
+    });
+  });
+  dash.draw('fun-note', (e) => {
+    const F = funData();
+    e.textContent = F ? 'Заказы и выкупы — из кабинетов WB, Ozon и Яндекс Маркета за дни периода, выплата и прибыль — по продажам периода.' + (F.wb ? ' Просмотры и корзина есть только у WB (Ozon отдаёт их с подпиской Premium).' : '') : '';
+  });
+
   function ordSeries() {
     const M = T.mk(), v = T.view(), s = dash.data('sales');
     if (!M || !M.orders || !v || s.status !== 'ok') return null;
