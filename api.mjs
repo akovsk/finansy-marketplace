@@ -108,6 +108,33 @@ async function wbStore(st) {
     }
     return n + ' cards';
   });
+  // Orders per day as the WB app shows them: sales funnel grouped by day (statistics API misses and delays part of orders).
+  // Overrides count and sum for the last 7 days; cancellations stay from the statistics API.
+  await step(st, 'ordersDay', async () => {
+    await sleep(21000);
+    const j = await wb(st, 'https://seller-analytics-api.wildberries.ru/api/analytics/v3/sales-funnel/grouped/history', { selectedPeriod: { start: ago(6), end: TODAY }, aggregationLevel: 'day', skipDeletedNm: false });
+    log('  grouped history sample', JSON.stringify(j).slice(0, 900));
+    const byDay = {};
+    const walk = (x) => {
+      if (Array.isArray(x)) { x.forEach(walk); return; }
+      if (!x || typeof x !== 'object') return;
+      const d = x.date || x.dt || x.day;
+      const n = x.orderCount != null ? x.orderCount : x.ordersCount;
+      if (d && n != null) {
+        const day = String(d).slice(0, 10);
+        const sum = x.orderSum != null ? x.orderSum : (x.ordersSumRub != null ? x.ordersSumRub : x.orderSumRub);
+        const b = (byDay[day] = byDay[day] || [0, 0]); b[0] += +n || 0; b[1] += +sum || 0;
+        return;
+      }
+      Object.values(x).forEach(walk);
+    };
+    walk(j);
+    const days = Object.keys(byDay).filter((d) => d >= ago(6) && d <= TODAY);
+    if (!days.length) throw new Error('no daily rows in response');
+    const o = (OUT.orders[st.id] = OUT.orders[st.id] || {});
+    days.forEach((d) => { const old = o[d] || [0, 0, 0]; o[d] = [R(byDay[d][0]), R(byDay[d][1]), old[2] || 0]; });
+    return days.map((d) => d.slice(5) + ':' + byDay[d][0]).join(' ');
+  });
   // Weekly financial reports (realization): what WB actually transfers (finance-api, 2026 method, 1 request/min)
   await step(st, 'fin', async () => {
     const URLF = 'https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed';
