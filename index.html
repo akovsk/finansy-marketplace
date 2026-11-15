@@ -136,6 +136,12 @@ img { max-width:100%; }
 .ts :focus-visible { outline:2px solid var(--color-fg); outline-offset:2px; }
 
 .ts-top { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:12px 24px; }
+.ts-top { flex-wrap:nowrap; align-items:center; justify-content:flex-start; }
+.ts-top .ts-brand { flex:1 1 auto; min-width:0; }
+.ts-mono { order:2; flex:none; width:150px; height:96px; position:relative; cursor:grab; touch-action:pan-y; }
+.ts-mono canvas, .ts-mono svg { position:absolute; inset:0; width:100% !important; height:100% !important; }
+.ts-mono svg { fill:var(--color-fg); opacity:.9; }
+@media (max-width: 640px) { .ts-mono { width:84px; height:56px; margin-right:-6px; } }
 .ts-brand { display:flex; flex-direction:column; gap:6px; }
 .ts-brand p { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .ts-bar { position:sticky; top:0; z-index:5; background:var(--color-bg); padding-block:8px; display:flex; flex-direction:column; gap:10px; border-bottom:1px solid var(--color-border-line); }
@@ -590,150 +596,11 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-tablewrap { overflow-x:auto; }
   h2 { scroll-margin-top:12px; }
 }
-/* Phone: orders, KPIs and the orders chart fit on one screen */
-@media (max-width: 640px) {
-  #overview > .ts-lede { display:none; }
-  #overview { gap:10px; }
-  .ts-orders { gap:8px; flex-wrap:nowrap; }
-  .ts-ord-h { display:none; }
-  .ts-ord { flex:1 1 0; min-width:0; padding:7px 10px; gap:0; border-radius:10px; }
-  .ts-ord span { font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ts-ord small { font-size:11px; line-height:1.3; }
-  .ts-ord b { font-size:17px; line-height:1.25; }
-  .ts-kpis { grid-template-columns:repeat(3, minmax(0,1fr)) !important; gap:6px; }
-  .ts-kpi { padding:7px 9px; gap:0; border-radius:10px; }
-  .ts-kpi-l { font-size:10.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ts-kpi-v { font-size:16px; line-height:1.3; }
-  .ts-kpi-d { font-size:10.5px; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; }
-  .ts-kspark { display:none; }
-  #ordchart { padding:10px 11px; gap:8px; }
-  #ordchart .ts-panel-h { gap:6px; }
-  #ordchart .ts-panel-h h3 { font-size:13.5px; }
-  .ts-och-ctl .ts-seg button { padding:4px 10px; font-size:12px; }
-  .ts-och-sum { grid-template-columns:repeat(4, minmax(0,1fr)) !important; gap:5px; }
-  .ts-och-c { padding:4px 6px; border-left-width:2px; }
-  .ts-och-c span { font-size:10px; line-height:1.15; }
-  .ts-och-c b { font-size:13.5px; }
-  .ts-och-c small, .ts-och-mp { display:none; }
-  .ts-chart-big { min-height:150px !important; }
-  #ordchart > .ts-muted { display:none; }
-}
-.ts-ord-today { flex:0 1 calc(50% - 5px); max-width:calc(50% - 5px); border-color:color-mix(in srgb, #2b6cff 55%, var(--color-border-line)); border-left:4px solid #2b6cff; background:linear-gradient(135deg, color-mix(in srgb, #2b6cff 16%, var(--color-panel)), var(--color-panel) 75%); }
-.ts-ord-today span { color:#5b8cff; font-weight:600; }
-.ts-ord-today b { color:var(--color-fg); }
-@media (max-width: 640px) { .ts-ord-today { flex:0 1 calc(50% - 4px); max-width:calc(50% - 4px); } .ts-ord-today span { white-space:normal; line-height:1.2; } .ts-ord-today small { white-space:normal; } }
-/* Phone: centred cards, full-width switches in the orders block */
-@media (max-width: 640px) {
-  .ts-ord, .ts-kpi, .ts-och-c { text-align:center; align-items:center; }
-  .ts-kpi-l, .ts-kpi-d, .ts-ord span, .ts-ord small, .ts-och-c span { max-width:100%; }
-  .ts-kpi-v, .ts-ord b, .ts-och-c b { letter-spacing:-0.02em; }
-  .ts-kpi { padding-inline:5px; }
-  .ts-kpi-l { letter-spacing:-0.02em; }
-  .ts-ord-today { border-left-width:1px; border-width:1.5px; }
-  .ts-ord-today b { font-size:22px; }
-  .ts-och-c { border-left:0; border-top:2px solid transparent; padding:6px 4px; }
-  .ts-och-c.ts-och-o { border-top-color:var(--ts-och-o); } .ts-och-c.ts-och-b { border-top-color:var(--ts-och-b); }
-  #ordchart .ts-panel-h h3 { text-align:center; }
-  .ts-och-ctl { gap:8px; }
-  .ts-och-ctl .ts-seg { flex:1 1 0; width:auto; min-width:0; overflow:visible; }
-  .ts-och-ctl .ts-seg button { flex:1 1 0; text-align:center; padding:6px 0; font-size:13px; }
-  #ordchart .ts-legend, #ordchart svg + div { justify-content:center; }
-}
-.ts-ord-two { display:none; }
-@media (max-width: 640px) {
-  .ts-ord-today { flex:1 1 100%; max-width:none; padding:9px 12px 8px; }
-  .ts-ord-today > b, .ts-ord-today > small { display:none; }
-  .ts-ord-two { display:grid; grid-template-columns:1fr 1fr; width:100%; margin:1px 0 0; }
-  .ts-ord-two > div { display:flex; flex-direction:column; align-items:center; gap:0; min-width:0; }
-  .ts-ord-two > div + div { border-left:1px solid color-mix(in srgb, #2b6cff 35%, var(--color-border-line)); }
-  .ts-ord-two b { font-size:24px; line-height:1.15; white-space:nowrap; }
-  .ts-ord-two small { font-size:11px; color:var(--color-fg-muted); }
-  .ts-ord-today > span::after { content:' · все площадки'; }
-  .ts-ord-today { padding-top:4px; }
-  .ts-ord-today > span { margin-bottom:7px; line-height:1.1; }
-}
-/* Phone: header at the bottom, filters above the chart, expected profit in the today block */
-@media (max-width: 640px) {
-  .ts-top { order:99; margin-top:8px; padding-top:12px; border-top:1px solid var(--color-border-line); }
-  .ts-bar.ts-bar-nof { border-bottom:0; padding:0; min-height:0; margin-top:-14px; }
-  .ts { gap:10px; }
-  .ts-filters.ts-filters-in { margin:0; gap:6px; }
-  .ts-filters-in .ts-chips button { padding:5px 13px; font-size:13px; }
-  .ts-filters-in .ts-ftog { padding:5px 13px; font-size:13px; }
-  #ordchart .ts-panel-h h3 { display:none; }
-  .ts-ord-two { grid-template-columns:1fr 1fr 1fr; }
-  .ts-ord-two b { font-size:21px; }
-  .ts-ord-pot b { font-size:17px; font-weight:600; color:var(--color-ok); opacity:.85; padding-top:3px; }
-  .ts-ord-pot.ts-neg b { color:var(--color-bad); }
-  .ts-ord-pot small { opacity:.8; }
-}
-.ts-chips .ts-mob { display:none; }
-/* Phone overview order: today → period → orders chart → KPI tiles → the rest */
-@media (max-width: 640px) {
-  .ts-chips .ts-mob { display:inline-block; }
-  .ts-filters-in { flex-wrap:nowrap !important; }
-  .ts-filters-in.ts-fopen { flex-wrap:wrap !important; }
-  .ts-filters-in .ts-chips { flex:1 1 auto; display:flex; min-width:0; }
-  .ts-filters-in .ts-chips button { flex:1 1 auto; padding:5px 4px; font-size:12.5px; }
-  .ts-filters-in .ts-ftog { flex:none; padding:5px 10px; font-size:12.5px; }
-  #overview > .ts-orders { order:1; }
-  #overview > #filters { order:2; }
-  #overview > #ordchart { order:3; }
-  #overview > .ts-kpis { order:4; }
-  #overview > .ts-grid-main { order:5; }
-}
-/* Phone: only orders and buyouts in the chart summary, centred */
-@media (max-width: 640px) {
-  .ts-och-sum { grid-template-columns:repeat(2, minmax(0, 150px)) !important; justify-content:center; gap:10px; }
-  .ts-och-sum > .ts-och-c:nth-child(n+3) { display:none; }
-  .ts-och-c b { font-size:15px; }
-}
-/* ===== Phone design pass: one type scale, one control height, centred, full-width panels ===== */
-@media (max-width: 640px) {
-  /* panels: always full width, same radius and padding */
-  .ts-grid-main, .ts-grid-main > .ts-sec { align-items:stretch !important; }
-  #overview .ts-panel { width:100%; align-self:stretch; border-radius:14px; padding:12px; gap:10px; }
-  .ts-panel h3 { font-size:14px; font-weight:600; text-align:center; width:100%; }
-  .ts-panel-h { justify-content:center; }
-  #cash .ts-panel-h > .ts-muted { display:none; }
-  /* controls: one height, one radius */
-  .ts-chips, .ts-seg { padding:3px; border-radius:12px; }
-  .ts-chips button, .ts-seg button { height:30px; display:inline-flex; align-items:center; justify-content:center; border-radius:9px; font-size:13px; }
-  .ts-filters-in .ts-ftog, #todo .ts-btn { height:36px; display:inline-flex; align-items:center; justify-content:center; border-radius:12px; font-size:13px; }
-  #trend .ts-seg { width:100%; } #trend .ts-seg button { flex:1 1 0; }
-  .ts-legend { justify-content:center; font-size:12px; }
-  #dash-root .ts-sw-np { background:var(--color-fg) !important; }
-  /* today block */
-  .ts-ord-today > span { font-size:12.5px; }
-  .ts-ord-two b { font-size:22px; }
-  .ts-ord-two small { font-size:11.5px; }
-  .ts-ord-pot b { font-size:18px; }
-  /* orders / buyouts: two equal cells aligned with the switches above */
-  .ts-och-sum { grid-template-columns:repeat(2, minmax(0,1fr)) !important; gap:8px; }
-  .ts-och-c { border-radius:10px; padding:6px 8px; }
-  .ts-och-c span { font-size:12px; }
-  .ts-och-c b { font-size:17px; }
-  /* KPI tiles */
-  .ts-kpi { border-radius:12px; padding:8px 5px; }
-  .ts-kpi-l { font-size:11px; letter-spacing:-0.03em; }
-  .ts-kpi-v { font-size:18px; }
-  .ts-kpi-d { font-size:11px; }
-  /* money on account */
-  #cash .ts-cash-top { justify-content:center; }
-  /* to-do list: body size, not headline size */
-  #todo .ts-acts { font-size:13.5px; gap:10px; }
-  #todo .ts-acts small { font-size:12px; }
-  #todo .ts-acts b, #todo .ts-acts strong { font-weight:600; }
-  #todo .ts-acts li { font-weight:500; }
-  #todo .ts-btn { align-self:center; padding:0 18px; }
-  /* bottom bar */
-  .ts-ti { width:22px; height:22px; }
-  #dash-root .ts-tabs button { font-size:10.5px; }
-}
 </style>
 
 <div class="ts">
   <header class="ts-top" id="top">
+    <div class="ts-mono" id="mono3d" aria-hidden="true"></div>
     <div class="ts-brand">
       <h1>Финансы маркетплейсы</h1>
       <p class="ts-muted"><span class="ts-mp ts-mp-wb">Wildberries</span><span class="ts-mp ts-mp-oz">Ozon</span><span class="ts-mp ts-mp-ym">Яндекс Маркет</span> 5 магазинов · <span data-draw="hdr-dates" data-source="sales">данные Торгстат</span></p>
@@ -751,7 +618,7 @@ th[aria-sort] { color:var(--color-fg); }
       <button type="button" role="tab" data-tab="rk" aria-selected="false"><svg class="ts-ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM16 8a5 5 0 0 1 0 8M19 5a9 9 0 0 1 0 14"/></svg><span>Реклама</span></button>
     </nav>
     <div class="ts-filters" id="filters">
-      <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" class="ts-mob" data-period="1">1 дн</button><button type="button" class="ts-mob" data-period="3">3 дн</button><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
+      <div class="ts-chips" role="group" aria-label="Быстрый период"><button type="button" data-period="7">7 дн</button><button type="button" data-period="30">30 дн</button><button type="button" data-period="90">90 дн</button><button type="button" data-period="all">Всё</button></div>
       <button type="button" class="ts-btn ts-ftog" id="f-toggle" aria-expanded="false">Фильтры<span id="f-count"></span></button>
       <select class="dash-select" id="f-period" aria-label="Период" data-draw="opt-period" data-source="sales">
         <option value="7">7 дней</option>
@@ -1127,16 +994,14 @@ window.T = (function () {
     return { issues, rec, out };
   }
 
-  let cache = { data: null, key: null }, cache2 = { data: null, key: null };
-  // po: optional parameter override (e.g. a fixed period), cached separately from the main view
-  function view(po) {
+  let cache = { data: null, key: null };
+  function view() {
     const s = dash.data('sales');
     const m = meta();
     if (s.status !== 'ok' || !m) return null;
-    const p = po ? Object.assign({}, dash.params(), po) : dash.params();
+    const p = dash.params();
     const key = [p.period, p.mp, p.store, p.brand, p.cat].join('|');
-    const C = po ? cache2 : cache;
-    if (C.data === s.data && C.key === key) return C.v;
+    if (cache.data === s.data && cache.key === key) return cache.v;
     const r = range(p.period, m.last);
     const A = iso(r.a), B = iso(r.b), PA = r.prev ? iso(r.prev.a) : null, PB = r.prev ? iso(r.prev.b) : null;
     const cur = zero(), prev = zero();
@@ -1196,7 +1061,7 @@ window.T = (function () {
     const v = { r, cur, prev: r.prev ? prev : null, daily, stores: [...stores.values()].sort((a, b) => b.rev - a.rev), prods: list, active, sold, totRev: tot,
       mps: [...mps.values()].sort((a, b) => b.rev - a.rev), brands: [...brands.values()], cats: [...cats.values()],
       label: dm(r.a) + '–' + dmy(r.b), prevLabel: r.prev ? dm(r.prev.a) + '–' + dmy(r.prev.b) : null };
-    if (po) cache2 = { data: s.data, key, v }; else cache = { data: s.data, key, v };
+    cache = { data: s.data, key, v };
     return v;
   }
 
@@ -1644,21 +1509,6 @@ dash.loader('sales', {
     redrawIn(document.getElementById(id));
   }
   window.TS_showTab = showTab;
-  /* Phone: period chips and filters sit right above the orders chart on the overview tab */
-  (function () {
-    const mq = window.matchMedia('(max-width: 640px)');
-    const f = document.getElementById('filters'), bar = document.getElementById('bar'), ov = document.getElementById('overview'), ch = document.getElementById('ordchart');
-    if (!f || !bar || !ov || !ch) return;
-    const place = () => {
-      const inOv = mq.matches && !ov.hidden;
-      if (inOv && f.parentElement !== ov) ov.insertBefore(f, ch);
-      if (!inOv && f.parentElement !== bar) bar.append(f);
-      bar.classList.toggle('ts-bar-nof', inOv); f.classList.toggle('ts-filters-in', inOv);
-    };
-    if (mq.addEventListener) mq.addEventListener('change', place); else mq.addListener(place);
-    new MutationObserver(place).observe(ov, { attributes: true, attributeFilter: ['hidden'] });
-    place();
-  })();
   document.querySelectorAll('[data-jump]').forEach((b) => b.addEventListener('click', () => {
     const [sub, show] = b.getAttribute('data-jump').split(':');
     if (sub === 'all') {
@@ -2241,7 +2091,7 @@ dash.loader('sales', {
     const last = T.iso(m.last), first = T.iso(0);
     if (perKey === last) { sel.value = dash.params().period || '7'; return; }
     perKey = last;
-    const o = [['1', '1 день'], ['3', '3 дня'], ['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
+    const o = [['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней'], ['90', '90 дней']];
     let y = +first.slice(0, 4), mo = +first.slice(5, 7);
     const ly = +last.slice(0, 4), lm = +last.slice(5, 7);
     while (y < ly || (y === ly && mo <= lm)) {
@@ -2260,28 +2110,14 @@ dash.loader('sales', {
     if (!M || !M.orders) { e.style.display = 'none'; return; }
     const p = dash.params();
     const tot = (day) => { let n = 0, s = 0; Object.entries(M.orders).forEach(([id, o]) => { if (!T.sidPass(id, p)) return; const d = o[day]; if (d) { n += d[0]; s += d[1]; } }); return [n, s]; };
-    const today = M.today;
-    const a = tot(today);
-    if (!today) { e.style.display = 'none'; return; }
+    const today = M.today, yd = new Date(Date.parse(today + 'T00:00:00Z') - 864e5).toISOString().slice(0, 10), wk = new Date(Date.parse(today + 'T00:00:00Z') - 7 * 864e5).toISOString().slice(0, 10);
+    const a = tot(today), b = tot(yd), c = tot(wk);
+    if (!a[0] && !b[0]) { e.style.display = 'none'; return; }
     e.style.display = '';
+    const cell = (label, v, cmp) => { const d = T.el('div', 'ts-ord'); d.append(T.el('span', null, label), T.el('b', null, T.num(v[0]) + ' шт.'), T.el('small', null, T.rub(v[1]) + (cmp ? ' · ' + cmp : ''))); return d; };
+    const ch = c[1] ? T.signed(b[1] / c[1] - 1, (x) => T.pct(x, 0)) + ' к тому же дню нед. назад' : '';
     const mpsHave = [...new Set(Object.keys(M.orders).filter((id) => T.sidPass(id, p) && T.SID[id]).map((id) => T.SID[id].mp))].map((mp) => T.MP[mp].short).join(' + ');
-    const d = T.el('div', 'ts-ord ts-ord-today');
-    d.title = 'Все площадки: ' + mpsHave + '. День ещё идёт.'; let at = ''; try { if (M.generated) at = ' · на ' + new Date(M.generated).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' }); } catch (err) {}
-    d.append(T.el('span', null, 'Заказы сегодня' + at), T.el('b', null, T.num(a[0]) + ' шт.'), T.el('small', null, T.rub(a[1]) + ' · все площадки'));
-    const two = T.el('div', 'ts-ord-two');
-    const half = (v, l) => { const h = T.el('div'); h.append(T.el('b', null, v), T.el('small', null, l)); return h; };
-    // expected profit: each store's today orders × its net margin (net profit ÷ revenue) over the last 30 days
-    const v = T.view({ period: '30' }); let pot = null;
-    if (v && v.stores && v.stores.length) {
-      const rate = {}; let R = 0, N = 0;
-      v.stores.forEach((st) => { if (st.rev > 0) { rate[st.store] = st.np / st.rev; R += st.rev; N += st.np; } });
-      const avg = R > 0 ? N / R : 0; pot = 0;
-      Object.entries(M.orders).forEach(([id, o]) => { if (!T.sidPass(id, p)) return; const dd = o[today]; if (!dd) return; const nm = T.SID[id] && T.SID[id].name; pot += dd[1] * (nm in rate ? rate[nm] : avg); });
-    }
-    two.append(half(T.num(a[0]) + ' шт.', 'в штуках'), half(T.rub(a[1]), 'в рублях'));
-    if (pot != null) { const h = half('≈ ' + T.rub(pot), 'прибыль'); h.className = 'ts-ord-pot' + (pot < 0 ? ' ts-neg' : ''); h.title = 'Ожидаемая чистая прибыль с сегодняшних заказов: сумма заказов каждого магазина × его рентабельность (чистая прибыль ÷ выручка) за последние 30 дней'; two.append(h); }
-    d.append(two);
-    e.append(d);
+    e.append(T.el('div', 'ts-ord-h', 'Заказы ' + mpsHave + ' (из кабинетов)'), cell('Сегодня (неполный день)', a), cell('Вчера', b, ch));
   });
 
   /* ---- Stock page ---- */
@@ -2544,7 +2380,7 @@ dash.loader('sales', {
     const days = (main === 'b' ? S.days.filter((d) => d.hasB) : S.days).filter((d) => d.d !== S.partial);
     if (!days.length) { e.append(T.el('p', 'ts-chart-msg', 'Нет данных за этот период')); return; }
     const mps = T.MP_ORDER.filter((mp) => days.some((d) => d[main][mp]));
-    const W = Math.max(280, e.clientWidth), H = W < 520 ? 150 : 320;
+    const W = Math.max(280, e.clientWidth), H = W < 520 ? 260 : 320;
     const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', (main === 'o' ? 'Заказы' : 'Выкупы') + ' по дням, линия на каждую площадку');
     const val = (d, mp) => (d[main][mp] ? d[main][mp][k] : 0);
     const ymax = Math.max(1, d3.max(days, (d) => d3.max(mps, (mp) => val(d, mp))) || 1);
@@ -2968,6 +2804,108 @@ dash.loader('sales', {
     }
     if (!rows.length) { const td = tb.insertRow().insertCell(); td.colSpan = 11; td.textContent = 'Ничего не найдено.'; }
   });
+})();
+</script>
+
+<script>
+// Монограмма S+A: контуры обведены с img/sa-monogram-source.jpg (отражено сверху вниз)
+window.SAK_SA = {"bbox":[264.5,318.5,667.9,549.0],"source":"img/sa-monogram-source.jpg (отражён сверху вниз)","pieces":[{"id":4,"letter":"S","layer":2,"loops":[[515.5,354.0,528.0,353.6,531.4,355.0,537.5,361.0,539.3,364.0,539.3,369.0,537.4,373.0,534.0,374.3,512.0,378.6,500.0,382.5,485.0,388.8,466.0,398.3,453.0,406.9,445.0,413.5,437.6,422.0,432.3,430.0,427.9,441.0,425.7,454.0,427.6,464.0,430.3,472.0,433.5,478.0,441.5,489.0,455.0,500.4,469.0,509.2,488.0,518.1,516.0,528.1,536.0,533.3,579.0,541.3,717.0,560.7,762.0,568.7,789.0,574.9,825.0,585.5,850.0,595.3,875.0,607.9,889.0,616.9,899.0,624.6,911.5,637.0,916.4,643.0,922.7,653.0,926.1,660.0,929.1,668.0,932.3,682.0,932.5,711.0,931.1,720.0,928.5,730.0,924.8,739.0,919.4,748.0,915.5,753.0,903.0,765.5,891.8,774.0,875.0,784.2,854.0,794.7,850.0,795.5,847.0,794.8,843.9,789.0,836.5,769.0,833.5,759.0,834.0,754.0,842.1,739.0,845.3,727.0,845.3,718.0,843.5,711.0,841.1,706.0,834.0,695.8,829.5,691.0,811.0,676.2,800.0,668.9,779.0,656.8,754.0,645.9,724.0,636.6,678.0,626.7,615.0,616.7,502.0,602.3,469.0,596.3,443.0,590.4,412.0,581.1,394.0,574.1,381.0,568.0,372.0,563.1,360.0,555.1,346.7,544.0,336.2,531.0,329.3,519.0,323.9,503.0,321.5,486.0,321.5,470.0,322.7,461.0,325.5,450.0,329.2,441.0,333.9,433.0,345.0,418.6,361.0,404.6,374.0,395.9,403.0,380.8,417.0,374.9,439.0,367.2,460.0,361.7,488.0,356.7,515.0,354.1]]},{"id":3,"letter":"A","layer":1,"loops":[[528.9,319.0,532.0,318.5,693.0,318.5,696.0,318.9,697.0,319.9,697.4,323.0,696.3,326.0,664.6,362.0,663.5,364.0,663.5,366.0,729.1,528.0,730.5,535.0,730.0,538.0,729.1,539.0,720.0,539.3,644.0,528.4,641.2,527.0,619.1,472.0,591.0,405.0,588.1,401.0,584.0,398.8,582.0,400.1,579.9,405.0,541.0,508.3,539.0,510.1,533.0,510.3,516.0,505.8,513.2,504.0,512.6,502.0,512.7,498.0,515.5,489.0,562.0,364.0,561.9,362.0,560.5,360.0,528.7,326.0,527.6,323.0,528.0,319.9]]},{"id":6,"letter":"A","layer":1,"loops":[[466.7,620.0,475.0,619.6,494.0,622.6,496.1,624.0,496.5,629.0,486.9,654.0,459.6,739.0,456.7,751.0,453.5,769.0,452.6,781.0,453.5,792.0,456.2,806.0,463.0,823.5,476.6,843.0,491.3,860.0,492.4,863.0,492.1,866.0,491.0,867.0,488.0,867.5,321.0,867.0,319.9,866.0,319.5,864.0,319.8,862.0,321.0,860.3,347.0,840.4,356.0,832.5,368.0,820.4,380.4,806.0,389.4,794.0,400.1,777.0,416.2,744.0,429.1,714.0,449.1,664.0,464.5,623.0,466.0,620.5]]},{"id":8,"letter":"A","layer":1,"loops":[[684.9,655.0,692.0,654.7,734.0,664.9,757.0,672.9,768.0,677.8,771.0,680.0,777.7,694.0,834.3,823.0,838.0,827.4,880.0,859.7,881.3,862.0,881.5,864.0,881.0,866.0,880.1,867.0,877.0,867.5,709.0,867.5,706.0,867.0,705.0,866.1,704.7,862.0,706.5,859.0,744.0,827.5,747.0,824.0,747.6,821.0,693.1,678.0,688.0,665.5,683.8,660.0,684.0,655.9]]},{"id":7,"letter":"A","layer":0,"loops":[[501.9,625.0,509.0,624.7,518.0,626.3,539.0,628.7,542.0,629.9,555.0,643.6,593.0,687.4,597.0,690.5,599.0,690.5,602.0,688.5,644.2,647.0,649.0,646.7,682.0,652.7,684.0,654.4,684.4,658.0,682.7,661.0,657.5,683.0,638.0,703.6,622.0,722.8,601.7,751.0,600.0,752.2,596.0,752.4,593.0,750.6,584.4,738.0,562.4,709.0,501.7,633.0,500.6,630.0,501.0,625.9]]},{"id":10,"letter":"A","layer":0,"loops":[[477.9,790.0,483.0,789.9,502.0,797.5,531.0,806.4,549.0,810.3,567.0,813.3,585.0,815.4,609.0,816.6,615.0,817.5,665.0,817.5,690.0,815.3,712.0,811.7,718.0,811.5,721.0,812.2,722.7,814.0,724.1,818.0,724.4,822.0,723.0,825.3,714.0,832.7,708.0,834.3,694.0,835.5,627.0,835.5,620.0,834.5,602.0,834.5,596.0,833.6,586.0,833.4,564.0,831.4,527.0,827.3,484.0,820.8,481.9,818.0,477.9,805.0,476.5,795.0,477.0,790.9]]},{"id":5,"letter":"A","layer":0,"loops":[[691.2,357.0,697.0,356.7,771.0,368.3,813.0,373.4,828.0,374.1,842.0,373.4,873.0,368.5,877.1,369.0,878.0,370.0,878.4,373.0,877.0,376.4,871.0,381.6,852.6,403.0,809.4,462.0,801.0,471.3,799.0,472.3,796.0,472.4,794.0,471.9,791.9,470.0,777.1,445.0,769.4,434.0,764.5,428.0,757.0,420.6,747.0,412.9,736.0,405.9,707.0,389.8,691.0,382.7,689.0,381.0,684.9,371.0,684.6,365.0,685.7,362.0,691.0,357.1]]},{"id":9,"letter":"A","layer":0,"loops":[[359.3,688.0,363.0,687.6,365.5,689.0,369.9,701.0,375.0,712.0,382.2,724.0,392.3,737.0,393.5,741.0,392.7,746.0,383.7,763.0,372.0,781.8,362.0,795.2,358.0,799.3,355.0,800.4,327.0,799.5,313.0,800.6,291.0,803.7,271.0,808.3,265.9,808.0,264.9,807.0,264.5,805.0,265.7,801.0,290.0,777.5,318.4,746.0,339.1,719.0,359.0,688.2]]}]};
+/* Вращающаяся 3D-монограмма S+A (из monogram-sa-3d.html). Без WebGL — плоская SVG. */
+(function () {
+  const box = document.getElementById('mono3d'), D = window.SAK_SA;
+  if (!box || !D) return;
+  const [bx, by, bw, bh] = D.bbox;
+  function flat() {
+    if (box.querySelector('svg, canvas')) return;
+    const p = D.pieces.map((pc) => '<path fill-rule="evenodd" d="' + pc.loops.map((l) => { let s = 'M'; for (let i = 0; i < l.length; i += 2) s += (i ? 'L' : '') + l[i] + ' ' + l[i + 1]; return s + 'Z'; }).join('') + '"/>').join('');
+    box.innerHTML = '<svg viewBox="' + bx + ' ' + by + ' ' + bw + ' ' + bh + '" preserveAspectRatio="xMidYMid meet"><g transform="translate(0 ' + (2 * by + bh) + ') scale(1 -1)">' + p + '</g></svg>';
+  }
+  function load(src) { return new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
+  function start() {
+    const base = 'https://cdn.jsdelivr.net/npm/three@0.147.0/';
+    load(base + 'build/three.min.js').then(() => load(base + 'examples/js/environments/RoomEnvironment.js')).then(run).catch(flat);
+  }
+  function run() {
+    try {
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.setClearColor(0x000000, 0);
+      box.innerHTML = ''; box.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+      const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
+      const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(-6, 8, 10); scene.add(key);
+      const rim = new THREE.DirectionalLight(0xffd9c0, 1.2); rim.position.set(8, -2, -6); scene.add(rim);
+
+      // светлая тема — чёрный лак (как в исходнике), тёмная — сталь
+      const face = new THREE.MeshPhysicalMaterial(), side = new THREE.MeshPhysicalMaterial();
+      function theme() {
+        const bg = getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim();
+        const dark = /^#?([0-9a-f]{6})$/i.test(bg) ? parseInt(bg.replace('#', '').slice(0, 2), 16) < 100 : matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) face.setValues({ color: 0xc9ccd0, metalness: 1, roughness: 0.32, clearcoat: 0 });
+        else face.setValues({ color: 0x050505, metalness: 0, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.06 });
+        side.copy(face); side.color = face.color.clone().multiplyScalar(0.55);
+      }
+      theme();
+      matchMedia('(prefers-color-scheme: dark)').addEventListener('change', theme);
+      new MutationObserver(theme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+      // слои по глубине: 0 — шеврон и завитки A, 1 — вершина и ножки A, 2 — S поверх
+      const DEPTH = 18, STEP = 26, root = new THREE.Group(), meshes = [];
+      for (const p of D.pieces) {
+        const [outer, ...holes] = p.loops.map((l) => { const v = []; for (let i = 0; i < l.length; i += 2) v.push(new THREE.Vector2(l[i], l[i + 1])); return v; });
+        const shape = new THREE.Shape(outer);
+        for (const q of holes) shape.holes.push(new THREE.Path(q));
+        const m = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: DEPTH, curveSegments: 4, bevelEnabled: true, bevelThickness: 2.5, bevelSize: 1.6, bevelSegments: 3 }), [face, side]);
+        m.userData.layer = p.layer; m.position.z = p.layer * STEP;
+        root.add(m); meshes.push(m);
+      }
+      const S = 12 / bw, H = 12 * bh / bw;
+      root.scale.set(S, -S, S);
+      root.position.set(-(bx + bw / 2) * S, (by + bh / 2) * S, -(STEP + DEPTH / 2) * S);
+      const pivot = new THREE.Group(); pivot.add(root); scene.add(pivot);
+
+      function size() {
+        const w = box.clientWidth, hh = box.clientHeight; if (!w || !hh) return;
+        renderer.setSize(w, hh, false);
+        camera.aspect = w / hh; camera.updateProjectionMatrix();
+        const t = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+        camera.position.set(0, 0, Math.max(12 / (t * camera.aspect), H / t) * 1.25);
+      }
+      size(); addEventListener('resize', size);
+
+      // постоянное вращение на 360°; пальцем/мышью можно крутить с инерцией; при наведении слои раздвигаются
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const AUTO = still ? 0 : 0.9;
+      let rotY = 0, rotX = 0, vel = AUTO, hover = 0, hv = 0, drag = null, visible = true;
+      box.addEventListener('pointerenter', () => hover = 1);
+      box.addEventListener('pointerleave', () => hover = 0);
+      box.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, t: performance.now() }; box.setPointerCapture(e.pointerId); });
+      box.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        const now = performance.now(), dx = e.clientX - drag.x, dy = e.clientY - drag.y, dt = Math.max(now - drag.t, 1) / 1000;
+        rotY += dx * 0.012; rotX = Math.max(-0.5, Math.min(0.5, rotX + dy * 0.006)); vel = (dx * 0.012) / dt;
+        drag = { x: e.clientX, y: e.clientY, t: now };
+      });
+      const end = () => { drag = null; hover = 0; };
+      box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+      new IntersectionObserver((es) => visible = es[0].isIntersecting).observe(box);
+      const clock = new THREE.Clock();
+      renderer.setAnimationLoop(() => {
+        const dt = Math.min(clock.getDelta(), 0.05);
+        if (!visible || document.hidden) return;
+        if (!drag) { vel += (AUTO - vel) * Math.min(dt * 1.5, 1); rotY += vel * dt; rotX += -rotX * Math.min(dt * 2, 1); }
+        hv += (hover - hv) * 0.08;
+        for (const m of meshes) m.position.z = m.userData.layer * (STEP + hv * 60);
+        pivot.rotation.set(rotX + (still ? 0 : Math.sin(clock.elapsedTime * 0.7) * 0.06), rotY, 0);
+        renderer.render(scene, camera);
+      });
+    } catch (e) { console.warn('3D-монограмма не запустилась:', e); flat(); }
+  }
+  flat();                                   // сразу плоская, 3D подменит её после загрузки страницы
+  if (document.readyState === 'complete') setTimeout(start, 300); else addEventListener('load', () => setTimeout(start, 300));
 })();
 </script>
 
