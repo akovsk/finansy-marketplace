@@ -27,7 +27,7 @@ export const DEFAULTS = {
   bid: { maxStepPct: 25, upStepPct: 15, cooldownHours: 24, maxCpmKop: 100000, maxCpcKop: 5000, minOrdersToRaise: 5, minStockDaysToRaise: 14 },
   stock: { pauseWhenOut: true, resumeDays: 5 },
   budget: { autoTopUp: false, topUpSum: 1000, dailyCap: 5000, source: 1 },
-  launch: { enabled: false, maxPerRun: 1, budget: 1000, minStock: 30, minMargin: 0.25, minSales30: 10, minRating: 4.5, paymentType: 'cpm' },
+  launch: { enabled: false, maxPerRun: 1, maxTotal: 5, budget: 1000, minStock: 30, minStockDays: 45, minMargin: 0.25, minSales30: 10, minRating: 4.5, paymentType: 'cpm' },
   llm: { enabled: true, model: 'claude-opus-5-5', effort: 'medium' },
 };
 export function mergeConfig(user) {
@@ -301,16 +301,22 @@ const forClaude = (m, rule, st, cfg) => ({
 });
 
 /* ------------------------------ New campaigns ------------------------------ */
-export function launchCandidates(storeName, storeId, campaigns, econ, market, cfg) {
+// Profitable goods without ads. A launch must stay in profit: margin before ads at least minMargin
+// (the bid rules then hold ДРР at targetShare of it), enough stock in days of sales so the ad push
+// does not empty the shelf, decent rating, and never a SKU whose agent-launched campaign was closed.
+export function launchCandidates(storeName, storeId, campaigns, econ, market, cfg, closedSkus = new Set()) {
   const busy = new Set();
   campaigns.forEach((c) => c.nms.forEach((n) => busy.add(String(n.nm))));
+  closedSkus.forEach((s) => busy.add(String(s)));
   const out = [];
   econ.forEach((e, k) => {
     if (e.store !== storeId || busy.has(String(e.sku)) || e.noCogs) return;
     const stock = ((market.stocks || {})[k] || {}).q || 0, rv = (market.reviews || {})[k];
     if (stock < cfg.launch.minStock || e.q < cfg.launch.minSales30 || e.margin == null || e.margin < cfg.launch.minMargin) return;
+    const stockDays = stock / (e.q / 30);
+    if (stockDays < cfg.launch.minStockDays) return;
     if (rv && rv.n >= 5 && rv.avg < cfg.launch.minRating) return;
-    out.push({ key: k, sku: e.sku, name: e.name, margin: e.margin, profit: e.np - e.adv, stock, q: e.q });
+    out.push({ key: k, sku: e.sku, name: e.name, margin: e.margin, profit: e.np - e.adv, stock, q: e.q, stockDays: Math.round(stockDays) });
   });
   return out.sort((a, b) => b.profit - a.profit).slice(0, cfg.launch.maxPerRun);
 }
@@ -324,6 +330,10 @@ export async function run({ cfg, data, market, state, apis, now = Date.now(), cl
   const hist = state.history || [], camp = state.camp || {}, deposits = state.deposits || {};
   const metrics = [], byId = new Map();
   const mins = new Map();
+  // New campaigns: at most launch.maxTotal ever launched by the agent (counted from its history)
+  const launchedOk = hist.filter((a) => a.action === 'launch' && a.result === 'ok');
+  const closedSkus = new Set(launchedOk.filter((a) => hist.some((h) => h.action === 'stop' && h.result === 'ok' && h.id === a.id)).map((a) => a.sku));
+  let launchLeft = Math.max(0, (cfg.launch.maxTotal ?? Infinity) - launchedOk.length);
 
   for (const sid of cfg.stores) {
     const api = apis[sid], store = data.stores.find((s) => s.id === sid);
@@ -337,8 +347,10 @@ export async function run({ cfg, data, market, state, apis, now = Date.now(), cl
     });
     // New campaigns for profitable goods that are not advertised yet
     if (cfg.launch.enabled) {
-      for (const cand of launchCandidates(store.name, sid, list, econ, market, cfg)) {
-        const act = { t: out.generated, store: sid, action: 'launch', key: cand.key, sku: cand.sku, name: cand.name, reason: 'Товар без рекламы: маржа до рекламы ' + pct(cand.margin) + ', ' + cand.q + ' продаж за 30 дней, на складе ' + cand.stock + ' шт. Запускаю кампанию с бюджетом ' + rub(cfg.launch.budget) + '.' };
+      for (const cand of launchCandidates(store.name, sid, list, econ, market, cfg, closedSkus)) {
+        if (launchLeft <= 0) break;
+        launchLeft--;
+        const act = { t: out.generated, store: sid, action: 'launch', key: cand.key, sku: cand.sku, name: cand.name, reason: 'Товар без рекламы: маржа до рекламы ' + pct(cand.margin) + ', ' + cand.q + ' продаж за 30 дней, на складе ' + cand.stock + ' шт. (на ' + cand.stockDays + ' дн.). Запускаю кампанию с бюджетом ' + rub(cfg.launch.budget) + ', целевой ДРР до ' + pct(Math.min(cfg.maxDrr, cfg.targetShare * cand.margin)) + '.' };
         if (live) {
           try {
             const id = await api.create(('AI ' + cand.sku + ' ' + cand.name).slice(0, 60), [+cand.sku], cfg.launch.paymentType);

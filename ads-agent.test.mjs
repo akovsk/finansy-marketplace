@@ -90,3 +90,18 @@ const go = async (over = {}, extra = {}) => { const calls = []; const out = awai
 assert.equal(stopReason({ status: 9, w30: { spend: 1000, orders: 0, ordSum: 0 }, w14: { spend: 500 }, margin: 0.3, drr30: Infinity, drr14: Infinity }, mergeConfig({})), null);
 assert.equal(guard({ action: 'stop', reason: '' }, { id: 1, status: 9, w30: { spend: 1000, orders: 0, ordSum: 0 }, w14: { spend: 500 }, margin: 0.3 }, mergeConfig({}), {}, NOW).action, 'keep');
 console.log('ads-agent: all checks passed');
+// 7. New campaigns: total cap over all runs, enough stock in days, no relaunch of a closed SKU
+{
+  const launchCfg = { stores: ['wb1'], mode: 'live', launch: { enabled: true, maxPerRun: 5, maxTotal: 1 } };
+  const first = await go(launchCfg);
+  assert.equal(first.out.actions.filter((x) => x.action === 'launch').length, 1);
+  const hist = first.out.history;
+  const again = await go(launchCfg, { state: { history: hist } });
+  assert.equal(again.out.actions.filter((x) => x.action === 'launch').length, 0, 'лимит maxTotal на все запуски');
+  const closed = [...hist, { t: 'x', action: 'stop', result: 'ok', id: 999 }];
+  const relaunch = await go({ ...launchCfg, launch: { ...launchCfg.launch, maxTotal: 5 } }, { state: { history: closed } });
+  assert.ok(!relaunch.out.actions.some((x) => x.action === 'launch' && x.sku === '6'), 'закрытый товар не перезапускается');
+  const thin = await go({ ...launchCfg, launch: { ...launchCfg.launch, minStockDays: 1000 } });
+  assert.equal(thin.out.actions.filter((x) => x.action === 'launch').length, 0, 'мало запаса в днях — не запускать');
+}
+console.log('ads-agent: launch checks passed');

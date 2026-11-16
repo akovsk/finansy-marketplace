@@ -1,19 +1,19 @@
 {
-  "mode": "dry-run",
-  "stores": ["wb1", "wb2"],
+  "mode": "live",
+  "stores": [
+    "wb1",
+    "wb2"
+  ],
   "protect": [],
-
   "targetShare": 0.6,
   "maxDrr": 0.25,
   "minSpend": 1500,
   "minClicks": 150,
-
   "stop": {
     "noOrdersSpend": 3000,
     "overMarginFactor": 1.4,
     "maxPerRun": 5
   },
-
   "bid": {
     "maxStepPct": 25,
     "upStepPct": 15,
@@ -23,30 +23,28 @@
     "minOrdersToRaise": 5,
     "minStockDaysToRaise": 14
   },
-
   "stock": {
     "pauseWhenOut": true,
     "resumeDays": 5
   },
-
   "budget": {
     "autoTopUp": false,
     "topUpSum": 1000,
     "dailyCap": 5000,
     "source": 1
   },
-
   "launch": {
-    "enabled": false,
-    "maxPerRun": 1,
+    "enabled": true,
+    "maxPerRun": 5,
     "budget": 1000,
     "minStock": 30,
     "minMargin": 0.25,
     "minSales30": 10,
     "minRating": 4.5,
-    "paymentType": "cpm"
+    "paymentType": "cpm",
+    "maxTotal": 5,
+    "minStockDays": 45
   },
-
   "llm": {
     "enabled": true,
     "model": "claude-opus-5-5",
