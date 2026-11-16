@@ -1,0 +1,14 @@
+{
+  "name": "finansy-marketplace",
+  "private": true,
+  "type": "module",
+  "description": "Дашборд финансов маркетплейсов и ИИ-агент управления рекламой WB",
+  "scripts": {
+    "ads-agent": "node ads-agent.mjs",
+    "ads-agent:test": "node ads-agent.test.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "zod": "^4.6.7"
+  }
+}

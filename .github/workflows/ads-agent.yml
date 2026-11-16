@@ -1,0 +1,55 @@
+name: ИИ-агент рекламы WB
+
+on:
+  schedule:
+    # дважды в день: 06:17 и 15:17 по Москве (после свежей выгрузки данных)
+    - cron: '17 3,12 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Режим: config — как в ads-agent.config.json, dry-run — только план, live — менять кампании'
+        type: choice
+        default: config
+        options: [config, dry-run, live]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ads-agent
+  cancel-in-progress: false
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Проверка логики агента
+        run: node ads-agent.test.mjs
+
+      - name: Агент - решения по кампаниям
+        env:
+          ADS_AGENT_MODE: ${{ inputs.mode != 'config' && inputs.mode || '' }}
+          WB_SAKOVSKY_TOKEN: ${{ secrets.WB_SAKOVSKY_TOKEN }}
+          WB_DARMIL_TOKEN: ${{ secrets.WB_DARMIL_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node ads-agent.mjs
+
+      - name: Сохранить решения
+        run: |
+          git config user.name "data-bot"
+          git config user.email "data-bot@users.noreply.github.com"
+          git add ads-agent.json
+          if git diff --cached --quiet; then
+            echo "Изменений нет"
+          else
+            git commit -m "Агент рекламы: $(TZ=Europe/Moscow date '+%d.%m.%Y %H:%M')"
+            git pull --rebase -X theirs --autostash && git push
+          fi
