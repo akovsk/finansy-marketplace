@@ -59,38 +59,68 @@ function why(a, c) {
   return '';
 }
 
-// Telegram message (HTML), up to ~3500 chars
+// Telegram message (HTML): warm, plain words, grouped by what was done
+const round = (x, step) => Math.round(x / step) * step;
+const money = (x) => rub(x >= 1000 ? round(x, 100) : round(x, 10));
+function say(a, c) {
+  c = Object.assign({}, c);
+  const r = a.reason || '', m1 = r.match(/маржа (-?\d+)%/) || r.match(/марже до рекламы (-?\d+)%/), d1 = r.match(/ДРР (\d+)%/);
+  if (c.margin == null && m1) c.margin = +m1[1] / 100;
+  if (c.drr30 == null && d1) c.drr30 = +d1[1] / 100;
+  const b = a.bids && a.bids[0], bid = b ? Math.round(b.wasRub) + ' → ' + Math.round(b.rub) + ' ₽' : '';
+  if (a.action === 'stop' || a.action === 'pause') {
+    if (c.margin != null && c.margin < 0) return 'товар и без рекламы продаётся в минус (' + pct(c.margin) + '), реклама только добавляла убыток';
+    if (c.margin != null && c.margin < 0.05) return 'на товаре остаётся всего ' + pct(c.margin) + ', рекламу он не тянет';
+    if (c.drr30 != null && c.margin != null) return 'реклама съедала ' + pct(c.drr30) + ' выручки, а на товаре остаётся только ' + pct(c.margin);
+    return 'реклама не окупалась';
+  }
+  if (a.action === 'lower') return 'ставка ' + bid + (c.drr30 != null ? ': реклама обходилась дороговато (' + pct(c.drr30) + ' выручки)' : '');
+  if (a.action === 'raise') return 'ставка ' + bid + ': реклама окупается, пусть товар видят чаще';
+  if (a.action === 'launch') return 'хорошая маржа и запас на складе, бюджет ' + rub(a.budget || 1000);
+  if (a.action === 'resume') return 'товар снова в наличии';
+  return '';
+}
 export function messageText(R) {
   const { n, A } = R, d = new Date(R.today + 'T12:00:00Z').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
   const byId = new Map((A.campaigns || []).map((c) => [c.id, c]));
   const active = (A.campaigns || []).filter((c) => c.status === 9).length;
-  const L = ['<b>Реклама WB · ' + d + '</b>' + (R.planned ? '\n<i>Режим проверки: в кабинете ничего не менялось</i>' : ''), ''];
   const ok = R.acts.filter((a) => a.result !== 'error');
-  if (!ok.length) L.push('Сегодня всё в порядке, менять ничего не пришлось.');
-  if (n('stop')) L.push('❌ Закрыто убыточных кампаний: <b>' + n('stop') + '</b>' + (R.saved > 0 ? '\n     экономия ≈ <b>' + rub(R.saved) + ' в день</b> (≈ ' + rub(R.saved * 30) + ' в месяц)' : ''));
-  if (n('pause')) L.push('⏸ На паузу (кончается товар): <b>' + n('pause') + '</b>');
-  if (n('lower')) L.push('↘️ Снижена ставка: <b>' + n('lower') + '</b>');
-  if (n('raise')) L.push('↗️ Повышена ставка: <b>' + n('raise') + '</b>');
-  if (n('resume')) L.push('▶️ Включено снова: <b>' + n('resume') + '</b>');
-  L.push('🚀 Новых кампаний: <b>' + n('launch') + '</b>' + (n('launch') ? '' : ' — пока нет товара, на котором реклама будет в плюсе'));
-  L.push('📈 Сейчас работает кампаний: <b>' + active + '</b>');
+  const kamp = (k) => k + ' ' + plural(k, 'кампанию', 'кампании', 'кампаний');
+  const L = ['Добрый вечер! 👋 Вот как прошёл день с рекламой WB, ' + d + '.'];
+  if (R.planned) L.push('<i>Пока работаю в режиме проверки — в кабинете ничего не менял.</i>');
+  L.push('');
+  if (!ok.length) {
+    L.push('Сегодня всё спокойно: кампании работают нормально, вмешиваться не пришлось 👌');
+  } else {
+    if (R.saved > 0) L.push('💰 <b>Сэкономил около ' + money(R.saved) + ' в день</b> — это примерно ' + money(R.saved * 30) + ' в месяц.');
+    const did = [];
+    if (n('stop')) did.push('отключил ' + kamp(n('stop')) + ', которые работали в минус');
+    if (n('pause')) did.push('поставил на паузу ' + kamp(n('pause')) + ' — заканчивается товар');
+    if (n('lower')) did.push('снизил ставку в ' + (n('lower') === 1 ? 'одной' : n('lower')) + ' ' + plural(n('lower'), 'кампании', 'кампаниях', 'кампаниях'));
+    if (n('raise')) did.push('поднял ставку в ' + (n('raise') === 1 ? 'одной' : n('raise')) + ' ' + plural(n('raise'), 'кампании', 'кампаниях', 'кампаниях'));
+    if (n('resume')) did.push('снова включил ' + kamp(n('resume')));
+    if (n('launch')) did.push('запустил ' + n('launch') + ' ' + plural(n('launch'), 'новую кампанию', 'новые кампании', 'новых кампаний'));
+    if (did.length) { const t = did.join(', '); L.push(t[0].toUpperCase() + t.slice(1) + '.'); }
+  }
+  L.push('', '📈 Сейчас работают <b>' + active + '</b> ' + plural(active, 'кампания', 'кампании', 'кампаний') + '.');
+  if (!n('launch')) L.push('🚀 Новые пока не запускал: не нашёл товара, на котором реклама точно уйдёт в плюс. Как появится — запущу сам.');
   if (R.launched.length) {
     const plus = R.launched.filter(({ c }) => c && c.drr30 != null && c.margin != null && c.drr30 < c.margin).length;
-    L.push('🧪 Кампании, запущенные агентом: ' + R.launched.length + ', в плюсе ' + plus);
+    L.push('🧪 Из моих новых кампаний в плюсе ' + plus + ' из ' + R.launched.length + '.');
   }
-  if (ok.length) {
-    L.push('', '<b>Что и почему</b>');
-    const order = ['launch', 'stop', 'pause', 'lower', 'raise', 'resume', 'topup'];
-    const list = ok.slice().sort((a, b) => order.indexOf(a.action) - order.indexOf(b.action) || ((byId.get(b.id) || {}).spend30 || 0) - ((byId.get(a.id) || {}).spend30 || 0));
-    const MAX = 12;
-    list.slice(0, MAX).forEach((a) => {
-      const k = (ACT[a.action] || [a.action])[0];
-      L.push('• <a href="' + WB_ADS_URL(a.id) + '">' + esc(cleanName(a.name) || 'арт. ' + a.sku) + '</a> — ' + k.toLowerCase() + ': ' + esc(why(a, byId.get(a.id))));
-    });
-    if (list.length > MAX) L.push('…и ещё ' + (list.length - MAX) + ' ' + plural(list.length - MAX, 'действие', 'действия', 'действий') + ' — на картинке');
-  }
-  if (R.errors.length) L.push('', '⚠️ Не получилось: ' + R.errors.length + ' ' + plural(R.errors.length, 'действие', 'действия', 'действий') + ' — WB отказал, агент повторит при следующем запуске.');
-  L.push('', '<a href="' + DASH + '#rk">Открыть рекламу на дашборде</a>');
+  const spend = (a) => (byId.get(a.id) || {}).spend30 || 0;
+  const group = (keys, title, icon, max) => {
+    const list = ok.filter((a) => keys.includes(a.action)).sort((a, b) => spend(b) - spend(a));
+    if (!list.length) return;
+    L.push('', '<b>' + title + '</b>');
+    list.slice(0, max).forEach((a) => L.push(icon + ' <a href="' + WB_ADS_URL(a.id) + '">' + esc(cleanName(a.name) || 'арт. ' + a.sku) + '</a> — ' + esc(say(a, byId.get(a.id)))));
+    if (list.length > max) L.push('   …и ещё ' + (list.length - max) + ' — на картинке ниже');
+  };
+  group(['launch'], 'Запустил', '🟢', 5);
+  group(['stop', 'pause'], 'Что отключил и почему', '🔴', 10);
+  group(['lower', 'raise', 'resume'], 'Ставки', '🟡', 5);
+  if (R.errors.length) L.push('', '⚠️ ' + R.errors.length + ' ' + plural(R.errors.length, 'действие', 'действия', 'действий') + ' WB сегодня не принял — попробую ещё раз при следующей проверке.');
+  L.push('', 'Следующая проверка — завтра в 06:17. Подробности — <a href="' + DASH + '#rk">на дашборде</a>.');
   return L.join('\n');
 }
 export const captionText = (R) => messageText(R).replace(/<[^>]+>/g, '');
