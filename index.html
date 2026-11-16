@@ -778,10 +778,19 @@ th[aria-sort] { color:var(--color-fg); }
 /* 3D funnel and urgent steps */
 .ts-f3 { display:flex; justify-content:center; }
 .ts-f3 svg { width:100%; max-width:520px; height:auto; display:block; overflow:visible; }
-.ts-f3-l { fill:rgba(255,255,255,.88); font-size:12px; font-weight:600; text-anchor:middle; letter-spacing:.01em; }
-.ts-f3-v { fill:#fff; font-size:15.5px; font-weight:700; text-anchor:middle; font-variant-numeric:tabular-nums; paint-order:stroke; stroke:rgba(0,0,0,.25); stroke-width:2px; }
+.ts-f3-l { fill:rgba(255,255,255,.82); font-size:10.5px; font-weight:700; text-anchor:middle; letter-spacing:.08em; }
+.ts-f3-v { fill:#fff; font-size:21px; font-weight:700; text-anchor:middle; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+.ts-f3-s { fill:rgba(255,255,255,.78); font-size:11px; font-weight:500; text-anchor:middle; font-variant-numeric:tabular-nums; }
+.ts-f3-wb { display:flex; flex-direction:column; align-items:center; gap:6px; padding-top:10px; margin-top:4px; border-top:1px solid var(--color-border-line); }
+.ts-f3-wbh { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--color-fg-muted); font-weight:600; }
+.ts-f3-wbr { display:flex; align-items:center; gap:10px; }
+.ts-f3-wbr > div { display:flex; flex-direction:column; align-items:center; min-width:64px; }
+.ts-f3-wbr b { font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; }
+.ts-f3-wbr small { font-size:11px; color:var(--color-fg-muted); }
+.ts-f3-wbr i { font-style:normal; color:var(--color-fg-muted); }
 .ts-f3-cv rect { fill:var(--color-panel); stroke:var(--color-border-line); }
-.ts-f3-cv text { fill:var(--color-fg); font-size:11px; font-weight:600; text-anchor:middle; }
+.ts-f3-cv text { fill:var(--color-fg); font-size:11.5px; font-weight:600; text-anchor:middle; }
+.ts-f3-cv rect { filter:drop-shadow(0 1px 2px rgba(0,0,0,.18)); }
 #funnel > .ts-muted { text-align:center; }
 .ts-urg { display:flex; flex-direction:column; gap:8px; }
 .ts-urg-i { border:1px solid var(--color-border-line); border-radius:12px; background:var(--color-bg); overflow:hidden; border-left:3px solid var(--color-bad); }
@@ -2604,46 +2613,54 @@ dash.loader('sales', {
     e.textContent = F ? new Date(F.from + 'T00:00:00Z').toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }) + '–' + new Date(F.to + 'T00:00:00Z').toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }) : '';
   });
   // 3D funnel: stacked cone slices with shading; each slice shows the stage and value, conversions sit on the joints
-  const FUN_COL = { views: '#64748b', cart: '#7c8aa5', orders: '#8b46d6', buy: '#2b6cff', pay: '#0ea5a4', good: '#22c55e', bad: '#ef4444' };
+  const FUN_COL = { orders: '#7c3aed', buy: '#2563eb', pay: '#0891b2', good: '#16a34a', bad: '#dc2626' };
   const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255; const t = f < 0 ? 0 : 255, k = Math.abs(f); r = Math.round(r + (t - r) * k); g = Math.round(g + (t - g) * k); b = Math.round(b + (t - b) * k); return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1); };
   const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // Funnel of money for one period: orders → buyouts → payout → profit. Pills: share of the previous stage.
   dash.draw('funnel', (box) => {
     const F = funData(); box.replaceChildren();
     const panel = document.getElementById('funnel');
     if (!F) { if (panel) panel.style.display = 'none'; return; }
     if (panel) panel.style.display = '';
-    const c = F.cur, st = [];
-    const pc = (x) => (isFinite(x) ? T.pct(x, x < 0.1 && x > -0.1 ? 1 : 0) : '—');
-    if (F.wb) {
-      st.push({ l: 'Просмотры · WB', v: T.num(F.wb.v), col: FUN_COL.views });
-      st.push({ l: 'В корзину · WB', v: T.num(F.wb.c), col: FUN_COL.cart, cv: pc(F.wb.v ? F.wb.c / F.wb.v : NaN) + ' в корзину' });
-    }
-    st.push({ l: 'Заказы', v: T.rub(F.os) + ' · ' + T.num(F.on) + ' шт.', col: FUN_COL.orders, cv: F.wb && F.wb.c ? pc(F.wb.o / F.wb.c) + ' корзина → заказ' : null });
-    st.push({ l: 'Выкупы', v: T.rub(F.bs) + ' · ' + T.num(F.bn) + ' шт.', col: FUN_COL.buy, cv: pc(F.os ? F.bs / F.os : NaN) + ' выкуп' });
-    st.push({ l: 'Выплата на счёт', v: T.rub(c.payout), col: FUN_COL.pay, cv: pc(c.rev ? c.payout / c.rev : NaN) + ' от выручки' });
-    st.push({ l: c.np < 0 ? 'Убыток' : 'Чистая прибыль', v: T.rub(c.np), col: c.np < 0 ? FUN_COL.bad : FUN_COL.good, cv: pc(c.payout ? c.np / c.payout : NaN) + ' маржа' });
-    const n = st.length, W = 360, cx = W / 2, H = 64, G = 8, RY = 9, top = 14, minW = 0.42;
-    const wAt = (i) => W * (1 - (1 - minW) * i / n) - 8;
+    const c = F.cur, base = F.os || 0;
+    const pc = (x) => (isFinite(x) ? T.pct(x, Math.abs(x) < 0.1 ? 1 : 0) : '—');
+    const st = [
+      { l: 'Заказы', v: T.rub(F.os), s: T.num(F.on) + ' шт.' + (F.oc ? ' · отмен ' + T.num(F.oc) : ''), col: FUN_COL.orders },
+      { l: 'Выкупы', v: T.rub(F.bs), s: T.num(F.bn) + ' шт.', col: FUN_COL.buy, cv: pc(F.os ? F.bs / F.os : NaN) + ' выкупили' },
+      { l: 'Выплата на счёт', v: T.rub(c.payout), s: pc(base ? c.payout / base : NaN) + ' от заказов', col: FUN_COL.pay, cv: pc(F.bs ? c.payout / F.bs : NaN) + ' дошло на счёт' },
+      { l: c.np < 0 ? 'Убыток' : 'Чистая прибыль', v: T.rub(c.np), s: pc(base ? c.np / base : NaN) + ' от заказов', col: c.np < 0 ? FUN_COL.bad : FUN_COL.good, cv: pc(c.payout ? c.np / c.payout : NaN) + ' осталось прибылью' }
+    ];
+    const n = st.length, W = 360, cx = W / 2, H = 84, G = 14, RY = 10, top = 16, minW = 0.5;
+    const wAt = (i) => (W - 6) * (1 - (1 - minW) * i / n);
     let defs = '', body = '', pills = '';
     st.forEach((x, i) => {
       const y0 = top + i * (H + G), y1 = y0 + H, w0 = wAt(i), w1 = wAt(i + 1), id = 'fg' + i;
-      defs += '<linearGradient id="' + id + '" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="' + shade(x.col, -0.45) + '"/><stop offset=".38" stop-color="' + shade(x.col, 0.12) + '"/><stop offset=".55" stop-color="' + shade(x.col, 0.22) + '"/><stop offset="1" stop-color="' + shade(x.col, -0.55) + '"/></linearGradient>';
+      defs += '<linearGradient id="' + id + '" x1="0" x2="1"><stop offset="0" stop-color="' + shade(x.col, -0.35) + '"/><stop offset=".45" stop-color="' + shade(x.col, 0.08) + '"/><stop offset=".6" stop-color="' + shade(x.col, 0.14) + '"/><stop offset="1" stop-color="' + shade(x.col, -0.4) + '"/></linearGradient>';
       body += '<path d="M' + (cx - w0 / 2) + ' ' + y0 + ' L' + (cx + w0 / 2) + ' ' + y0 + ' L' + (cx + w1 / 2) + ' ' + y1 + ' A' + (w1 / 2) + ' ' + RY + ' 0 0 1 ' + (cx - w1 / 2) + ' ' + y1 + ' Z" fill="url(#' + id + ')"/>';
-      body += '<ellipse cx="' + cx + '" cy="' + y0 + '" rx="' + (w0 / 2) + '" ry="' + RY + '" fill="' + shade(x.col, 0.35) + '" opacity=".95"/>';
-      body += '<ellipse cx="' + cx + '" cy="' + y0 + '" rx="' + (w0 / 2 - 3) + '" ry="' + (RY - 2.5) + '" fill="' + shade(x.col, -0.25) + '" opacity=".55"/>';
-      body += '<text x="' + cx + '" y="' + (y0 + 27) + '" class="ts-f3-l">' + esc(x.l) + '</text>';
-      body += '<text x="' + cx + '" y="' + (y0 + 47) + '" class="ts-f3-v">' + esc(x.v) + '</text>';
+      body += '<ellipse cx="' + cx + '" cy="' + y0 + '" rx="' + (w0 / 2) + '" ry="' + RY + '" fill="' + shade(x.col, 0.3) + '"/>';
+      body += '<ellipse cx="' + cx + '" cy="' + (y0 + 1.5) + '" rx="' + (w0 / 2 - 4) + '" ry="' + (RY - 3) + '" fill="' + shade(x.col, -0.2) + '" opacity=".6"/>';
+      body += '<text x="' + cx + '" y="' + (y0 + 30) + '" class="ts-f3-l">' + esc(x.l.toUpperCase()) + '</text>';
+      body += '<text x="' + cx + '" y="' + (y0 + 55) + '" class="ts-f3-v">' + esc(x.v) + '</text>';
+      body += '<text x="' + cx + '" y="' + (y0 + 73) + '" class="ts-f3-s">' + esc(x.s) + '</text>';
       if (x.cv) {
-        const tw = x.cv.length * 7 + 22, py = y0 - G / 2 - 1;
-        pills += '<g class="ts-f3-cv"><rect x="' + (cx - tw / 2) + '" y="' + (py - 10) + '" width="' + tw + '" height="20" rx="10"/><text x="' + cx + '" y="' + (py + 4) + '">↓ ' + esc(x.cv) + '</text></g>';
+        const tw = x.cv.length * 6.6 + 26, py = y0 - G / 2 - 2;
+        pills += '<g class="ts-f3-cv"><rect x="' + (cx - tw / 2) + '" y="' + (py - 11) + '" width="' + tw + '" height="22" rx="11"/><text x="' + cx + '" y="' + (py + 4) + '">↓ ' + esc(x.cv) + '</text></g>';
       }
     });
-    const h = top + n * (H + G) + 6;
+    const h = top + n * (H + G);
     const wrap = T.el('div', 'ts-f3');
-    wrap.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + h + '" role="img" aria-label="Воронка продаж"><defs>' + defs + '</defs>' + body + pills + '</svg>';
+    wrap.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + h + '" role="img" aria-label="Воронка денег: заказы, выкупы, выплата, прибыль"><defs>' + defs + '</defs>' + body + pills + '</svg>';
     box.append(wrap);
+    if (F.wb) {
+      const wb = T.el('div', 'ts-f3-wb');
+      const chip = (big, small) => { const d = T.el('div'); d.append(T.el('b', null, big), T.el('small', null, small)); return d; };
+      wb.append(T.el('span', 'ts-f3-wbh', 'Карточки WB · 30 дней'));
+      const row = T.el('div', 'ts-f3-wbr');
+      row.append(chip(T.num(F.wb.v), 'просмотров'), T.el('i', null, '→'), chip(pc(F.wb.v ? F.wb.c / F.wb.v : NaN), 'в корзину'), T.el('i', null, '→'), chip(pc(F.wb.c ? F.wb.o / F.wb.c : NaN), 'в заказ'));
+      wb.append(row); box.append(wb);
+    }
   });
-  dash.draw('fun-note', (e) => { const F = funData(); e.textContent = F ? (F.wb ? 'Просмотры и корзина — только WB за 30 дней. ' : '') + 'Конверсии — между соседними этапами.' : ''; });
+  dash.draw('fun-note', (e) => { e.textContent = ''; });
 
   function ordSeries() {
     const M = T.mk(), v = T.view(), s = dash.data('sales');
