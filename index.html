@@ -69,7 +69,7 @@ img { max-width:100%; }
 <script>
 (function () {
   const DEF = { period: '7', mp: '', store: '', brand: '', cat: '' };
-  const SOURCES = { sales: 'data.json', images: 'images.json', market: 'market.json' };
+  const SOURCES = { sales: 'data.json', images: 'images.json', market: 'market.json', agent: 'ads-agent.json' };
   const S = { loaders: {}, drawers: {}, order: [], on: [], data: {}, req: {}, started: false, params: Object.assign({}, DEF) };
   let msg = null;
   function load(id) {
@@ -987,6 +987,7 @@ th[aria-sort] { color:var(--color-fg); }
     <p class="ts-muted" data-draw="rk-note" data-source="sales">Разбор рекламного кабинета.</p>
     <div class="ts-kpis" data-draw="rk-kpis" data-source="sales"></div>
     <div class="ts-adsum" data-draw="ads-sum" data-source="sales"></div>
+    <div class="ts-sec" data-draw="rk-agent" data-source="sales"></div>
     <div class="ts-rk-groups" data-draw="rk-groups" data-source="sales"></div>
   </section>
 
@@ -1682,6 +1683,7 @@ T.insights = function (v) {
 </script>
 
 <script>
+dash.loader('agent', { description: 'Решения ИИ-агента рекламы WB (ads-agent.json).', fn: ({ answer }) => ({ rows: [answer] }) });
 dash.loader('market', { description: 'Данные из API WB и Ozon: остатки, отзывы, цены, реклама, заказы, выплаты.', fn: ({ answer }) => ({ rows: [answer] }) });
 dash.loader('sales', {
   description: 'Разворачивает выгрузку Торгстат: одна строка на товар в магазине за день, с названием магазина и маркетплейсом.',
@@ -2572,6 +2574,38 @@ dash.loader('sales', {
       box.append(row);
     });
     if (L.length > adsLimit) { const more = T.el('button', 'ts-btn ts-morebtn', 'Показать все ' + L.length); more.type = 'button'; more.addEventListener('click', () => { adsLimit = 999; dash.draw('ads-list'); }); box.append(more); }
+  });
+
+  /* ---- AI ads agent: what it decided and did on its last run (ads-agent.json, written by ads-agent.mjs) ---- */
+  const AG_ACT = { lower: ['Ставка ниже', 'ts-neg', 'Снизить ставку'], raise: ['Ставка выше', 'ts-good', 'Поднять ставку'], stop: ['Закрыта', 'ts-neg', 'Закрыть'], pause: ['Пауза', null, 'Поставить на паузу'], resume: ['Включена', 'ts-good', 'Включить'], topup: ['Бюджет пополнен', null, 'Пополнить бюджет'], launch: ['Новая кампания', 'ts-good', 'Запустить кампанию'] };
+  dash.draw('rk-agent', (box) => {
+    const s = dash.data('agent'), A = s.status === 'ok' && s.data[0] && s.data[0].generated ? s.data[0] : null;
+    box.replaceChildren();
+    if (!A) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const p = dash.params(), live = A.mode === 'live';
+    const when = new Date(A.generated).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+    box.append(T.el('h3', null, 'ИИ-агент рекламы'));
+    box.append(T.el('p', 'ts-muted', 'Запуск ' + when + ' · решения: ' + (A.engine === 'claude' ? 'Claude' : 'правила') + ' · ' + (live ? 'изменения применены в кабинете WB' : 'режим проверки, в кабинете ничего не менялось')));
+    if (A.summary) box.append(T.el('p', 'ts-lede', A.summary));
+    (A.errors || []).forEach((e) => box.append(T.el('p', 'ts-neg', e)));
+    const acts = (A.actions || []).filter((a) => T.sidPass(a.store, p));
+    if (!acts.length) return;
+    const list = T.el('div', 'ts-xlist');
+    acts.forEach((a) => {
+      const k = AG_ACT[a.action] || [a.action, null];
+      const row = T.el('div', 'ts-xrow'), b = T.el('div', 'ts-xrow-b');
+      row.append(a.key ? T.photo(a.key, true) : T.el('div', 'ts-ph ts-ph-s'));
+      b.append(T.el('div', 'ts-xrow-t', a.name || ('Кампания ' + (a.id || a.sku))));
+      b.append(T.el('div', 'ts-xrow-n', a.reason || ''));
+      if (a.bids && a.bids.length) b.append(T.el('div', 'ts-xrow-n', 'Ставка: ' + a.bids.slice(0, 3).map((x) => x.wasRub + ' → ' + x.rub + ' ₽').join(', ') + (a.bids.length > 3 ? ' и ещё ' + (a.bids.length - 3) : '')));
+      if (a.error) b.append(T.el('div', 'ts-xrow-n ts-neg', 'WB ответил ошибкой: ' + a.error));
+      row.append(b);
+      const r = T.el('div', 'ts-xrow-r');
+      r.append(T.el('b', k[1], a.result === 'ok' ? k[0] : (k[2] || k[0])), T.el('small', a.result === 'error' ? 'ts-neg' : null, a.result === 'ok' ? 'сделано' : a.result === 'error' ? 'ошибка' : 'план'));
+      row.append(r); list.append(row);
+    });
+    box.append(list);
   });
 
   /* ---- Reviews ---- */
