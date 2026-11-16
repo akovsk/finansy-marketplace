@@ -421,10 +421,12 @@ export async function run({ cfg, data, market, state, apis, now = Date.now(), cl
   }
 
   out.actions.filter((a) => a.result === 'ok' || a.result === 'error').forEach((a) => hist.push(a));
-  const n = (a) => out.actions.filter((x) => x.action === a).length;
+  const n = (a) => out.actions.filter((x) => x.action === a && x.result !== 'error').length;
+  const failed = out.actions.filter((x) => x.result === 'error');
   const auto = 'Кампаний под управлением: ' + metrics.filter((m) => m.status === 9).length + ' активных, ' + metrics.filter((m) => m.status === 11).length + ' на паузе. ' +
     (out.actions.length ? 'Решения: ставка снижена — ' + n('lower') + ', повышена — ' + n('raise') + ', закрыто — ' + n('stop') + ', пауза — ' + n('pause') + ', включено — ' + n('resume') + ', пополнено — ' + n('topup') + ', запущено новых — ' + n('launch') + '.' : 'Изменений не требуется.') +
-    (live ? '' : ' Режим проверки: в кабинете WB ничего не менялось.');
+    (live ? '' : ' Режим проверки: в кабинете WB ничего не менялось.') +
+    (failed.length ? ' Не выполнено из-за ошибок WB: ' + failed.length + (failed.some((x) => /read-only/i.test(x.error || '')) ? ' — токен WB только на чтение, нужен токен «Продвижение» с правом записи.' : '.') : '');
   out.summary = out.summary ? out.summary + ' ' + (live ? '' : 'Режим проверки: в кабинете WB ничего не менялось.') : auto;
   out.campaigns.sort((a, b) => (a.action === 'keep') - (b.action === 'keep') || b.spend30 - a.spend30);
   return { ...out, history: hist.slice(-400), camp, deposits: Object.fromEntries(Object.entries(deposits).slice(-14)) };

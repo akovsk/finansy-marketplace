@@ -25,7 +25,7 @@ export function dayReport(A, now = Date.now()) {
   const planned = A.mode !== 'live';
   if (planned) acts = (A.actions || []).filter((a) => a.t && mskDay(a.t) === today);
   const byId = new Map((A.campaigns || []).map((c) => [c.id, c]));
-  const n = (k, res) => acts.filter((a) => a.action === k && (!res || a.result === res)).length;
+  const n = (k) => acts.filter((a) => a.action === k && a.result !== 'error').length;
   const errors = acts.filter((a) => a.result === 'error');
   // Money: closed campaigns spent this much per day over the last 30 days
   const saved = acts.filter((a) => a.action === 'stop' && a.result !== 'error').reduce((s, a) => s + ((byId.get(a.id) || {}).spend30 || 0) / 30, 0);
@@ -40,14 +40,14 @@ export function captionText(R) {
   else {
     const parts = [['stop', 'закрыто'], ['lower', 'ставка снижена'], ['raise', 'ставка повышена'], ['pause', 'на паузе'], ['resume', 'включено'], ['launch', 'запущено новых'], ['topup', 'пополнено']]
       .filter(([k]) => n(k)).map(([k, l]) => l + ' — ' + n(k));
-    L.push(parts.join(', ') + '.');
+    L.push(parts.length ? parts.join(', ') + '.' : 'Изменения в кабинете сегодня не прошли.');
   }
   if (R.saved > 0) L.push('Закрытые кампании тратили ≈ ' + rub(R.saved) + ' в день.');
   if (R.launched.length) {
     const plus = R.launched.filter(({ c }) => c && c.drr30 != null && c.margin != null && c.drr30 < c.margin).length;
     L.push('Новые кампании агента: ' + R.launched.length + ', окупаются ' + plus + '.');
   }
-  if (R.errors.length) L.push('Ошибок WB: ' + R.errors.length + ' — подробности на картинке.');
+  if (R.errors.length) L.push('Не выполнено из-за ошибок WB: ' + R.errors.length + (R.errors.some((a) => /read-only/i.test(a.error || '')) ? ' (токен WB только на чтение).' : ' — подробности на картинке.'));
   L.push(DASH + '#rk');
   return L.join('\n').slice(0, 1000);
 }
