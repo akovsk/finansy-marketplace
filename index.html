@@ -817,6 +817,19 @@ th[aria-sort] { color:var(--color-fg); }
   .ts-urg-b { padding:0 10px 12px 42px; }
   #urgent .ts-panel-h h3 { font-size:14px; }
 }
+.ts-cost { border:1px solid color-mix(in srgb, var(--color-warn) 55%, var(--color-border-line)); background:color-mix(in srgb, var(--color-warn) 9%, var(--color-panel)); border-radius:12px; padding:10px 12px; }
+.ts-cost summary { cursor:pointer; display:flex; flex-direction:column; gap:3px; list-style:none; }
+.ts-cost summary::-webkit-details-marker { display:none; }
+.ts-cost summary b { font-size:13.5px; color:var(--color-warn); }
+.ts-cost summary small { font-size:12px; color:var(--color-fg-muted); line-height:1.4; }
+.ts-cost-l { display:flex; flex-direction:column; margin-top:8px; max-height:360px; overflow:auto; }
+.ts-cost-r { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 0; border-top:1px solid var(--color-border-line); }
+.ts-cost-r div { display:flex; flex-direction:column; min-width:0; }
+.ts-cost-r b { font-size:12.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ts-cost-r small { font-size:11px; color:var(--color-fg-muted); }
+.ts-cost-ok { font-size:12px; white-space:nowrap; color:var(--color-fg-muted); }
+.ts-cost-no { font-size:12px; white-space:nowrap; color:var(--color-bad); font-weight:600; }
+@media (max-width: 640px) { #overview > #costal-ov { order:8; } }
 </style>
 
 <div class="ts">
@@ -895,6 +908,7 @@ th[aria-sort] { color:var(--color-fg); }
       <div class="ts-panel-h"><h3>Срочные шаги: как поднять прибыль</h3></div>
       <div class="ts-urg" data-draw="urgent" data-source="sales"></div>
     </div>
+    <div class="ts-costal" id="costal-ov" data-draw="cost-alert" data-source="sales"></div>
   </section>
 
   <section class="ts-page" id="insights" role="tabpanel" hidden>
@@ -930,6 +944,7 @@ th[aria-sort] { color:var(--color-fg); }
   </section>
 
   <section class="ts-page" id="pnl" role="tabpanel" hidden>
+    <div class="ts-costal" data-draw="cost-alert" data-source="sales"></div>
     <div class="ts-panel" id="trend">
         <div class="ts-panel-h"><h3><span class="ts-mode-rev">Выручка</span><span class="ts-mode-pay" hidden>Выплаты на счёт</span> и прибыль, <span data-draw="trend-gran">—</span></h3>
           <div class="ts-seg ts-seg-sm" role="tablist" aria-label="Что показывать на графике"><button type="button" role="tab" data-chart="rev" aria-selected="true">Выручка</button><button type="button" role="tab" data-chart="pay" aria-selected="false">Выплаты</button></div>
@@ -1676,6 +1691,23 @@ dash.loader('sales', {
     const s0 = Date.parse(j.start + 'T00:00:00Z');
     const cols = j.cols;
     const rows = [];
+    // Cost check: a product sold without any cost in Торгстат gets the unit cost of the same article in another store
+    const iq = cols.indexOf('q'), ic = cols.indexOf('cogs'), inp = cols.indexOf('np'), irv = cols.indexOf('rev');
+    const akey = (a) => String(a || '').toLowerCase().replace(/\/new$/, '').trim();
+    const unit = new Map();
+    j.products.forEach((p) => { let q = 0, c = 0; p.d.forEach((r) => { q += r[iq]; c += -r[ic]; }); if (q > 0 && c > 0) { const k = akey(p.a), u = unit.get(k) || [0, 0]; u[0] += q; u[1] += c; unit.set(k, u); } });
+    const cost = { imputed: [], missing: [] };
+    j.products.forEach((p) => {
+      let q = 0, c = 0, rv = 0; p.d.forEach((r) => { q += r[iq]; c += -r[ic]; rv += r[irv]; });
+      if (!(q > 0) || c !== 0) return;
+      const st = j.stores[p.s] || {}, u = unit.get(akey(p.a));
+      const info = { store: st.name, sku: String(p.sku), article: p.a, name: p.n, q, rev: rv };
+      if (!u) { cost.missing.push(info); return; }
+      const per = u[1] / u[0];
+      p.d.forEach((r) => { if (!r[iq]) return; const add = per * r[iq]; r[ic] -= add; r[inp] -= add; });
+      info.unit = per; info.add = per * q; cost.imputed.push(info);
+    });
+    window.TS_COST = cost;
     for (const p of j.products) {
       const st = j.stores[p.s] || {};
       for (const r of p.d) {
@@ -2058,6 +2090,26 @@ dash.loader('sales', {
     });
   });
 
+  // Products sold without cost in Торгстат: warn and list them (cost was filled from the same article elsewhere when possible)
+  dash.draw('cost-alert', (box) => {
+    box.replaceChildren();
+    const C = window.TS_COST; if (!C || (!C.imputed.length && !C.missing.length)) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const all = C.imputed.concat(C.missing).sort((a, b) => b.rev - a.rev);
+    const add = C.imputed.reduce((a, x) => a + x.add, 0), rev = all.reduce((a, x) => a + x.rev, 0);
+    const d = el('details', 'ts-cost');
+    const sm = el('summary');
+    sm.append(el('b', null, '⚠ Нет себестоимости в Торгстате: ' + all.length + ' артикулов'), el('small', null, 'Выручка по ним ' + T.rub(rev) + '. ' + (C.imputed.length ? 'Для ' + C.imputed.length + ' взята себестоимость такого же артикула из другого магазина: прибыль уменьшена на ' + T.rub(add) + '. ' : '') + (C.missing.length ? C.missing.length + ' без данных — прибыль по ним завышена. ' : '') + 'Укажите себестоимость в Торгстате.'));
+    d.append(sm);
+    const ul = el('div', 'ts-cost-l');
+    all.forEach((x) => {
+      const r = el('div', 'ts-cost-r');
+      const nm = el('div'); nm.append(el('b', null, x.article), el('small', null, x.store + ' · ' + x.sku + ' · ' + T.num(x.q) + ' шт. · ' + T.rub(x.rev)));
+      r.append(nm, el('span', x.unit ? 'ts-cost-ok' : 'ts-cost-no', x.unit ? '≈ ' + T.rubFull(Math.round(x.unit)) + '/шт.' : 'нет данных'));
+      ul.append(r);
+    });
+    d.append(ul); box.append(d);
+  });
   // Urgent steps: biggest money leaks first; tap a step to see concrete actions
   const urgOpen = new Set();
   dash.draw('urgent', (box) => {
