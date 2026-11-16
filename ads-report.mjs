@@ -81,46 +81,53 @@ function say(a, c) {
   return '';
 }
 export function messageText(R) {
-  const { n, A } = R, d = new Date(R.today + 'T12:00:00Z').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  const { n, A } = R, d = new Date(R.today + 'T12:00:00Z').toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
   const byId = new Map((A.campaigns || []).map((c) => [c.id, c]));
   const active = (A.campaigns || []).filter((c) => c.status === 9).length;
   const ok = R.acts.filter((a) => a.result !== 'error');
-  const kamp = (k) => k + ' ' + plural(k, 'кампанию', 'кампании', 'кампаний');
-  const L = ['Добрый вечер! 👋 Вот как прошёл день с рекламой WB, ' + d + '.'];
-  if (R.planned) L.push('<i>Пока работаю в режиме проверки — в кабинете ничего не менял.</i>');
-  L.push('');
-  if (!ok.length) {
-    L.push('Сегодня всё спокойно: кампании работают нормально, вмешиваться не пришлось 👌');
-  } else {
-    if (R.saved > 0) L.push('💰 <b>Сэкономил около ' + money(R.saved) + ' в день</b> — это примерно ' + money(R.saved * 30) + ' в месяц.');
-    const did = [];
-    if (n('stop')) did.push('отключил ' + kamp(n('stop')) + ', которые работали в минус');
-    if (n('pause')) did.push('поставил на паузу ' + kamp(n('pause')) + ' — заканчивается товар');
-    if (n('lower')) did.push('снизил ставку в ' + (n('lower') === 1 ? 'одной' : n('lower')) + ' ' + plural(n('lower'), 'кампании', 'кампаниях', 'кампаниях'));
-    if (n('raise')) did.push('поднял ставку в ' + (n('raise') === 1 ? 'одной' : n('raise')) + ' ' + plural(n('raise'), 'кампании', 'кампаниях', 'кампаниях'));
-    if (n('resume')) did.push('снова включил ' + kamp(n('resume')));
-    if (n('launch')) did.push('запустил ' + n('launch') + ' ' + plural(n('launch'), 'новую кампанию', 'новые кампании', 'новых кампаний'));
-    if (did.length) { const t = did.join(', '); L.push(t[0].toUpperCase() + t.slice(1) + '.'); }
-  }
-  L.push('', '📈 Сейчас работают <b>' + active + '</b> ' + plural(active, 'кампания', 'кампании', 'кампаний') + '.');
-  if (!n('launch')) L.push('🚀 Новые пока не запускал: не нашёл товара, на котором реклама точно уйдёт в плюс. Как появится — запущу сам.');
+  const k = (x) => x >= 1000 ? (Math.round(x / 100) / 10).toString().replace('.', ',') + 'к' : String(Math.round(x));
+  const L = ['📊 <b>Реклама WB · ' + d + '</b>' + (R.planned ? '  🧪 <i>тест, без изменений</i>' : ''), ''];
+  if (R.saved > 0) L.push('💸 Экономия: <b>+' + k(round(R.saved, 10)) + ' ₽/день</b>  (~' + k(R.saved * 30) + ' ₽/мес)');
+  if (n('stop')) L.push('✂️ Выключено: <b>' + n('stop') + '</b>');
+  if (n('pause')) L.push('⏸ Пауза (мало стока): <b>' + n('pause') + '</b>');
+  if (n('lower') || n('raise')) L.push('🎯 Ставки: ' + [n('lower') ? '↓' + n('lower') : '', n('raise') ? '↑' + n('raise') : ''].filter(Boolean).join(' '));
+  if (n('resume')) L.push('▶️ Снова в работе: <b>' + n('resume') + '</b>');
+  L.push('🚀 Новые РК: <b>' + n('launch') + '</b>' + (n('launch') ? '' : '  <i>нет товара под плюс</i>'));
+  L.push('🟢 Крутятся: <b>' + active + '</b>');
   if (R.launched.length) {
     const plus = R.launched.filter(({ c }) => c && c.drr30 != null && c.margin != null && c.drr30 < c.margin).length;
-    L.push('🧪 Из моих новых кампаний в плюсе ' + plus + ' из ' + R.launched.length + '.');
+    L.push('🧪 Мои РК в плюсе: <b>' + plus + '/' + R.launched.length + '</b>');
   }
+  if (!ok.length) L.push('', '😎 Всё ровно, правки не нужны');
+  const short = (a, c) => {
+    c = Object.assign({}, c);
+    const r = a.reason || '', m1 = r.match(/маржа (-?\d+)%/) || r.match(/марже до рекламы (-?\d+)%/), d1 = r.match(/ДРР (\d+)%/);
+    if (c.margin == null && m1) c.margin = +m1[1] / 100;
+    if (c.drr30 == null && d1) c.drr30 = +d1[1] / 100;
+    const b = a.bids && a.bids[0];
+    if (a.action === 'stop' || a.action === 'pause') {
+      if (c.margin != null && c.margin < 0) return 'в минусе и без рекламы (' + pct(c.margin) + ')';
+      if (c.margin != null && c.margin < 0.05) return 'маржа ' + pct(c.margin) + ', не тянет';
+      if (c.drr30 != null && c.margin != null) return 'реклама ' + pct(c.drr30) + ' > маржа ' + pct(c.margin);
+      return 'не окупалась';
+    }
+    if ((a.action === 'lower' || a.action === 'raise') && b) return Math.round(b.wasRub) + ' → ' + Math.round(b.rub) + ' ₽';
+    if (a.action === 'launch') return 'бюджет ' + rub(a.budget || 1000);
+    return '';
+  };
   const spend = (a) => (byId.get(a.id) || {}).spend30 || 0;
-  const group = (keys, title, icon, max) => {
+  const group = (keys, title, max) => {
     const list = ok.filter((a) => keys.includes(a.action)).sort((a, b) => spend(b) - spend(a));
     if (!list.length) return;
     L.push('', '<b>' + title + '</b>');
-    list.slice(0, max).forEach((a) => L.push(icon + ' <a href="' + WB_ADS_URL(a.id) + '">' + esc(cleanName(a.name) || 'арт. ' + a.sku) + '</a> — ' + esc(say(a, byId.get(a.id)))));
-    if (list.length > max) L.push('   …и ещё ' + (list.length - max) + ' — на картинке ниже');
+    list.slice(0, max).forEach((a) => L.push('▫️ <a href="' + WB_ADS_URL(a.id) + '">' + esc(cleanName(a.name) || 'арт. ' + a.sku) + '</a> — ' + esc(short(a, byId.get(a.id)))));
+    if (list.length > max) L.push('▫️ +' + (list.length - max) + ' на картинках');
   };
-  group(['launch'], 'Запустил', '🟢', 5);
-  group(['stop', 'pause'], 'Что отключил и почему', '🔴', 10);
-  group(['lower', 'raise', 'resume'], 'Ставки', '🟡', 5);
-  if (R.errors.length) L.push('', '⚠️ ' + R.errors.length + ' ' + plural(R.errors.length, 'действие', 'действия', 'действий') + ' WB сегодня не принял — попробую ещё раз при следующей проверке.');
-  L.push('', 'Следующая проверка — завтра в 06:17. Подробности — <a href="' + DASH + '#rk">на дашборде</a>.');
+  group(['launch'], '🚀 Запустил', 5);
+  group(['stop', 'pause'], '✂️ Выключил', 10);
+  group(['lower', 'raise', 'resume'], '🎯 Ставки', 5);
+  if (R.errors.length) L.push('', '⚠️ WB не принял ' + R.errors.length + ' — повторю на следующей проверке');
+  L.push('', '⏰ Следующая проверка 06:17  ·  <a href="' + DASH + '#rk">📲 дашборд</a>');
   return L.join('\n');
 }
 export const captionText = (R) => messageText(R).replace(/<[^>]+>/g, '');
@@ -194,7 +201,13 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   try {
     const page = await browser.newPage({ viewport: { width: 480, height: 800 }, deviceScaleFactor: 2 });
     await page.setContent(html, { waitUntil: 'load' });
-    shots.push(['report.png', await page.screenshot({ fullPage: true })]);
+    const H = await page.evaluate(() => document.documentElement.scrollHeight), PART = 1100;
+    for (let y = 0, i = 1; y < H; y += PART, i++) {
+      await page.setViewportSize({ width: 480, height: Math.min(PART, H - y) });
+      await page.evaluate((yy) => scrollTo(0, yy), y);
+      shots.push(['report' + i + '.png', await page.screenshot()]);
+      if (i >= 8) break;
+    }
     // The agent block on the live dashboard, as the seller sees it
     try {
       const dash = await browser.newPage({ viewport: { width: 430, height: 900 }, deviceScaleFactor: 2, colorScheme: 'dark' });
@@ -209,13 +222,13 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   await tg(token, 'sendMessage', new URLSearchParams({ chat_id: id, text: messageText(R), parse_mode: 'HTML', disable_web_page_preview: 'true' }));
   const fd = new FormData();
   fd.append('chat_id', id);
-  fd.append('media', JSON.stringify(shots.map(([name], i) => ({ type: 'document', media: 'attach://' + name }))));
+  fd.append('media', JSON.stringify(shots.map(([name], i) => ({ type: 'photo', media: 'attach://' + name }))));
   shots.forEach(([name, buf]) => fd.append(name, new Blob([buf], { type: 'image/png' }), name));
-  // Sent as files, not photos: Telegram shrinks tall photos until the text is unreadable
+  // Sent as photos; the long report is already split into screen-sized pieces, so it stays readable
   try { await tg(token, 'sendMediaGroup', fd); }
   catch (e) {
     console.log('Альбом не отправился (' + e.message + '), шлю по одному');
-    for (const [name, buf] of shots) { const f = new FormData(); f.append('chat_id', id); f.append('document', new Blob([buf], { type: 'image/png' }), name); await tg(token, 'sendDocument', f); }
+    for (const [name, buf] of shots) { const f = new FormData(); f.append('chat_id', id); f.append('photo', new Blob([buf], { type: 'image/png' }), name); await tg(token, 'sendPhoto', f); }
   }
   if (found) await tg(token, 'sendMessage', new URLSearchParams({ chat_id: id, text: 'Отчёт пришёл в этот чат. Чтобы он приходил сюда всегда, добавьте секрет TELEGRAM_CHAT_ID со значением ' + id + ' (GitHub → Settings → Secrets → Actions).' }));
   console.log('Отчёт отправлен:', shots.map(([n]) => n).join(', '));
