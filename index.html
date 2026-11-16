@@ -775,6 +775,39 @@ th[aria-sort] { color:var(--color-fg); }
 }
 /* Phone: monogram centred at the top */
 @media (max-width: 640px) { .ts > .ts-mono { order:-1; align-self:center; width:120px; height:72px; margin:-4px auto -6px; } }
+/* 3D funnel and urgent steps */
+.ts-f3 { display:flex; justify-content:center; }
+.ts-f3 svg { width:100%; max-width:520px; height:auto; display:block; overflow:visible; }
+.ts-f3-l { fill:rgba(255,255,255,.88); font-size:12px; font-weight:600; text-anchor:middle; letter-spacing:.01em; }
+.ts-f3-v { fill:#fff; font-size:15.5px; font-weight:700; text-anchor:middle; font-variant-numeric:tabular-nums; paint-order:stroke; stroke:rgba(0,0,0,.25); stroke-width:2px; }
+.ts-f3-cv rect { fill:var(--color-panel); stroke:var(--color-border-line); }
+.ts-f3-cv text { fill:var(--color-fg); font-size:11px; font-weight:600; text-anchor:middle; }
+#funnel > .ts-muted { text-align:center; }
+.ts-urg { display:flex; flex-direction:column; gap:8px; }
+.ts-urg-i { border:1px solid var(--color-border-line); border-radius:12px; background:var(--color-bg); overflow:hidden; border-left:3px solid var(--color-bad); }
+.ts-urg-h { all:unset; box-sizing:border-box; width:100%; display:grid; grid-template-columns:26px minmax(0,1fr) auto 14px; gap:10px; align-items:center; padding:10px 12px; cursor:pointer; }
+.ts-urg-h:focus-visible { outline:2px solid var(--color-fg); outline-offset:-2px; }
+.ts-urg-n { width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:700; background:color-mix(in srgb, var(--color-bad) 22%, transparent); color:var(--color-bad); }
+.ts-urg-t { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.ts-urg-t b { font-size:13.5px; font-weight:600; line-height:1.3; }
+.ts-urg-t small { font-size:11.5px; color:var(--color-fg-muted); line-height:1.3; }
+.ts-urg-pot { font-size:12.5px; font-weight:700; color:var(--color-ok); white-space:nowrap; background:color-mix(in srgb, var(--color-ok) 14%, transparent); padding:3px 8px; border-radius:999px; }
+.ts-urg-ch { font-size:20px; color:var(--color-fg-muted); transition:transform .2s; line-height:1; }
+.ts-open .ts-urg-ch { transform:rotate(90deg); }
+.ts-urg-b { display:none; padding:0 12px 12px 48px; flex-direction:column; gap:8px; }
+.ts-open .ts-urg-b { display:flex; }
+.ts-urg-x { margin:0; font-size:12.5px; color:var(--color-fg-muted); line-height:1.45; }
+.ts-urg-l { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--color-fg-muted); font-weight:600; }
+.ts-urg-steps { margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px; font-size:13px; line-height:1.4; }
+.ts-urg-steps b { font-weight:600; }
+.ts-urg-more { align-self:flex-start; }
+@media (max-width: 640px) {
+  #overview > #urgent { order:7; }
+  #overview > .ts-grid-main #todo { display:none; }
+  .ts-urg-h { grid-template-columns:24px minmax(0,1fr) auto 12px; gap:8px; padding:10px; }
+  .ts-urg-b { padding:0 10px 12px 42px; }
+  #urgent .ts-panel-h h3 { font-size:14px; }
+}
 </style>
 
 <div class="ts">
@@ -848,6 +881,10 @@ th[aria-sort] { color:var(--color-fg); }
       <div class="ts-panel-h"><h3>Воронка · все магазины</h3><span class="ts-muted" data-draw="fun-per" data-source="sales"></span></div>
       <div class="ts-fun" data-draw="funnel" data-source="sales"></div>
       <p class="ts-muted" data-draw="fun-note" data-source="sales"></p>
+    </div>
+    <div class="ts-panel" id="urgent">
+      <div class="ts-panel-h"><h3>Срочные шаги: как поднять прибыль</h3></div>
+      <div class="ts-urg" data-draw="urgent" data-source="sales"></div>
     </div>
   </section>
 
@@ -2012,6 +2049,37 @@ dash.loader('sales', {
     });
   });
 
+  // Urgent steps: biggest money leaks first; tap a step to see concrete actions
+  const urgOpen = new Set();
+  dash.draw('urgent', (box) => {
+    const v = T.view(); box.replaceChildren();
+    if (!v) { box.append(el('p', 'ts-empty', '—')); return; }
+    const list = T.insights(v).filter((it) => it.pot > 0 && (it.tone === 'bad' || it.tone === 'warn')).sort((a, b) => b.pot - a.pot).slice(0, 5);
+    if (!list.length) { box.append(el('p', 'ts-empty', 'Крупных потерь за этот период нет: держите курс.')); return; }
+    const shortN = (x) => (x.name || x.article || x.sku || '').split(/[,(]/)[0].trim().slice(0, 38).trim();
+    list.forEach((it, i) => {
+      const key = it.a + '|' + it.t;
+      const card = el('div', 'ts-urg-i' + (urgOpen.has(key) ? ' ts-open' : ''));
+      const head = el('button', 'ts-urg-h'); head.type = 'button'; head.setAttribute('aria-expanded', urgOpen.has(key) ? 'true' : 'false');
+      const num = el('span', 'ts-urg-n', String(i + 1));
+      const tx = el('span', 'ts-urg-t'); tx.append(el('b', null, it.a), el('small', null, it.t + ' ' + it.val));
+      head.append(num, tx, el('span', 'ts-urg-pot', '+' + T.rub(it.pot)), el('span', 'ts-urg-ch', '›'));
+      const body = el('div', 'ts-urg-b');
+      const steps = el('ol', 'ts-urg-steps');
+      const add = (html) => { const li = el('li'); li.append(...html); steps.append(li); };
+      const items = (it.items || []).slice(0, 4);
+      if (it.be) items.forEach((x) => { const bk = T.breakEven(x); if (bk && isFinite(bk.be)) add([el('b', null, shortN(x)), document.createTextNode(': цена ' + T.rubFull(Math.round(bk.price)) + ' → '), el('b', 'ts-good', T.rubFull(Math.ceil(bk.be / 10) * 10)), document.createTextNode(' или вывести')]); else add([el('b', null, shortN(x)), document.createTextNode(': вывести, минус ' + T.rub(-x.np))]); });
+      else if (it.ads) items.forEach((x) => add([el('b', null, shortN(x)), document.createTextNode(x.adv < 0 ? ': снизить ставки, реклама ' + T.rub(-x.adv) + ', итог ' + T.rub(x.np) : ': итог ' + T.rub(x.np) + ', проверить цену и рекламу')]));
+      else items.forEach((x) => add([el('b', null, shortN(x)), document.createTextNode(': ' + T.rub(x.np))]));
+      if (steps.children.length) body.append(el('div', 'ts-urg-l', 'Что сделать'), steps);
+      const more = el('button', 'ts-btn ts-urg-more', 'Все товары и детали →'); more.type = 'button';
+      more.addEventListener('click', () => { if (window.TS_showTab) window.TS_showTab('insights'); window.scrollTo({ top: 0 }); });
+      body.append(more);
+      head.addEventListener('click', () => { const o = !card.classList.contains('ts-open'); card.classList.toggle('ts-open', o); head.setAttribute('aria-expanded', o ? 'true' : 'false'); if (o) urgOpen.add(key); else urgOpen.delete(key); });
+      card.append(head, body); box.append(card);
+    });
+  });
+
   /* Marketplaces */
   const COSTS = [['comm', 'Комиссия', 'var(--ts-c1)'], ['cogs', 'Себестоимость', 'var(--ts-c2)'], ['log', 'Логистика', 'var(--ts-c3)'], ['adv', 'Реклама', 'var(--ts-c4)'], ['rest', 'Налог и прочее', 'var(--ts-c5)']];
   function costStack(m) {
@@ -2535,48 +2603,47 @@ dash.loader('sales', {
     const F = funData();
     e.textContent = F ? new Date(F.from + 'T00:00:00Z').toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }) + '–' + new Date(F.to + 'T00:00:00Z').toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }) : '';
   });
+  // 3D funnel: stacked cone slices with shading; each slice shows the stage and value, conversions sit on the joints
+  const FUN_COL = { views: '#64748b', cart: '#7c8aa5', orders: '#8b46d6', buy: '#2b6cff', pay: '#0ea5a4', good: '#22c55e', bad: '#ef4444' };
+  const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255; const t = f < 0 ? 0 : 255, k = Math.abs(f); r = Math.round(r + (t - r) * k); g = Math.round(g + (t - g) * k); b = Math.round(b + (t - b) * k); return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1); };
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   dash.draw('funnel', (box) => {
     const F = funData(); box.replaceChildren();
     const panel = document.getElementById('funnel');
     if (!F) { if (panel) panel.style.display = 'none'; return; }
     if (panel) panel.style.display = '';
-    const c = F.cur, rows = [];
+    const c = F.cur, st = [];
+    const pc = (x) => (isFinite(x) ? T.pct(x, x < 0.1 && x > -0.1 ? 1 : 0) : '—');
     if (F.wb) {
-      rows.push({ l: 'Просмотры карточек', v: T.num(F.wb.v), s: 'WB, 30 дней', mp: null, tone: 'muted' });
-      rows.push({ l: 'Добавили в корзину', v: T.num(F.wb.c), s: 'WB, 30 дней', conv: F.wb.v ? F.wb.c / F.wb.v : NaN, convL: 'в корзину', tone: 'muted' });
+      st.push({ l: 'Просмотры · WB', v: T.num(F.wb.v), col: FUN_COL.views });
+      st.push({ l: 'В корзину · WB', v: T.num(F.wb.c), col: FUN_COL.cart, cv: pc(F.wb.v ? F.wb.c / F.wb.v : NaN) + ' в корзину' });
     }
-    rows.push({ l: 'Заказы', v: T.rub(F.os), s: T.num(F.on) + ' шт.' + (F.oc ? ' · отмен ' + T.num(F.oc) : ''), mp: F.oMp, total: F.os,
-      conv: F.wb && F.wb.c ? F.wb.o / F.wb.c : null, convL: 'корзина → заказ (WB)' });
-    rows.push({ l: 'Выкупы', v: T.rub(F.bs), s: T.num(F.bn) + ' шт.', mp: F.bMp, total: F.bs, conv: F.os ? F.bs / F.os : NaN, convL: 'от суммы заказов' });
-    rows.push({ l: 'Выплата на счёт', v: T.rub(c.payout), s: 'после комиссий, логистики и рекламы', conv: c.rev ? c.payout / c.rev : NaN, convL: 'от выручки', tone: 'pay' });
-    rows.push({ l: c.np < 0 ? 'Убыток' : 'Чистая прибыль', v: T.rub(c.np), s: 'после закупки и налога', conv: c.payout ? c.np / c.payout : NaN, convL: 'маржа от выплат', tone: c.np < 0 ? 'bad' : 'good' });
-    const n = rows.length;
-    rows.forEach((r, i) => {
-      if (r.conv != null && isFinite(r.conv)) {
-        const cv = T.el('div', 'ts-fun-cv');
-        const ci = T.el('span'); ci.append(T.el('b', null, T.pct(r.conv, r.conv < 0.1 && r.conv > -0.1 ? 1 : 0)), document.createTextNode(' ' + r.convL)); cv.append(ci);
-        box.append(cv);
+    st.push({ l: 'Заказы', v: T.rub(F.os) + ' · ' + T.num(F.on) + ' шт.', col: FUN_COL.orders, cv: F.wb && F.wb.c ? pc(F.wb.o / F.wb.c) + ' корзина → заказ' : null });
+    st.push({ l: 'Выкупы', v: T.rub(F.bs) + ' · ' + T.num(F.bn) + ' шт.', col: FUN_COL.buy, cv: pc(F.os ? F.bs / F.os : NaN) + ' выкуп' });
+    st.push({ l: 'Выплата на счёт', v: T.rub(c.payout), col: FUN_COL.pay, cv: pc(c.rev ? c.payout / c.rev : NaN) + ' от выручки' });
+    st.push({ l: c.np < 0 ? 'Убыток' : 'Чистая прибыль', v: T.rub(c.np), col: c.np < 0 ? FUN_COL.bad : FUN_COL.good, cv: pc(c.payout ? c.np / c.payout : NaN) + ' маржа' });
+    const n = st.length, W = 360, cx = W / 2, H = 64, G = 8, RY = 9, top = 14, minW = 0.42;
+    const wAt = (i) => W * (1 - (1 - minW) * i / n) - 8;
+    let defs = '', body = '', pills = '';
+    st.forEach((x, i) => {
+      const y0 = top + i * (H + G), y1 = y0 + H, w0 = wAt(i), w1 = wAt(i + 1), id = 'fg' + i;
+      defs += '<linearGradient id="' + id + '" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="' + shade(x.col, -0.45) + '"/><stop offset=".38" stop-color="' + shade(x.col, 0.12) + '"/><stop offset=".55" stop-color="' + shade(x.col, 0.22) + '"/><stop offset="1" stop-color="' + shade(x.col, -0.55) + '"/></linearGradient>';
+      body += '<path d="M' + (cx - w0 / 2) + ' ' + y0 + ' L' + (cx + w0 / 2) + ' ' + y0 + ' L' + (cx + w1 / 2) + ' ' + y1 + ' A' + (w1 / 2) + ' ' + RY + ' 0 0 1 ' + (cx - w1 / 2) + ' ' + y1 + ' Z" fill="url(#' + id + ')"/>';
+      body += '<ellipse cx="' + cx + '" cy="' + y0 + '" rx="' + (w0 / 2) + '" ry="' + RY + '" fill="' + shade(x.col, 0.35) + '" opacity=".95"/>';
+      body += '<ellipse cx="' + cx + '" cy="' + y0 + '" rx="' + (w0 / 2 - 3) + '" ry="' + (RY - 2.5) + '" fill="' + shade(x.col, -0.25) + '" opacity=".55"/>';
+      body += '<text x="' + cx + '" y="' + (y0 + 27) + '" class="ts-f3-l">' + esc(x.l) + '</text>';
+      body += '<text x="' + cx + '" y="' + (y0 + 47) + '" class="ts-f3-v">' + esc(x.v) + '</text>';
+      if (x.cv) {
+        const tw = x.cv.length * 7 + 22, py = y0 - G / 2 - 1;
+        pills += '<g class="ts-f3-cv"><rect x="' + (cx - tw / 2) + '" y="' + (py - 10) + '" width="' + tw + '" height="20" rx="10"/><text x="' + cx + '" y="' + (py + 4) + '">↓ ' + esc(x.cv) + '</text></g>';
       }
-      const row = T.el('div', 'ts-fun-row ts-fun-' + (r.tone || 'main'));
-      const bar = T.el('div', 'ts-fun-bar');
-      bar.style.width = (100 - i * (46 / Math.max(1, n - 1))) + '%';
-      if (r.mp && r.total > 0) T.MP_ORDER.forEach((mp) => { const x = r.mp[mp]; if (!x) return; const seg = T.el('i'); seg.style.flexGrow = String(x); seg.style.background = T.MP[mp].color; seg.title = T.MP[mp].name + ': ' + T.rub(x) + ' (' + T.pct(x / r.total, 0) + ')'; bar.append(seg); });
-      const lab = T.el('div', 'ts-fun-l'); lab.append(T.el('span', null, r.l), T.el('small', null, r.s));
-      const val = T.el('b', 'ts-fun-v' + (r.tone === 'bad' ? ' ts-neg' : r.tone === 'good' ? ' ts-good' : ''), r.v);
-      const mid = T.el('div', 'ts-fun-m'); mid.append(bar);
-      row.append(lab, mid, val);
-      if (r.mp && r.total > 0) {
-        const lg = T.el('div', 'ts-fun-mp');
-        T.MP_ORDER.forEach((mp) => { const x = r.mp[mp]; if (!x) return; const sp = T.el('span'); const ic = T.el('i'); ic.style.background = T.MP[mp].color; sp.append(ic, document.createTextNode(T.MP[mp].short + ' ' + T.pct(x / r.total, 0))); lg.append(sp); });
-        row.append(lg);
-      }
-      box.append(row);
     });
+    const h = top + n * (H + G) + 6;
+    const wrap = T.el('div', 'ts-f3');
+    wrap.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + h + '" role="img" aria-label="Воронка продаж"><defs>' + defs + '</defs>' + body + pills + '</svg>';
+    box.append(wrap);
   });
-  dash.draw('fun-note', (e) => {
-    const F = funData();
-    e.textContent = F ? 'Заказы и выкупы — из кабинетов WB, Ozon и Яндекс Маркета за дни периода, выплата и прибыль — по продажам периода.' + (F.wb ? ' Просмотры и корзина есть только у WB (Ozon отдаёт их с подпиской Premium).' : '') : '';
-  });
+  dash.draw('fun-note', (e) => { const F = funData(); e.textContent = F ? (F.wb ? 'Просмотры и корзина — только WB за 30 дней. ' : '') + 'Конверсии — между соседними этапами.' : ''; });
 
   function ordSeries() {
     const M = T.mk(), v = T.view(), s = dash.data('sales');
