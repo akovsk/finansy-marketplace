@@ -453,7 +453,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
       const k = (st.repairSteps || 0) + 1, why = dec.reason;
       const fix = guard({ id: m.id, action: 'lower', bidPct: cfg.bid.maxStepPct, reason: '' }, m, cfg, st, now);
       dec = fix.action === 'lower'
-        ? { ...fix, repair: k, reason: 'Не ставлю на паузу — сначала улучшаю кампанию (шаг ' + k + ' из ' + cfg.repair.maxSteps + '): снижаю ставку на ' + -fix.bidPct + '% и убираю запросы, которые не продают. ' + why }
+        ? { ...fix, repair: k, reason: 'Не ставлю на паузу — сначала улучшаю кампанию (шаг ' + k + ' из ' + cfg.repair.maxSteps + '): снижаю ставку на ' + -fix.bidPct + '%' + (m.platform === 'ozon' ? '' : ' и убираю запросы, которые не продают') + '. ' + why }
         : { id: m.id, action: 'keep', bidPct: 0, reason: 'Улучшаю кампанию (сделано шагов: ' + (k - 1) + ' из ' + cfg.repair.maxSteps + '). ' + why, blocked: fix.blocked };
     } else if (dec.action !== 'stop' && st.repairSteps && m.status === 9 && !stopReason(m, cfg)) mark(m, { repairSteps: 0 });   // recovered: a fresh ladder next time
     if (dec.action === 'stop' && ++stops > cfg.stop.maxPerRun) dec = { ...dec, action: 'keep', blocked: 'лимит закрытий за один запуск (' + cfg.stop.maxPerRun + ')' };
