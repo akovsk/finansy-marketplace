@@ -1,4 +1,4 @@
-// Daily Telegram report of the WB ads agent: what it closed, launched and re-bid today, with screenshots.
+// Daily Telegram report of the ads agents, one message per marketplace (done today / planned / learned today), with screenshots.
 // node ads-report.mjs            — render and send (needs TELEGRAM_BOT_TOKEN, playwright with chromium)
 // node ads-report.mjs --html     — only write ads-report.html (to check the layout locally)
 // Chat: TELEGRAM_CHAT_ID; without it the chat is taken from the last message sent to the bot (write /start to it).
@@ -39,7 +39,7 @@ export function dayReport(A, now = Date.now()) {
 }
 
 // "196519290 TANTI_Prokladki_Ultra_SL_8х2 G" → "TANTI Prokladki Ultra SL 8х2"
-export const cleanName = (s) => String(s || '').replace(/^(СРС|CPC|АРК|АУК)\s+/i, '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ').replace(/\s+[A-Z]$/, '').replace(/\s+/g, ' ').trim();
+export const cleanName = (s) => String(s || '').trim().replace(/^(СРС|CPC|АРК|АУК)\s+/i, '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ').replace(/\s+[A-Z]$/, '').replace(/\s+/g, ' ').trim();
 const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
 // Plain-words reason for one action, from the campaign numbers
 function why(a, c) {
@@ -82,62 +82,113 @@ function say(a, c) {
   if (a.action === 'resume') return 'товар снова в наличии';
   return '';
 }
-export function messageText(R) {
-  const { n, A } = R, d = new Date(R.today + 'T12:00:00Z').toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
-  const byId = new Map((A.campaigns || []).map((c) => [c.id, c]));
-  const active = (A.campaigns || []).filter((c) => c.status === 9).length;
-  const ok = R.acts.filter((a) => a.result !== 'error');
-  const k = (x) => x >= 1000 ? (Math.round(x / 100) / 10).toString().replace('.', ',') + 'к' : String(Math.round(x));
-  const L = ['📊 <b>Реклама WB · ' + d + '</b>' + (R.planned ? '  🧪 <i>тест, без изменений</i>' : ''), ''];
-  if (R.saved > 0) L.push('💸 Экономия: <b>+' + k(round(R.saved, 10)) + ' ₽/день</b>  (~' + k(R.saved * 30) + ' ₽/мес)');
-  const lossN = ok.filter((a) => a.action === 'stop' || (a.action === 'pause' && a.loss)).length, stockN = ok.filter((a) => a.action === 'pause' && !a.loss).length;
-  if (lossN) L.push('⏸ На паузу (минус, запросы сохранены): <b>' + lossN + '</b>');
-  if (stockN) L.push('⏸ Пауза (мало стока): <b>' + stockN + '</b>');
-  const qn = ok.filter((a) => a.action === 'minus').reduce((s, a) => s + (a.n || 0), 0), mv = ok.filter((a) => a.action === 'minus').reduce((s, a) => s + (a.moved || 0), 0);
-  if (qn || mv) L.push('🧹 Запросы: исключено <b>' + qn + '</b>' + (mv ? ', перенесено из других РК <b>' + mv + '</b>' : ''));
-  if (n('lower') || n('raise')) L.push('🎯 Ставки: ' + [n('lower') ? '↓' + n('lower') : '', n('raise') ? '↑' + n('raise') : ''].filter(Boolean).join(' '));
-  if (n('resume')) L.push('▶️ Снова в работе: <b>' + n('resume') + '</b>');
-  L.push('🚀 Новые РК: <b>' + n('launch') + '</b>' + (n('launch') ? '' : '  <i>нет товара под плюс</i>'));
-  L.push('🟢 Крутятся: <b>' + active + '</b>');
-  if (R.launched.length) {
-    const plus = R.launched.filter(({ c }) => c && c.drr30 != null && c.margin != null && c.drr30 < c.margin).length;
-    L.push('🧪 Мои РК в плюсе: <b>' + plus + '/' + R.launched.length + '</b>');
+// One message per marketplace: what was done today, what is planned, what was learned today
+export const platOf = (x) => x.platform || (String(x.store || '').startsWith('oz') ? 'ozon' : 'wb');
+const ACT_WORD = { lower: 'снижение ставки', raise: 'повышение ставки', pause: 'пауза', stop: 'закрытие', minus: 'исключение запросов', launch: 'запуск', drop: 'убранные товары', restart: 'перезапуск' };
+const SKILL_PLAT = { ozon: 'ozon' };
+export function messageText(R, p = 'wb') {
+  const { A } = R, d = new Date(R.today + 'T12:00:00Z').toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
+  const C = (A.campaigns || []).filter((c) => platOf(c) === p);
+  const byId = new Map(C.map((c) => [c.id, c]));
+  const planned = p === 'ozon' ? A.ozonMode !== 'live' : A.mode !== 'live';
+  const acts = R.acts.filter((a) => platOf(a) === p);
+  const ok = acts.filter((a) => a.result !== 'error'), errors = acts.filter((a) => a.result === 'error');
+  const n = (k) => ok.filter((a) => a.action === k).length;
+  const k = (x) => (x >= 1000 ? (Math.round(x / 100) / 10).toString().replace('.', ',') + 'к' : String(Math.round(x)));
+  const MP = p === 'ozon' ? 'Ozon' : 'WB';
+  const L = [(p === 'ozon' ? '🔵' : '🟣') + ' <b>Реклама ' + MP + ' · ' + d + '</b>' + (planned ? '  🧪 <i>режим проверки</i>' : '')];
+  const active = C.filter((c) => c.status === 9).length, paused = C.filter((c) => c.status === 11).length;
+  const notes = (A.notes || []).filter((x) => (p === 'ozon' ? /Ozon|Озон|OZON/ : /WB|ВБ|Дармил/).test(x));
+  if (!C.length) {
+    L.push('', notes.length ? notes.map((x) => '⚠️ ' + esc(x)).join('\n') : 'Кабинет не подключён.');
+    return L.join('\n');
   }
-  if (!ok.length) L.push('', '😎 Всё ровно, правки не нужны');
-  const short = (a, c) => {
-    c = Object.assign({}, c);
-    const r = a.reason || '', m1 = r.match(/маржа (-?\d+)%/) || r.match(/марже до рекламы (-?\d+)%/), d1 = r.match(/ДРР (\d+)%/);
-    if (c.margin == null && m1) c.margin = +m1[1] / 100;
-    if (c.drr30 == null && d1) c.drr30 = +d1[1] / 100;
+  L.push('🟢 Работают: <b>' + active + '</b>  ·  на паузе: ' + paused);
+  const saved = ok.filter((a) => a.action === 'stop' || (a.action === 'pause' && a.loss)).reduce((s, a) => s + ((byId.get(a.id) || {}).spend30 || 0) / 30, 0);
+  if (saved > 0) L.push('💸 Экономия: <b>+' + k(round(saved, 10)) + ' ₽/день</b>');
+
+  // 1. Done today
+  L.push('', planned ? '<b>✅ Что сделаю</b> <i>(пока только план — в кабинете без изменений)</i>' : '<b>✅ Что сделал сегодня</b>');
+  const link = (a) => { const nm = esc(cleanName(a.name) || 'арт. ' + a.sku); return p === 'wb' && a.id ? '<a href="' + WB_ADS_URL(a.id) + '">' + nm + '</a>' : nm; };
+  const sh = (a) => {
     const b = a.bids && a.bids[0];
-    if (a.action === 'stop' || a.action === 'pause') {
-      if (c.margin != null && c.margin < 0) return 'в минусе и без рекламы (' + pct(c.margin) + ')';
-      if (c.margin != null && c.margin < 0.05) return 'маржа ' + pct(c.margin) + ', не тянет';
-      if (c.drr30 != null && c.margin != null) return 'реклама ' + pct(c.drr30) + ' > маржа ' + pct(c.margin);
-      return 'не окупалась';
-    }
+    if (/улучшаю кампанию/.test(a.reason || '')) return 'чиню вместо паузы' + (b ? ': ставка ' + Math.round(b.wasRub) + ' → ' + Math.round(b.rub) + ' ₽' : a.note ? ': ' + a.note : '');
     if ((a.action === 'lower' || a.action === 'raise') && b) return Math.round(b.wasRub) + ' → ' + Math.round(b.rub) + ' ₽';
+    if ((a.action === 'lower' || a.action === 'raise') && a.note) return a.note;
+    if (a.action === 'pause') return a.loss ? 'в минусе, запросы сохранены' : 'нет товара на складе';
+    if (a.action === 'minus') return (a.n ? 'исключено ' + a.n : '') + (a.moved ? (a.n ? ', ' : '') + 'перенесено ' + a.moved : '');
+    if (a.action === 'drop') return 'убрано товаров: ' + (a.skus || []).length;
+    if (a.action === 'restart') return /Пробный/.test(a.reason || '') ? 'пробный перезапуск после паузы' : 'после чистки запросов';
     if (a.action === 'launch') return 'бюджет ' + rub(a.budget || 1000);
+    if (a.action === 'stop') return 'по вашему ответу';
     return '';
   };
-  const spend = (a) => (byId.get(a.id) || {}).spend30 || 0;
-  const group = (keys, title, max) => {
-    const list = ok.filter((a) => keys.includes(a.action)).sort((a, b) => spend(b) - spend(a));
+  const group = (keys, title, max, f = () => true) => {
+    const list = ok.filter((a) => keys.includes(a.action) && f(a)).sort((a, b) => ((byId.get(b.id) || {}).spend30 || 0) - ((byId.get(a.id) || {}).spend30 || 0));
     if (!list.length) return;
-    L.push('', '<b>' + title + '</b>');
-    list.slice(0, max).forEach((a) => L.push('▫️ <a href="' + WB_ADS_URL(a.id) + '">' + esc(cleanName(a.name) || 'арт. ' + a.sku) + '</a> — ' + esc(short(a, byId.get(a.id)))));
-    if (list.length > max) L.push('▫️ +' + (list.length - max) + ' на картинках');
+    L.push(title + ' <b>' + list.length + '</b>');
+    list.slice(0, max).forEach((a) => L.push('   ▫️ ' + link(a) + ' — ' + esc(sh(a))));
+    if (list.length > max) L.push('   ▫️ и ещё ' + (list.length - max));
   };
-  group(['launch'], '🚀 Запустил', 5);
-  group(['pause'], '⏸ Поставил на паузу', 10);
-  group(['stop'], '✂️ Закрыл по вашему ответу', 10);
-  group(['restart'], '▶️ Перезапустил после чистки запросов', 5);
-  group(['lower', 'raise', 'resume'], '🎯 Ставки', 5);
-  if (R.errors.length) L.push('', '⚠️ WB не принял ' + R.errors.length + ' — повторю на следующей проверке');
-  L.push('', '⏰ Следующая проверка 06:17  ·  <a href="' + DASH + '#rk">📲 дашборд</a>');
-  return L.join('\n');
+  const before = L.length;
+  group(['lower'], '🛠 Чиню вместо паузы:', 4, (a) => /улучшаю кампанию/.test(a.reason || ''));
+  group(['lower', 'raise'], '🎯 Ставки:', 4, (a) => !/улучшаю кампанию/.test(a.reason || ''));
+  group(['minus'], '🧹 Запросы:', 3);
+  group(['boost'], '🔎 Ставки на продающие запросы:', 2);
+  group(['drop'], '➖ Убрал убыточные товары из РК:', 3);
+  group(['pause'], '⏸ Пауза:', 4);
+  group(['restart', 'resume'], '▶️ Снова в работе:', 4);
+  group(['launch'], '🚀 Запустил:', 4);
+  group(['stop'], '✂️ Закрыл:', 4);
+  if (L.length === before) L.push('▫️ правки не понадобились — всё в пределах цели');
+  if (errors.length) L.push('⚠️ ' + MP + ' не принял ' + errors.length + ' — повторю на следующей проверке');
+
+  // 2. Plan
+  const next = [];
+  const fix = C.filter((c) => /улучшаю кампанию/i.test(c.reason || '') && c.action === 'keep').length;
+  if (fix) next.push('Продолжаю чинить ' + fix + ' ' + plural(fix, 'кампанию', 'кампании', 'кампаний') + ': следующий шаг ставки — когда накопится статистика.');
+  const wait = C.filter((c) => c.blocked && /жду статистику|жду неделю/.test(c.blocked)).length;
+  if (wait) next.push('Проверю ещё ' + wait + ' ' + plural(wait, 'кампанию', 'кампании', 'кампаний') + ' после прошлых изменений ставки.');
+  const camp = A.camp || {}, DAY = 864e5, now = Date.parse(A.generated);
+  const retest = C.filter((c) => c.status === 11 && (camp[p === 'ozon' ? c.store + ':' + c.id : c.id] || {}).pausedFor === 'loss');
+  if (retest.length) {
+    const soon = retest.map((c) => (camp[p === 'ozon' ? c.store + ':' + c.id : c.id] || {}).pausedAt).filter(Boolean).map((t) => Math.max(0, Math.ceil((t + 7 * DAY - now) / DAY)));
+    next.push('На паузе из-за минуса ' + retest.length + ': пробный перезапуск с чистыми запросами' + (soon.length ? ' через ' + Math.min(...soon) + ' дн.' : ' по графику.'));
+  }
+  if (p === 'wb') {
+    (A.plan && A.plan.next || []).filter((x) => /спорн|Закрытые кампании/.test(x)).slice(0, 2).forEach((x) => next.push(x));
+    const asks = A.closeAsk || [];
+    if (asks.length) next.push('Жду вашего решения о закрытии: ' + asks.map((a) => a.n + '. ' + cleanName(a.name).slice(0, 25)).join(', ') + ' — ответ «закрыть N» или «оставить N».');
+    const nv = ((A.plan || {}).variants || []).length;
+    next.push(nv ? 'Варианты запуска в плюс: ' + nv + ' — список в сообщении с планом.' : 'Ищу товары, где реклама окупится: пока таких нет.');
+  } else next.push('Слежу за ставками и целевым ДРР; убыточные товары убираю из кампаний. Запросы в Ozon через API не исключаются.');
+  const h = new Date(now + 3 * 3600e3).getUTCHours();
+  L.push('', '<b>🗓 Что планирую</b>');
+  next.slice(0, 5).forEach((x) => L.push('▫️ ' + esc(x)));
+  L.push('⏰ Следующая проверка ' + (h >= 6 && h < 15 ? 'сегодня в 15:17' : 'в 06:17'));
+
+  // 3. Learned today
+  const T = (A.learned || {}).today || {}, learned = [];
+  const out = (T.outcomes || []).filter((o) => platOf(o) === p);
+  if (out.length) {
+    const good = out.filter((o) => o.verdict === 'helped').length, bad = out.filter((o) => o.verdict === 'hurt').length, eff = out.reduce((s, o) => s + (o.effect || 0), 0);
+    learned.push('Проверил ' + out.length + ' ' + plural(out.length, 'своё решение', 'своих решения', 'своих решений') + ' недельной давности: помогли ' + good + ', навредили ' + bad + ', итог ' + (eff >= 0 ? '+' : '') + k(eff) + ' ₽ в неделю.');
+    out.filter((o) => o.effect).sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect)).slice(0, 2).forEach((o) => learned.push((ACT_WORD[o.action] || o.action) + ' в «' + cleanName(o.name).slice(0, 30) + '»: ' + (o.effect >= 0 ? '+' : '') + k(o.effect) + ' ₽/нед'));
+  }
+  (T.tuned || []).filter((x) => (p === 'ozon') === /^ozon\./.test(x.key)).forEach((x) => learned.push('Подстроил правило «' + x.key + '»: ' + x.from + ' → ' + x.to + '. ' + x.why));
+  const skills = (((A.learned || {}).skills || {}).has || []).filter((x) => x.since === R.today && (SKILL_PLAT[x.id] || 'wb') === p);
+  skills.forEach((x) => learned.push('Новый навык: ' + x.text.charAt(0).toLowerCase() + x.text.slice(1) + '.'));
+  if (p === 'wb' && A.engine === 'claude') ((A.learned || {}).lessons || []).slice(0, 1).forEach((x) => learned.push('💡 ' + x));
+  if (!learned.length) {
+    const pending = (A.history || []).filter((a) => platOf(a) === p && a.result === 'ok' && !a.evaluated && ['lower', 'raise', 'pause', 'minus', 'launch', 'restart', 'drop'].includes(a.action)).length;
+    learned.push(pending ? 'Новых выводов пока нет: ' + pending + ' ' + plural(pending, 'решение ждёт', 'решения ждут', 'решений ждут') + ' недели, чтобы сравнить прибыль до и после.' : 'Новых выводов нет — коплю статистику.');
+  }
+  L.push('', '<b>🎓 Чему научился сегодня</b>');
+  learned.slice(0, 5).forEach((x) => L.push('▫️ ' + esc(x)));
+  L.push('', '<a href="' + DASH + '#overview">📲 дашборд</a>');
+  return L.join('\n').slice(0, 4000);
 }
-export const captionText = (R) => messageText(R).replace(/<[^>]+>/g, '');
+export const captionText = (R) => messageText(R, 'wb').replace(/<[^>]+>/g, '');
 
 export function reportHtml(R) {
   const { A } = R;
@@ -198,7 +249,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   if (!A || !A.generated) { console.error('ads-agent.json не найден: агент ещё не запускался'); process.exit(1); }
   const R = dayReport(A), html = reportHtml(R);
   writeFileSync(new URL('./ads-report.html', import.meta.url), html);
-  if (process.argv.includes('--html')) { console.log(messageText(R)); console.log(); console.log(planText(A)); process.exit(0); }
+  if (process.argv.includes('--html')) { console.log(messageText(R, 'wb')); console.log(); console.log(messageText(R, 'ozon')); console.log(); console.log(planText(A)); process.exit(0); }
   const token = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) { console.error('Нет секрета TELEGRAM_BOT_TOKEN'); process.exit(1); }
 
@@ -226,7 +277,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   } finally { await browser.close(); }
 
   const { id, found } = await chatId(token);
-  await tg(token, 'sendMessage', new URLSearchParams({ chat_id: id, text: messageText(R), parse_mode: 'HTML', disable_web_page_preview: 'true' }));
+  for (const p of ['wb', 'ozon']) await tg(token, 'sendMessage', new URLSearchParams({ chat_id: id, text: messageText(R, p), parse_mode: 'HTML', disable_web_page_preview: 'true' }));
   const fd = new FormData();
   fd.append('chat_id', id);
   fd.append('media', JSON.stringify(shots.map(([name], i) => ({ type: 'photo', media: 'attach://' + name }))));

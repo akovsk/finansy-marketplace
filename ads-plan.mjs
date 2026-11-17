@@ -7,7 +7,7 @@ const rub = (x) => R(x).toLocaleString('ru-RU') + ' ₽';
 const pct = (x) => (x == null || !isFinite(x) ? '—' : Math.round(x * 100) + '%');
 const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-export const cleanName = (s) => String(s || '').replace(/^(СРС|CPC|АРК|АУК|AI)\s+/i, '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ').replace(/\s+[A-Z]$/, '').replace(/\s+/g, ' ').trim();
+export const cleanName = (s) => String(s || '').trim().replace(/^(СРС|CPC|АРК|АУК|AI)\s+/i, '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ').replace(/\s+[A-Z]$/, '').replace(/\s+/g, ' ').trim();
 
 // What a campaign would have earned in the last 30 days without the queries the agent excludes.
 // Costly queries take their orders with them (at the campaign's average order value).

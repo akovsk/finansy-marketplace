@@ -691,6 +691,9 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   }
   out.learned = learnedView(memory, fresh, tuned, plan ? plan.helpersUsed : []);
   kbPrune(memory);
+  // What was learned today (Moscow day), for the evening report per marketplace
+  const isToday = (t) => t && new Date(Date.parse(t) + 3 * 3600e3).toISOString().slice(0, 10) === today;
+  out.learned.today = { outcomes: (memory.outcomes || []).filter((o) => isToday(o.checked)).slice(-20).map(({ before, after, ...o }) => o), tuned: (memory.tuneLog || []).filter((x) => isToday(x.t)) };
   out.learned.skills = skillsView({ memory, hist, camp, views, metrics, noOzonKey, brain: !!brain, plan, now, closeAsk: out.closeAsk });
   out.approved = approvedNow.filter((a) => a.plan).concat(closedNow).map((a) => ({ n: a.plan || a.approved, action: a.action, name: a.name, id: a.id || null, result: a.result, error: a.error || null }));
   out.autoLaunched = approvedNow.filter((a) => a.auto).map((a) => ({ action: a.action, name: a.name, id: a.id || null, result: a.result, error: a.error || null }));

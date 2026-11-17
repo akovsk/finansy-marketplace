@@ -75,7 +75,7 @@ export function evaluateOutcomes(memory, hist, metricOf, now) {
       }
     }
     if (verdict === 'unknown') return;
-    fresh.push({ t: a.t, store: a.store, id: a.id, name: a.name, action: a.action, bidPct: a.bidPct || 0, before, after, effect, verdict });
+    fresh.push({ t: a.t, checked: new Date(now).toISOString(), store: a.store, id: a.id, name: a.name, action: a.action, bidPct: a.bidPct || 0, before, after, effect, verdict });
   });
   memory.outcomes = (memory.outcomes || []).concat(fresh).slice(-200);
   return fresh;
