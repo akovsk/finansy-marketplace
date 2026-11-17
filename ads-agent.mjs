@@ -59,7 +59,7 @@ async function http(token, method, path, body, tries = 4) {
 export function normCampaign(a) {
   if (a.advertId && a.settings && a.settings.paymentType && Array.isArray(a.nms)) {      // /api/advert/v3/adverts
     const pl = a.settings.placements || [];
-    const nms = a.nms.map((n) => { const b = Object.fromEntries((n.bids || []).map((x) => [x.type, R(x.value)])); return { nm: n.nmId, search: b.combined || b.search || 0, recom: b.combined ? 0 : (b.recommendations || 0), unified: !!b.combined }; }).filter((n) => n.nm);
+    const nms = a.nms.map((n) => { const b = Object.fromEntries((n.bids || []).map((x) => [x.type, R(x.value)])); return { nm: n.nmId, search: b.combined || b.search || 0, recom: b.combined ? 0 : (b.recommendations || 0), unified: !!b.combined, subject: (n.subject && n.subject.name) || '' }; }).filter((n) => n.nm);
     const unified = pl.includes('combined') || nms.some((n) => n.unified);
     return { platform: 'wb', id: a.advertId, name: a.settings.name || '', status: a.status, bidType: unified ? 'unified' : 'manual', payType: a.settings.paymentType, search: unified || pl.includes('search'), recom: unified || pl.includes('recommendations'), nms };
   }
@@ -311,11 +311,15 @@ const forClaude = (m, rule, st, cfg) => ({
 });
 
 /* ------------------------------ Search queries (WB) ------------------------------ */
-// Code can prove waste, not irrelevance: "waste" and "costly" are excluded on numbers alone,
-// "check" (spend, no orders, too little data) goes to a helper that reads the query against the product.
-export function classifyCluster(c, orderProfit, q) {
-  if (!c.orders && c.clicks >= q.minClicks && c.spend >= Math.max(q.minSpend, orderProfit || 0)) return 'waste';
-  if (c.orders && orderProfit > 0 && c.spend >= q.minSpend * 3 && c.spend / c.orders > orderProfit * q.costFactor) return 'costly';
+// Word stems of a product title: "Тушенка говяжья белорусская" → тушен, говяж, белор
+const stems = (t) => String(t || '').toLowerCase().replace(/ё/g, 'е').split(/[^a-zа-я0-9]+/).filter((w) => w.length >= 4 && !/^\d+$/.test(w)).map((w) => w.slice(0, 5));
+// A query that shares a word with the product is its own traffic: a month without orders there is not proof it is junk
+export const relatedQuery = (q, nameStems) => stems(q).some((w) => nameStems.has(w));
+// Code can prove waste on numbers only for queries unrelated to the product: "waste" and "costly" are excluded outright.
+// "check" (no orders, but related to the product or too little data) goes to a helper that reads the query against the product.
+export function classifyCluster(c, orderProfit, q, related = false) {
+  if (!c.orders && c.clicks >= q.minClicks && c.spend >= Math.max(q.minSpend, orderProfit || 0)) return related ? 'check' : 'waste';
+  if (c.orders && orderProfit > 0 && c.spend >= q.minSpend * 3 && c.spend / c.orders > orderProfit * q.costFactor) return related ? null : 'costly';
   if (!c.orders && c.spend >= q.irrelevantMinSpend) return 'check';
   return null;
 }
@@ -335,9 +339,10 @@ async function loadClusters(api, ms, ctx, camp, now) {
       const k = storeName + '|' + n.nm, e = econ.get(k), f = (market.funnel || {})[k];
       const orderProfit = e && e.q > 0 ? ((e.np - e.adv) / e.q) * (f && f.bp ? clamp(f.bp / 100, 0.3, 1) : 0.9) : 0;
       const existing = mMap.get(key(m.id, n.nm)) || [], gone = new Set(existing);
+      const own = new Set([...stems(e && e.name), ...stems(m.name), ...stems(n.subject)]);
       const all = (sMap.get(key(m.id, n.nm)) || []).filter((c) => c.norm_query && !gone.has(c.norm_query)).map((c) => {
         const x = { q: c.norm_query, views: R(c.views), clicks: R(c.clicks), atbs: R(c.atbs), orders: R(c.orders), spend: R(c.spend != null ? c.spend : c.cpc != null ? c.cpc * c.clicks : (c.cpm || 0) * (c.views || 0) / 1000) };
-        x.flag = classifyCluster(x, orderProfit, q); return x;
+        x.flag = classifyCluster(x, orderProfit, q, relatedQuery(x.q, own)); return x;
       });
       const best = all.filter((c) => c.orders && !c.flag).sort((a, b) => b.orders - a.orders).slice(0, 5).map((c) => ({ ...c, flag: 'good' }));
       return { nm: n.nm, key: k, product: (e && e.name) || '', orderProfit: R(orderProfit), existing, clusters: all.filter((c) => c.flag).sort((a, b) => b.spend - a.spend).slice(0, 40).concat(best) };

@@ -130,6 +130,11 @@ console.log('ads-agent: launch checks passed');
   assert.equal(classifyCluster({ orders: 0, clicks: 5, spend: 80 }, 150, q), 'check');
   assert.equal(classifyCluster({ orders: 3, clicks: 90, spend: 1200 }, 150, q), 'costly', '400 ₽ за заказ при прибыли 150 ₽');
   assert.equal(classifyCluster({ orders: 5, clicks: 90, spend: 600 }, 150, q), null, 'запрос окупается — не трогать');
+  const { relatedQuery } = await import('./ads-agent.mjs');
+  const own = new Set(['тушен', 'говяж', 'белор']);
+  assert.ok(relatedQuery('тушенка беларусь', own)); assert.ok(!relatedQuery('паштет печеночный', own));
+  assert.equal(classifyCluster({ orders: 0, clicks: 30, spend: 400 }, 150, q, true), 'check', 'свой запрос товара по одним цифрам не убирается');
+  assert.equal(classifyCluster({ orders: 3, clicks: 90, spend: 1200 }, 150, q, true), null, 'свой запрос с заказами не трогается');
   const stats = [{ norm_query: 'мусор', views: 5000, clicks: 40, atbs: 1, orders: 0, spend: 500 }, { norm_query: 'чужой бренд', views: 300, clicks: 6, atbs: 0, orders: 0, spend: 90 },
     { norm_query: 'сомнительный', views: 300, clicks: 6, atbs: 0, orders: 0, spend: 90 }, { norm_query: 'хороший', views: 9000, clicks: 300, atbs: 60, orders: 20, spend: 900 }, { norm_query: 'уже убран', views: 1, clicks: 50, atbs: 0, orders: 0, spend: 900 }];
   const sets = [];
