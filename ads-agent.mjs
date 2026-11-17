@@ -46,6 +46,10 @@ export const DEFAULTS = {
   // closed ones that the numbers say will pay are carried out without waiting (pausing and starting are the agent's own
   // call); the rest wait for «запуск N» in Telegram
   plan: { enabled: true, maxVariants: 5, budget: 1000, maxPerRun: 3, auto: true },
+  // Campaigns should not sit on pause: a loser is first repaired from inside (bid down by bid.maxStepPct per step, bad queries out)
+  // for up to maxSteps; a loss pause gets a trial restart (cleaned queries, lower bid) after retestDays, at most maxRetests times;
+  // only after that the agent asks the owner whether to close it
+  repair: { enabled: true, maxSteps: 3, retestDays: 7, maxRetests: 2 },
   // Ozon «Оплата за клик». Its own mode: stays "dry-run" until the owner has seen a plan built from real Ozon data.
   ozon: { mode: 'dry-run', maxCpcRub: 60, maxDropsPerRun: 5, launch: { enabled: false, maxPerRun: 1, maxTotal: 3, weeklyBudget: 3500 } },
   llm: { enabled: true, model: 'claude-opus-5-5', effort: 'medium', leadEffort: 'high', helperEffort: 'medium', maxHelpers: 5 },
@@ -442,6 +446,16 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   for (const m of metrics) {
     const st = stOf(m), api = apis[m.store];
     let dec = guard(proposed.get(m.uid), m, cfg, st, now);
+    // Repair before pause: a losing campaign whose goods earn before ads is first fixed from inside — the bid goes down
+    // step by step while bad queries are excluded (step 5). Pause only when the ladder is used up or the bid is already minimal.
+    const fixable = cfg.repair.enabled && m.status === 9 && !m.noCogs && m.margin != null && m.margin > 0.02;
+    if (dec.action === 'stop' && fixable && (st.repairSteps || 0) < cfg.repair.maxSteps) {
+      const k = (st.repairSteps || 0) + 1, why = dec.reason;
+      const fix = guard({ id: m.id, action: 'lower', bidPct: cfg.bid.maxStepPct, reason: '' }, m, cfg, st, now);
+      dec = fix.action === 'lower'
+        ? { ...fix, repair: k, reason: 'Не ставлю на паузу — сначала улучшаю кампанию (шаг ' + k + ' из ' + cfg.repair.maxSteps + '): снижаю ставку на ' + -fix.bidPct + '% и убираю запросы, которые не продают. ' + why }
+        : { id: m.id, action: 'keep', bidPct: 0, reason: 'Улучшаю кампанию (сделано шагов: ' + (k - 1) + ' из ' + cfg.repair.maxSteps + '). ' + why, blocked: fix.blocked };
+    } else if (dec.action !== 'stop' && st.repairSteps && m.status === 9 && !stopReason(m, cfg)) mark(m, { repairSteps: 0 });   // recovered: a fresh ladder next time
     if (dec.action === 'stop' && ++stops > cfg.stop.maxPerRun) dec = { ...dec, action: 'keep', blocked: 'лимит закрытий за один запуск (' + cfg.stop.maxPerRun + ')' };
     // Pause instead of closing: the campaign keeps its queries and minus phrases; closing for good only with the owner's «закрыть N»
     if (dec.action === 'stop' && !cfg.stop.hardClose) dec = m.status === 9 ? { ...dec, action: 'pause', loss: true, reason: 'Ставлю на паузу, а не закрываю: собранные запросы и минус-фразы сохранятся' + (m.platform === 'ozon' ? '' : ', закрою только с вашего разрешения') + '. ' + dec.reason } : { ...dec, action: 'keep', blocked: 'уже на паузе' };
@@ -482,14 +496,21 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
       act.note = 'Целевой ДРР в Ozon: ' + cur + '% → ' + next + '%';
       todo = () => api.setCir(m.id, m.nms.map((n) => n.nm), next);
     } else blocked = 'автостратегия Ozon сама управляет ставкой — могу только включать и выключать кампанию';
+    // Nothing left to lower while the campaign still loses: only now a pause (it keeps its queries; a trial restart comes later)
+    if (blocked && dec.repair && ++stops <= cfg.stop.maxPerRun) {
+      Object.assign(act, { action: 'pause', loss: true, bidPct: 0, reason: 'Снижать ставку уже некуда (' + blocked + '), а кампания всё ещё в минусе — ставлю на паузу. Запросы и минус-фразы сохранятся, через ' + cfg.repair.retestDays + ' дн. попробую перезапустить с чистыми запросами. ' + dec.reason.replace(/^Не ставлю на паузу[^.]*\.\s*/, '') });
+      delete act.bids; delete act.note;
+      row.action = 'pause'; row.reason = act.reason; blocked = null;
+      todo = () => api.pause(m.id);
+    }
     if (blocked) { row.action = 'keep'; row.blocked = blocked; continue; }
     await done(act, m.store, todo);
     row.result = act.result;
     out.actions.push(act);
     if (act.result === 'ok') {
-      if (dec.action === 'lower' || dec.action === 'raise') mark(m, { lastBidAt: now });
-      if (dec.action === 'pause') mark(m, { pausedByAgent: true, pausedFor: dec.loss ? 'loss' : 'stock', pausedAt: now });
-      if (dec.action === 'resume' || dec.action === 'stop') mark(m, { pausedByAgent: false, pausedFor: null, pausedAt: null });
+      if (act.action === 'lower' || act.action === 'raise') mark(m, { lastBidAt: now, ...(dec.repair ? { repairSteps: dec.repair } : {}) });
+      if (act.action === 'pause') mark(m, { pausedByAgent: true, pausedFor: act.loss ? 'loss' : 'stock', pausedAt: now });
+      if (act.action === 'resume' || act.action === 'stop') mark(m, { pausedByAgent: false, pausedFor: null, pausedAt: null });
     }
     if (live(m.store)) await sleep(250);
   }
@@ -532,15 +553,33 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     // never brings back on its own a campaign the owner chose to close
     variants.filter((v) => v.kind === 'restart' || (v.kind === 'recreate' && !hist.some((h) => h.id === v.id && h.approved) && left-- > 0)).forEach((v) => { if (!chosen.some((x) => vKey(x) === vKey(v))) chosen.push({ ...v, by: 'agent' }); });
   }
+  // Trial restart: a WB campaign that has sat on a loss pause for repair.retestDays comes back with every bad query
+  // excluded and a lower bid; a week of new numbers decides (the repair ladder or a pause again)
+  const pausedSince = (m) => { const st = camp[ck(m)] || {}; if (st.pausedAt) return st.pausedAt; const h = hist.filter((x) => x.id === m.id && x.store === m.store && x.action === 'pause' && x.result === 'ok').pop(); return h ? Date.parse(h.t) : null; };
+  if (cfg.repair.enabled) metrics.forEach((m) => {
+    const st = camp[ck(m)] || {}, since = pausedSince(m), n = (st.retests || 0) + 1;
+    if (cfg.protect.map(String).includes(String(m.id)) || m.status !== 11 || st.pausedFor !== 'loss' || n > cfg.repair.maxRetests || m.noCogs || !(m.margin > 0.02)) return;
+    if (!since || now - since < cfg.repair.retestDays * DAY || chosen.some((v) => v.kind === 'restart' && v.id === m.id)) return;
+    chosen.push({ kind: 'restart', retest: n, by: 'agent', store: m.store, id: m.id, name: m.name, key: m.skus[0], skus: m.nms.map((x) => String(x.nm)), bidPct: -cfg.bid.maxStepPct, budget: cfg.plan.budget,
+      why: 'Пробный перезапуск после ' + Math.round((now - since) / DAY) + ' дн. паузы (попытка ' + n + ' из ' + cfg.repair.maxRetests + '): все плохие запросы исключены, ставка −' + cfg.bid.maxStepPct + '%. Неделю смотрю на новые цифры.' });
+  });
   {
     for (const v of chosen.slice(0, cfg.plan.maxPerRun)) {
       if (v.kind !== 'restart') launchLeft.wb--;
       const api = apis[v.store], m = v.kind === 'restart' ? metrics.find((x) => x.store === v.store && x.id === v.id) : null;
-      const act = { t: out.generated, store: v.store, platform: 'wb', action: v.kind === 'restart' ? 'restart' : 'launch', plan: v.by === 'owner' ? v.n : undefined, auto: v.by === 'agent' || undefined, vkey: vKey(v), id: v.kind === 'restart' ? v.id : undefined, sku: v.sku || (v.skus || [])[0], key: v.key, name: v.name,
-        reason: (v.by === 'owner' ? 'По вашему ответу в Telegram (вариант ' + v.n + '). ' : v.kind === 'restart' ? 'Сам перезапускаю: после чистки запросов кампания должна окупаться. ' : 'Сам запускаю новую кампанию вместо закрытой, с её минус-фразами. ') + v.why };
+      const act = { t: out.generated, store: v.store, platform: m ? m.platform : 'wb', action: v.kind === 'restart' ? 'restart' : 'launch', plan: v.by === 'owner' ? v.n : undefined, auto: v.by === 'agent' || undefined, vkey: vKey(v), id: v.kind === 'restart' ? v.id : undefined, sku: v.sku || (v.skus || [])[0], key: v.key, name: v.name,
+        reason: (v.by === 'owner' ? 'По вашему ответу в Telegram (вариант ' + v.n + '). ' : v.retest ? '' : v.kind === 'restart' ? 'Сам перезапускаю: после чистки запросов кампания должна окупаться. ' : 'Сам запускаю новую кампанию вместо закрытой, с её минус-фразами. ') + v.why };
       if (!api) { act.result = 'error'; act.error = 'нет токена магазина'; out.actions.push(act); approvedNow.push(act); continue; }
       if (v.kind === 'restart' && (!m || m.status !== 11)) { act.result = 'error'; act.error = 'кампания уже не на паузе'; out.actions.push(act); approvedNow.push(act); continue; }
       await done(act, v.store, async () => {
+        if (v.kind === 'restart' && m.platform === 'ozon') {
+          // Ozon: no query exclusions through the API — the restart comes with a lower bid or a lower target ДРР
+          if (m.strategy === 'TARGET_BIDS') { const items = ozonBids(m, v.bidPct, cfg, await api.minBid(m.nms.map((n) => n.nm))); if (items.length) await api.setBids(m.id, items); }
+          else if (m.strategy === 'TARGET_CIR') { const set = m.nms.map((n) => n.cir).filter((x) => x > 0), cur = set.length ? Math.round(set.reduce((a, b) => a + b, 0) / set.length) : 15; await api.setCir(m.id, m.nms.map((n) => n.nm), Math.max(5, cur - Math.max(1, Math.round((cur * cfg.bid.maxStepPct) / 100)))); }
+          await api.start(m.id);
+          mark(m, { pausedByAgent: false, pausedFor: null, pausedAt: null, lastBidAt: now, restartedAt: now, ...(v.retest ? { retests: v.retest } : {}) });
+          return;
+        }
         if (v.kind === 'restart') {
           const view = views.find((x) => x.uid === m.uid);
           for (const i of (view ? view.items : [])) {
@@ -551,7 +590,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
           if (v.bidPct) { const items = newBids(m, v.bidPct, cfg, await api.minBids(m)); if (items.length) await api.setBids(m.id, items); }
           if (m.budget == null || m.budget < 100) { await api.deposit(m.id, v.budget, cfg.budget.source); await sleep(1500); }
           await api.start(m.id);
-          mark(m, { pausedByAgent: false, pausedFor: null, pausedAt: null, lastBidAt: now, restartedAt: now });
+          mark(m, { pausedByAgent: false, pausedFor: null, pausedAt: null, lastBidAt: now, restartedAt: now, ...(v.retest ? { retests: v.retest } : {}) });
           return;
         }
         const skus = v.skus || [v.sku];
@@ -583,10 +622,11 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   {
     const gone = new Set(closedNow.filter((a) => a.result !== 'error').map((a) => a.id).concat((approvals && approvals.keep || []).map((n) => (asks0.find((x) => x.n === n) || {}).id)));
     const restartIds = new Set(variants.filter((v) => v.kind === 'restart').map((v) => v.id).concat(approvedNow.map((a) => a.id)));
-    const pausedSince = (m) => { const st = camp[m.id] || {}; if (st.pausedAt) return st.pausedAt; const h = hist.filter((x) => x.id === m.id && x.action === 'pause' && x.result === 'ok').pop(); return h ? Date.parse(h.t) : null; };
     const want = metrics.filter((m) => {
       const st = camp[m.id] || {};
       if (m.platform === 'ozon' || m.status !== 11 || st.pausedFor !== 'loss' || gone.has(m.id) || restartIds.has(m.id)) return false;
+      // ask only once the trial restarts are used up (or ads cannot help: the goods lose money before ads)
+      if (cfg.repair.enabled && !m.noCogs && m.margin > 0.02 && (st.retests || 0) < cfg.repair.maxRetests) return false;
       if (st.closeDeclinedAt && now - st.closeDeclinedAt < 30 * DAY) return false;
       const since = pausedSince(m);
       return since && now - since >= cfg.stop.askAfterDays * DAY;
@@ -693,6 +733,8 @@ export function skillsView({ memory, hist, camp, views, metrics, noOzonKey = [],
     ['minus', 'Исключает плохие поисковые запросы (низкая конверсия, дорогой клик, нерелевантные)', first((a) => a.action === 'minus' && a.n > 0), 'запрос, на который набралось достаточно кликов без заказов'],
     ['transfer', 'Переносит исключения между кампаниями одного товара', first((a) => a.action === 'minus' && a.moved > 0), 'у товара должно быть две кампании или новая вместо закрытой'],
     ['boost', 'Поднимает ставки на кластеры, которые продают', first((a) => a.action === 'boost'), 'кампания с ручной ставкой CPM и продающими кластерами'],
+    ['repair', 'Чинит убыточные кампании изнутри: шаг за шагом снижает ставку и чистит запросы, пауза — только в крайнем случае', first((a) => a.action === 'lower' && /улучшаю кампанию/.test(a.reason || '')), 'первая убыточная кампания в боевом режиме'],
+    ['retest', 'Сам пробует перезапустить кампанию после паузы — с чистыми запросами и ставкой ниже', first((a) => a.action === 'restart' && /Пробный перезапуск/.test(a.reason || '')), 'неделя паузы у кампании, поставленной из-за убытка'],
     ['restart', 'Перезапускает кампании после чистки запросов, когда это окупается', first((a) => a.action === 'restart'), 'кампания на паузе, которую чистка запросов выведет в плюс'],
     ['launch', 'Запускает новые кампании на прибыльные товары без рекламы', first((a) => a.action === 'launch'), 'товар с запасом маржи и остатков'],
     ['ask', 'Спрашивает в Telegram разрешение закрыть кампанию', closeAsk.length || first((a) => a.action === 'stop' && a.approved) ? (memory.skillsAt || {}).ask || now : null, 'кампания на паузе из-за убытка дольше 5 дней'],
@@ -726,6 +768,8 @@ function makePlan({ out, hist, metrics, views, variants, skipped = [], plan, cfg
   const rows = out.campaigns;
   const cool = rows.filter((r) => r.blocked && /жду статистику/.test(r.blocked)).length;
   if (cool) next.push('Проверю ставки ещё в ' + cool + ' ' + plural(cool, 'кампании', 'кампаниях', 'кампаниях') + ', когда накопится статистика после прошлых изменений.');
+  const fix = rows.filter((r) => /улучшаю кампанию|Улучшаю кампанию/.test(r.reason || '')).length;
+  if (fix) next.push('Чиню ' + fix + ' ' + plural(fix, 'убыточную кампанию', 'убыточные кампании', 'убыточных кампаний') + ' вместо паузы: снижаю ставку по шагам и убираю запросы без продаж; на паузу — только если не поможет.');
   const lim = rows.filter((r) => r.blocked && /лимит закрытий/.test(r.blocked)).length;
   if (lim) next.push('Поставлю на паузу ещё ' + lim + ' ' + plural(lim, 'убыточную кампанию', 'убыточные кампании', 'убыточных кампаний') + ' (за раз не больше ' + cfg.stop.maxPerRun + ').');
   const check = views.filter((v) => v.kind === 'active').reduce((s, v) => s + v.items.reduce((t, i) => t + i.clusters.filter((c) => c.flag === 'check').length, 0), 0);

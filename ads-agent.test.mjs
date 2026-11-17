@@ -25,7 +25,7 @@ function mockApi(calls) {
     minBids: async (c) => Object.fromEntries(c.nms.map((n) => [n.nm, { combined: 25000 }])),
     setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create') };
 }
-const go = async (over = {}, extra = {}) => { const calls = []; const out = await run({ cfg: mergeConfig(over), data, market, state: extra.state || {}, memory: extra.memory, apis: { wb1: { ...mockApi(calls), ...(extra.api || {}) } }, now: extra.now || NOW, brain: extra.brain }); return { out, calls, by: Object.fromEntries(out.campaigns.map((c) => [c.id, c])) }; };
+const go = async (over = {}, extra = {}) => { const calls = []; const out = await run({ cfg: mergeConfig({ repair: { enabled: false }, ...over }), data, market, state: extra.state || {}, memory: extra.memory, apis: { wb1: { ...mockApi(calls), ...(extra.api || {}) } }, now: extra.now || NOW, brain: extra.brain }); return { out, calls, by: Object.fromEntries(out.campaigns.map((c) => [c.id, c])) }; };
 
 // 1. Rules on their own
 {
@@ -55,7 +55,7 @@ const go = async (over = {}, extra = {}) => { const calls = []; const out = awai
   assert.ok(out.camp[102].lastBidAt && out.camp[107].pausedByAgent);
   assert.equal(out.camp[103].pausedFor, 'loss'); assert.equal(out.camp[107].pausedFor, 'stock');
   // next run 2 hours later: cooldown blocks a second bid change
-  const calls2 = []; const again = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market, state: out, apis: { wb1: mockApi(calls2) }, now: NOW + 2 * 3600e3 });
+  const calls2 = []; const again = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live', repair: { enabled: false } }), data, market, state: out, apis: { wb1: mockApi(calls2) }, now: NOW + 2 * 3600e3 });
   assert.ok(!calls2.some((c) => c[0] === 'setBids'), 'повторно ставку в течение суток не меняет');
   assert.match(again.campaigns.find((c) => c.id === 102).blocked, /жду статистику/);
 }
@@ -198,7 +198,7 @@ console.log('ads-agent: launch checks passed');
   assert.equal(r2.camp[201].pausedFor, null); assert.ok(r2.camp[201].restartedAt);
   // plan.auto (default): the agent restarts it itself — starting and pausing are its own call; the plan no longer lists it
   calls.length = 0;
-  const r3 = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: { camp: { 201: { pausedByAgent: true, pausedFor: 'loss' } } }, apis: { wb1: api }, now: NOW });
+  const r3 = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live', repair: { enabled: false } }), data, market: m2, state: { camp: { 201: { pausedByAgent: true, pausedFor: 'loss' } } }, apis: { wb1: api }, now: NOW });
   assert.ok(calls.some((c) => c[0] === 'start' && c[1] === 201), 'перезапуск сам, без ответа');
   assert.equal(r3.autoLaunched[0].action, 'restart'); assert.equal(r3.plan.variants.filter((x) => x.kind === 'restart').length, 0);
   assert.match(r3.actions.find((a) => a.action === 'restart').reason, /^Сам перезапускаю/);
@@ -210,7 +210,7 @@ console.log('ads-agent: launch checks passed');
   const calls = [], rec = (name) => async (...a) => { calls.push([name, ...a]); };
   const api = { list: async () => [normCampaign(camp)], minBids: async () => ({}), clusters: async (items) => items.map((i) => ({ ...i, stats: [] })), getMinus: async (items) => items.map((i) => ({ ...i, norm_queries: ['плохое 1', 'плохое 2'] })),
     setMinus: rec('setMinus'), setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create') };
-  const cfg = mergeConfig({ stores: ['wb1'], mode: 'live' });
+  const cfg = mergeConfig({ stores: ['wb1'], mode: 'live', repair: { enabled: false } });
   const early = await run({ cfg, data, market: m2, state: { camp: { 301: { pausedByAgent: true, pausedFor: 'loss', pausedAt: NOW - 2 * 864e5 } } }, apis: { wb1: api }, now: NOW });
   assert.equal(early.closeAsk.length, 0, 'на паузе меньше 5 дней — не спрашивает');
   const r1 = await run({ cfg, data, market: m2, state: { camp: { 301: { pausedByAgent: true, pausedFor: 'loss', pausedAt: NOW - 6 * 864e5 } } }, apis: { wb1: api }, now: NOW });
@@ -247,7 +247,7 @@ console.log('ads-agent: launch checks passed');
   const shift = (x) => ({ ...x, days: x.days.map((d) => [new Date(Date.parse(d[0]) + 8 * 864e5).toISOString().slice(0, 10), d[1], d[2], d[3]]) });
   const better = { ...market, ads: market.ads.map((a) => shift(a.id === 102 ? ad(102, 2, 3000, 30, 30000) : a)) };
   const calls = [];
-  const later = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: better, state: first.out, memory: first.out.memory, apis: { wb1: mockApi(calls) }, now: NOW + 8 * 864e5 });
+  const later = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live', repair: { enabled: false } }), data, market: better, state: first.out, memory: first.out.memory, apis: { wb1: mockApi(calls) }, now: NOW + 8 * 864e5 });
   const o = later.memory.outcomes.find((x) => x.id === 102);
   assert.equal(o.verdict, 'helped'); assert.equal(o.effect, 1400, 'прибыль выросла на 200 ₽ в день');
   assert.equal(later.memory.outcomes.find((x) => x.id === 103).verdict, 'helped', 'закрытие убыточной кампании');
@@ -303,5 +303,24 @@ console.log('ads-agent: launch checks passed');
   const { sumClusterDays } = await import('./ads-agent.mjs');
   const r = sumClusterDays({ advertId: 1, nmId: 2, dailyStats: [{ date: 'a', stat: { normQuery: 'q', views: 10, clicks: 3, atbs: 1, orders: 0, spend: 12.5 } }, { date: 'b', stat: { normQuery: 'q', views: 5, clicks: 2, atbs: 0, orders: 1, spend: 7.5 } }, { date: 'b', stat: { normQuery: 'w', clicks: 1, spend: 1 } }] });
   assert.deepEqual(r, { advert_id: 1, nm_id: 2, stats: [{ norm_query: 'q', views: 15, clicks: 5, atbs: 1, orders: 1, spend: 20 }, { norm_query: 'w', views: 0, clicks: 1, atbs: 0, orders: 0, spend: 1 }] }, 'дневная статистика v1 суммируется за период');
+}
+// 17. Repair before pause: a loser whose goods earn before ads is fixed from inside first; a loss pause gets trial restarts
+{
+  const r = await go({ stores: ['wb1'], mode: 'live', repair: { enabled: true } });
+  assert.equal(r.by[105].action, 'lower', 'расход без заказов — сначала снижение ставки и чистка, не пауза');
+  assert.ok(r.by[105].reason.startsWith('Не ставлю на паузу — сначала улучшаю кампанию (шаг 1 из 3)'));
+  assert.equal(r.out.camp[105].repairSteps, 1);
+  assert.equal(r.by[103].action, 'pause', 'товар в минусе ещё до рекламы — ставками не починить');
+  const used = await go({ stores: ['wb1'], mode: 'live', repair: { enabled: true } }, { state: { camp: { 105: { repairSteps: 3 } } } });
+  assert.equal(used.by[105].action, 'pause', 'три шага не помогли — пауза');
+  // a week on a loss pause: trial restart with lower bid; no question about closing while retests remain
+  const m2 = { ...market };
+  const calls = [];
+  const paused = { 105: { pausedByAgent: true, pausedFor: 'loss', pausedAt: NOW - 8 * 864e5 } };
+  const api = { ...mockApi(calls), list: async () => (await mockApi([]).list()).map((c) => (c.id === 105 ? { ...c, status: 11 } : c)) };
+  const rr = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: { camp: paused }, apis: { wb1: api }, now: NOW });
+  assert.ok(calls.some((c) => c[0] === 'start' && c[1] === 105), 'пробный перезапуск');
+  assert.ok(rr.actions.find((a) => a.action === 'restart').reason.startsWith('Пробный перезапуск после 8 дн. паузы (попытка 1 из 2)'));
+  assert.equal(rr.camp[105].retests, 1); assert.equal(rr.closeAsk.length, 0);
 }
 console.log('ads-agent: ozon, queries and learning checks passed');
