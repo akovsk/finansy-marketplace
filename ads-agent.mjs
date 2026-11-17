@@ -79,6 +79,17 @@ export function normCampaign(a) {
     }).filter((n) => n.nm),
   };
 }
+// v1 daily cluster stats → one row per cluster for the whole period (same shape as v0)
+export function sumClusterDays(it) {
+  const by = new Map();
+  (it.dailyStats || []).forEach((d) => {
+    const s = d.stat || {}, q = s.normQuery; if (!q) return;
+    const a = by.get(q) || { norm_query: q, views: 0, clicks: 0, atbs: 0, orders: 0, spend: 0 };
+    a.views += +s.views || 0; a.clicks += +s.clicks || 0; a.atbs += +s.atbs || 0; a.orders += +s.orders || 0; a.spend += +s.spend || 0;
+    by.set(q, a);
+  });
+  return { advert_id: it.advertId, nm_id: it.nmId, stats: [...by.values()] };
+}
 export function wbApi(token) {
   const call = (m, p, b) => http(token, m, p, b);
   // v3 is the current method; v2 (switched off by WB on 10 January) stays as a fallback while both exist
@@ -104,8 +115,15 @@ export function wbApi(token) {
       try { const out = await info(ids, true); if (out.length) return out; } catch (e) { log('  adverts v3:', e.message.slice(0, 160)); }
       return info(ids, false);
     },
-    // Search clusters of [{ advert_id, nm_id }] for a period (cpm campaigns only): [{ advert_id, nm_id, stats: [...] }]
-    async clusters(items, from, to) { return (await chunks(items, 100, 6500, (part) => call('POST', '/adv/v0/normquery/stats', { from, to, items: part }))).flatMap((j) => (j && j.stats) || []); },
+    // Search clusters of [{ advert_id, nm_id }] for a period: [{ advert_id, nm_id, stats: [...] }].
+    // v1 (daily, cpm and cpc campaigns) summed over the period; v0 (cpm only) if v1 fails.
+    async clusters(items, from, to) {
+      try {
+        const v1 = (await chunks(items, 100, 6500, (part) => call('POST', '/adv/v1/normquery/stats', { from, to, items: part.map((x) => ({ advertId: x.advert_id, nmId: x.nm_id })) }))).flatMap((j) => (j && j.items) || []);
+        return v1.map(sumClusterDays);
+      } catch (e) { log('  normquery v1:', e.message.slice(0, 200)); }
+      return (await chunks(items, 100, 6500, (part) => call('POST', '/adv/v0/normquery/stats', { from, to, items: part }))).flatMap((j) => (j && j.stats) || []);
+    },
     async getMinus(items) { return (await chunks(items, 100, 300, (part) => call('POST', '/adv/v0/normquery/get-minus', { items: part }))).flatMap((j) => (j && j.items) || []); },
     // Replaces the whole minus list of one product in one campaign, so always send existing + new
     setMinus: (id, nm, list) => call('POST', '/adv/v0/normquery/set-minus', { advert_id: id, nm_id: nm, norm_queries: list }),
@@ -303,7 +321,7 @@ export function classifyCluster(c, orderProfit, q) {
 }
 async function loadClusters(api, ms, ctx, camp, now) {
   const { cfg, econ, market, storeName, today } = ctx, q = cfg.queries;
-  const pick = ms.filter((m) => m.status === 9 && m.payType === 'cpm' && m.w30.spend > 0 && !cfg.protect.map(String).includes(String(m.id)) && !((camp[m.id] || {}).lastMinusAt > now - q.cooldownDays * DAY))
+  const pick = ms.filter((m) => m.status === 9 && m.w30.spend > 0 && !cfg.protect.map(String).includes(String(m.id)) && !((camp[m.id] || {}).lastMinusAt > now - q.cooldownDays * DAY))
     .sort((a, b) => b.w30.spend - a.w30.spend).slice(0, q.maxCampaigns);
   const nmsOf = (m) => { const withSpend = new Set(m.skus.map((k) => k.split('|')[1])); const l = m.nms.filter((n) => withSpend.has(String(n.nm))); return (l.length ? l : m.nms).slice(0, 5); };
   const items = pick.flatMap((m) => nmsOf(m).map((n) => ({ advert_id: m.id, nm_id: n.nm })));

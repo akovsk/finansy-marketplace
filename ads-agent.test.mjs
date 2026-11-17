@@ -203,4 +203,9 @@ console.log('ads-agent: launch checks passed');
   const m = normCampaign({ advertId: 6, status: 9, settings: { name: 'N', paymentType: 'cpm', placements: ['search', 'recommendations'] }, nms: [{ nmId: 8, bids: [{ type: 'search', value: 20000 }, { type: 'recommendations', value: 15000 }] }] });
   assert.deepEqual(newBids(m, 10, mergeConfig({}), {}).map((x) => [x.placement, x.kop]), [['search', 22000], ['recommendations', 16500]]);
 }
+{
+  const { sumClusterDays } = await import('./ads-agent.mjs');
+  const r = sumClusterDays({ advertId: 1, nmId: 2, dailyStats: [{ date: 'a', stat: { normQuery: 'q', views: 10, clicks: 3, atbs: 1, orders: 0, spend: 12.5 } }, { date: 'b', stat: { normQuery: 'q', views: 5, clicks: 2, atbs: 0, orders: 1, spend: 7.5 } }, { date: 'b', stat: { normQuery: 'w', clicks: 1, spend: 1 } }] });
+  assert.deepEqual(r, { advert_id: 1, nm_id: 2, stats: [{ norm_query: 'q', views: 15, clicks: 5, atbs: 1, orders: 1, spend: 20 }, { norm_query: 'w', views: 0, clicks: 1, atbs: 0, orders: 0, spend: 1 }] }, 'дневная статистика v1 суммируется за период');
+}
 console.log('ads-agent: ozon, queries and learning checks passed');
