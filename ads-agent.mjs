@@ -14,6 +14,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { ozonApi, ozonBids } from './ozon-ads.mjs';
 import { loadMemory, applyTuning, tune, snapshot, evaluateOutcomes, autoTune, learnedView, makeBrain } from './ads-brain.mjs';
+import { readQueries, planMinus, planClusterBids, kbBad, kbAddBad, kbPrune } from './ads-queries.mjs';
+import { buildVariants, parseApprovals, planText, tg } from './ads-plan.mjs';
+export { judgeCluster, relatedQuery, planMinus } from './ads-queries.mjs';
 
 const DAY = 864e5;
 const R = (x) => Math.round(+x || 0);
@@ -26,13 +29,19 @@ const readJson = (name, fallback) => { try { return JSON.parse(readFileSync(new 
 export const DEFAULTS = {
   mode: 'dry-run', stores: ['wb1', 'wb2', 'oz1', 'oz2'], protect: [],
   targetShare: 0.6, maxDrr: 0.25, minSpend: 1500, minClicks: 150,
-  stop: { noOrdersSpend: 3000, overMarginFactor: 1.4, maxPerRun: 5 },
+  // WB: a loss-making campaign is paused, not closed — closing is irreversible and throws away its queries and minus phrases
+  stop: { noOrdersSpend: 3000, overMarginFactor: 1.4, maxPerRun: 5, hardClose: false },
   bid: { maxStepPct: 25, upStepPct: 15, cooldownHours: 24, maxCpmKop: 100000, maxCpcKop: 5000, minOrdersToRaise: 5, minStockDaysToRaise: 14 },
   stock: { pauseWhenOut: true, resumeDays: 5 },
   budget: { autoTopUp: false, topUpSum: 1000, dailyCap: 5000, source: 1 },
   launch: { enabled: false, maxPerRun: 1, maxTotal: 5, budget: 1000, minStock: 30, minStockDays: 45, minMargin: 0.25, minSales30: 10, minRating: 4.5, minHeadroom: 1.3, paymentType: 'cpm' },
   // Search-query cleanup (WB): exclude clusters that took clicks and money and brought no orders
-  queries: { enabled: true, maxCampaigns: 20, minClicks: 20, minSpend: 200, irrelevantMinSpend: 50, costFactor: 2, maxPerCampaign: 15, cooldownDays: 3 },
+  // minExpected: exclude a query without orders once the product's usual conversion would have given this many;
+  // relatedStrongExpected: the same for the product's own wording; lowCrShare / cpcFactor: conversion and click price
+  // against the product's average (excluded only when the order then costs more than it earns)
+  queries: { enabled: true, maxCampaigns: 40, minClicks: 20, minSpend: 200, irrelevantMinSpend: 50, minExpected: 2, relatedStrongExpected: 5, costFactor: 2, lowCrShare: 0.4, cpcFactor: 2, goodShare: 0.6, maxPerCampaign: 25, maxTransfer: 300, cooldownDays: 2, boostGood: true },
+  // Development plan with numbered launch variants; the owner approves them in Telegram
+  plan: { enabled: true, maxVariants: 5, budget: 1000, maxPerRun: 3 },
   // Ozon «Оплата за клик». Its own mode: stays "dry-run" until the owner has seen a plan built from real Ozon data.
   ozon: { mode: 'dry-run', maxCpcRub: 60, maxDropsPerRun: 5, launch: { enabled: false, maxPerRun: 1, maxTotal: 3, weeklyBudget: 3500 } },
   llm: { enabled: true, model: 'claude-opus-5-5', effort: 'medium', leadEffort: 'high', helperEffort: 'medium', maxHelpers: 5 },
@@ -127,6 +136,8 @@ export function wbApi(token) {
     async getMinus(items) { return (await chunks(items, 100, 300, (part) => call('POST', '/adv/v0/normquery/get-minus', { items: part }))).flatMap((j) => (j && j.items) || []); },
     // Replaces the whole minus list of one product in one campaign, so always send existing + new
     setMinus: (id, nm, list) => call('POST', '/adv/v0/normquery/set-minus', { advert_id: id, nm_id: nm, norm_queries: list }),
+    // Bids on single search clusters (campaigns with a manual CPM bid only)
+    setClusterBids: (bids) => call('POST', '/api/advert/v1/normquery/bids', { bids }),
     // Lowest bid WB accepts, kopecks: { nm: { search, recom, combined } }
     async minBids(c) {
       const res = {};
@@ -228,8 +239,8 @@ export function stopReason(m, cfg) {
 export function ruleDecision(m, cfg, st) {
   const D = (action, reason, bidPct = 0) => ({ id: m.id, action, bidPct, reason });
   if (m.status === 11) {
-    if (st.pausedByAgent && m.stockDays >= cfg.stock.resumeDays) return D('resume', 'Товар снова в наличии (хватит на ' + R(Math.min(m.stockDays, 999)) + ' дн.) — включаю кампанию, которую сам ставил на паузу.');
-    return D('keep', 'На паузе — не трогаю.');
+    if (st.pausedByAgent && st.pausedFor !== 'loss' && m.stockDays >= cfg.stock.resumeDays) return D('resume', 'Товар снова в наличии (хватит на ' + R(Math.min(m.stockDays, 999)) + ' дн.) — включаю кампанию, которую сам ставил на паузу.');
+    return D('keep', st.pausedFor === 'loss' ? 'На паузе из-за убытка: запросы и минус-фразы сохранены, перезапуск — в плане, если он окупится.' : 'На паузе — не трогаю.');
   }
   if (m.status !== 9) return D('keep', 'Не активна.');
   const stop = stopReason(m, cfg);
@@ -277,7 +288,7 @@ export function guard(dec, m, cfg, st, now) {
   switch (dec.action) {
     case 'stop': return stopReason(m, cfg) ? { ...dec, bidPct: 0 } : keep('для закрытия не хватает данных или убыток не подтверждён');
     case 'pause': return m.status === 9 ? { ...dec, bidPct: 0 } : keep('кампания не активна');
-    case 'resume': return m.status === 11 && st.pausedByAgent && m.stock > 0 ? { ...dec, bidPct: 0 } : keep('включаю только кампании, которые сам ставил на паузу');
+    case 'resume': return m.status === 11 && st.pausedByAgent && st.pausedFor !== 'loss' && m.stock > 0 ? { ...dec, bidPct: 0 } : keep('сам включаю только кампании, поставленные на паузу из-за остатков');
     case 'lower': case 'raise': {
       if (m.status !== 9) return keep('кампания не активна');
       if (cool) return keep('ставка менялась меньше ' + cfg.bid.cooldownHours + ' ч назад — жду статистику');
@@ -309,56 +320,6 @@ const forClaude = (m, rule, st, cfg) => ({
   lastActions: (st.recent || []).map((a) => a.t.slice(0, 10) + ' ' + a.action + (a.bidPct ? ' ' + a.bidPct + '%' : '')),
   days: m.days.slice().sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(-30).map((d) => [d[0], R(d[1]), R(d[2]), R(d[3])]),
 });
-
-/* ------------------------------ Search queries (WB) ------------------------------ */
-// Word stems of a product title: "Тушенка говяжья белорусская" → тушен, говяж, белор
-const stems = (t) => String(t || '').toLowerCase().replace(/ё/g, 'е').split(/[^a-zа-я0-9]+/).filter((w) => w.length >= 4 && !/^\d+$/.test(w)).map((w) => w.slice(0, 5));
-// A query that shares a word with the product is its own traffic: a month without orders there is not proof it is junk
-export const relatedQuery = (q, nameStems) => stems(q).some((w) => nameStems.has(w));
-// Code can prove waste on numbers only for queries unrelated to the product: "waste" and "costly" are excluded outright.
-// "check" (no orders, but related to the product or too little data) goes to a helper that reads the query against the product.
-export function classifyCluster(c, orderProfit, q, related = false) {
-  if (!c.orders && c.clicks >= q.minClicks && c.spend >= Math.max(q.minSpend, orderProfit || 0)) return related ? 'check' : 'waste';
-  if (c.orders && orderProfit > 0 && c.spend >= q.minSpend * 3 && c.spend / c.orders > orderProfit * q.costFactor) return related ? null : 'costly';
-  if (!c.orders && c.spend >= q.irrelevantMinSpend) return 'check';
-  return null;
-}
-async function loadClusters(api, ms, ctx, camp, now) {
-  const { cfg, econ, market, storeName, today } = ctx, q = cfg.queries;
-  const pick = ms.filter((m) => m.status === 9 && m.w30.spend > 0 && !cfg.protect.map(String).includes(String(m.id)) && !((camp[m.id] || {}).lastMinusAt > now - q.cooldownDays * DAY))
-    .sort((a, b) => b.w30.spend - a.w30.spend).slice(0, q.maxCampaigns);
-  const nmsOf = (m) => { const withSpend = new Set(m.skus.map((k) => k.split('|')[1])); const l = m.nms.filter((n) => withSpend.has(String(n.nm))); return (l.length ? l : m.nms).slice(0, 5); };
-  const items = pick.flatMap((m) => nmsOf(m).map((n) => ({ advert_id: m.id, nm_id: n.nm })));
-  if (!items.length) return [];
-  const stats = await api.clusters(items, new Date(Date.parse(today) - 29 * DAY).toISOString().slice(0, 10), today);
-  const minus = await api.getMinus(items);
-  const key = (a, n) => a + '|' + n, sMap = new Map(stats.map((x) => [key(x.advert_id, x.nm_id), x.stats || []])), mMap = new Map(minus.map((x) => [key(x.advert_id, x.nm_id), x.norm_queries || []]));
-  return pick.map((m) => ({
-    uid: m.uid, name: m.name, m,
-    items: nmsOf(m).map((n) => {
-      const k = storeName + '|' + n.nm, e = econ.get(k), f = (market.funnel || {})[k];
-      const orderProfit = e && e.q > 0 ? ((e.np - e.adv) / e.q) * (f && f.bp ? clamp(f.bp / 100, 0.3, 1) : 0.9) : 0;
-      const existing = mMap.get(key(m.id, n.nm)) || [], gone = new Set(existing);
-      const own = new Set([...stems(e && e.name), ...stems(m.name), ...stems(n.subject)]);
-      const all = (sMap.get(key(m.id, n.nm)) || []).filter((c) => c.norm_query && !gone.has(c.norm_query)).map((c) => {
-        const x = { q: c.norm_query, views: R(c.views), clicks: R(c.clicks), atbs: R(c.atbs), orders: R(c.orders), spend: R(c.spend != null ? c.spend : c.cpc != null ? c.cpc * c.clicks : (c.cpm || 0) * (c.views || 0) / 1000) };
-        x.flag = classifyCluster(x, orderProfit, q, relatedQuery(x.q, own)); return x;
-      });
-      const best = all.filter((c) => c.orders && !c.flag).sort((a, b) => b.orders - a.orders).slice(0, 5).map((c) => ({ ...c, flag: 'good' }));
-      return { nm: n.nm, key: k, product: (e && e.name) || '', orderProfit: R(orderProfit), existing, clusters: all.filter((c) => c.flag).sort((a, b) => b.spend - a.spend).slice(0, 40).concat(best) };
-    }).filter((i) => i.clusters.length),
-  })).filter((v) => v.items.length);
-}
-// Queries to exclude in one campaign: proven by code + proposed by a helper and confirmed by the numbers
-export function planMinus(view, proposed, cfg) {
-  const asked = new Set((proposed || []).filter((p) => p.uid === view.uid).flatMap((p) => p.queries.map((x) => p.nm + '|' + x)));
-  let left = cfg.queries.maxPerCampaign;
-  return view.items.map((i) => {
-    const add = i.clusters.filter((c) => c.flag === 'waste' || c.flag === 'costly' || (c.flag === 'check' && asked.has(i.nm + '|' + c.q))).slice(0, Math.max(0, left));
-    left -= add.length;
-    return { nm: i.nm, key: i.key, existing: i.existing, add };
-  }).filter((p) => p.add.length);
-}
 
 /* ------------------------------ New campaigns ------------------------------ */
 // What ads in this store cost and convert on average — the base for estimating a product that has no ads yet
@@ -393,7 +354,7 @@ export function launchCandidates(storeName, storeId, campaigns, econ, market, cf
 }
 
 /* ------------------------------ Run ------------------------------ */
-export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = null, apis, now = Date.now(), brain = null }) {
+export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = null, apis, now = Date.now(), brain = null, approvals = null }) {
   const memory = loadMemory(mem0);
   const cfg = applyTuning(cfg0, memory);       // the owner's limits with the agent's own tuned thresholds on top
   const today = new Date(now + 3 * 3600e3).toISOString().slice(0, 10);
@@ -405,7 +366,9 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   const ck = (m) => (m.platform === 'ozon' ? m.uid : m.id);
   const stOf = (m) => ({ ...(camp[ck(m)] || {}), recent: hist.filter((h) => h.id === m.id && h.store === m.store).slice(-4) });
   const mark = (m, patch) => { camp[ck(m)] = { ...(camp[ck(m)] || {}), ...patch }; };
-  const metrics = [], byUid = new Map(), pool = [], views = [], storeName = {};
+  const metrics = [], byUid = new Map(), pool = [], views = [], storeName = {}, archiveInfo = {};
+  // Campaigns the agent closed before it learned to pause: their excluded queries are read once and kept
+  const closedByAgent = hist.filter((h) => h.action === 'stop' && h.result === 'ok' && h.platform !== 'ozon' && !String(h.store).startsWith('oz') && h.key && !(camp[h.id] || {}).harvested);
   // New campaigns: at most launch.maxTotal ever launched by the agent on each marketplace (counted from its history)
   const launchedOk = hist.filter((a) => a.action === 'launch' && a.result === 'ok');
   const closedSkus = new Set(launchedOk.filter((a) => hist.some((h) => h.action === 'stop' && h.result === 'ok' && h.id === a.id)).map((a) => String(a.sku)));
@@ -427,13 +390,22 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     mine.forEach((m) => { metrics.push(m); byUid.set(m.uid, m); });
     const L = launchCfg(platOf(sid));
     if (L.enabled) launchCandidates(store.name, sid, list, econ, market, { ...cfg, launch: L }, closedSkus, accountAvg(stats ? [...stats.values()] : (market.ads || []).filter((a) => a.s === sid))).slice(0, L.maxPerRun * 3).forEach((c) => pool.push({ ...c, store: sid, platform: platOf(sid) }));
-    if (cfg.queries.enabled && api.clusters) { try { (await loadClusters(api, mine, ctx, camp, now)).forEach((v) => views.push(v)); } catch (e) { out.errors.push(store.name + ': поисковые запросы не получены — ' + e.message.slice(0, 200)); } }
+    if (cfg.queries.enabled && api.clusters) {
+      const archive = closedByAgent.filter((h) => h.store === sid).map((h) => ({ id: h.id, name: h.name, nms: [h.key.split('|')[1]] }));
+      archive.forEach((a) => { const m = campaignMetrics({ id: a.id, platform: 'wb', status: 7, name: a.name, nms: a.nms.map((nm) => ({ nm: +nm, search: 0, recom: 0 })) }, (market.ads || []).find((x) => x.s === sid && x.id === a.id), ctx); archiveInfo[a.id] = { spend: m.w30.spend, orders: m.w30.orders, ordSum: m.w30.ordSum, buyout: m.buyout, margin: m.margin, target: m.target }; });
+      try {
+        (await readQueries(api, mine, ctx, camp, now, memory, archive)).forEach((v) => views.push(v));
+        archive.forEach((a) => { camp[a.id] = { ...(camp[a.id] || {}), harvested: now }; });
+      } catch (e) { out.errors.push(store.name + ': поисковые запросы не получены — ' + e.message.slice(0, 200)); }
+    }
   }
   if (noOzonKey.length) out.notes.push('Ozon (' + noOzonKey.join(', ') + '): нет ключа Performance API — реклама Ozon пока не управляется.');
 
   // 2. Learn from what past actions did, before deciding anything new
   const fresh = evaluateOutcomes(memory, hist, (a) => byUid.get(a.store + ':' + a.id), now);
   const tuned = autoTune(memory, cfg, now);
+
+  const variants = cfg.plan.enabled ? buildVariants({ views, pool, metrics, memory, cfg, archiveInfo }) : [];
 
   // 3. Decide: rules as the baseline, the Claude team on top when it is available
   metrics.sort((a, b) => b.w30.spend - a.w30.spend);     // biggest spenders first, so the per-run stop limit goes to the costliest losers
@@ -444,7 +416,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     try {
       plan = await brain({
         rows: forLlm.map((m) => forClaude(m, rules.get(m.uid), stOf(m), cfg)),
-        clusters: views.map((v) => ({ uid: v.uid, name: v.name, items: v.items.map(({ existing, key, ...i }) => ({ ...i, alreadyExcluded: existing.length })) })),
+        clusters: views.filter((v) => v.kind === 'active').map((v) => ({ uid: v.uid, name: v.name, items: v.items.map(({ existing, key, ...i }) => ({ ...i, alreadyExcluded: existing.length, knownBadElsewhere: kbBad(memory, key).length })) })),
+        variants: variants.map(({ n, kind, name, why, profitMonth, transfer, budget }) => ({ n, kind, name, why, profitMonth, transfer, budget })),
         candidates: pool.map(({ profit, ...c }) => ({ ...c, margin: r3(c.margin), profit30: R(profit) })),
         memory, limits: { maxStepPct: cfg.bid.maxStepPct, upStepPct: cfg.bid.upStepPct, cooldownHours: cfg.bid.cooldownHours, minSpend: cfg.minSpend, targetShare: cfg.targetShare, maxDrr: cfg.maxDrr },
       });
@@ -462,6 +435,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     const st = stOf(m), api = apis[m.store];
     let dec = guard(proposed.get(m.uid), m, cfg, st, now);
     if (dec.action === 'stop' && ++stops > cfg.stop.maxPerRun) dec = { ...dec, action: 'keep', blocked: 'лимит закрытий за один запуск (' + cfg.stop.maxPerRun + ')' };
+    // WB: pause instead of the irreversible close, so the campaign keeps its queries and minus phrases
+    if (dec.action === 'stop' && m.platform !== 'ozon' && !cfg.stop.hardClose) dec = m.status === 9 ? { ...dec, action: 'pause', loss: true, reason: 'Ставлю на паузу, а не закрываю: собранные запросы и минус-фразы сохранятся. ' + dec.reason } : { ...dec, action: 'keep', blocked: 'уже на паузе' };
     const row = { id: m.id, store: m.store, platform: m.platform, name: m.name, status: m.status, spend30: R(m.w30.spend), orders30: m.w30.orders, drr30: fin(m.drr30), drr14: fin(m.drr14), margin: r3(m.margin), target: r3(m.target), stock: m.stock, action: dec.action, bidPct: dec.bidPct || 0, reason: dec.reason, blocked: dec.blocked };
     out.campaigns.push(row); rowOf.set(m.uid, row);
 
@@ -477,7 +452,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     }
     if (dec.action === 'keep') continue;
 
-    const act = { t: out.generated, store: m.store, platform: m.platform, id: m.id, name: m.name, key: m.skus[0], action: dec.action, bidPct: dec.bidPct || 0, reason: dec.reason, snap: snapshot(m) };
+    const act = { t: out.generated, store: m.store, platform: m.platform, id: m.id, name: m.name, key: m.skus[0], action: dec.action, bidPct: dec.bidPct || 0, reason: dec.reason, snap: snapshot(m), ...(dec.loss ? { loss: true } : {}) };
     let todo, blocked = null;
     if (dec.action !== 'lower' && dec.action !== 'raise') todo = () => api[dec.action === 'resume' ? 'start' : dec.action](m.id);
     else if (m.platform !== 'ozon') {
@@ -505,23 +480,72 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     out.actions.push(act);
     if (act.result === 'ok') {
       if (dec.action === 'lower' || dec.action === 'raise') mark(m, { lastBidAt: now });
-      if (dec.action === 'pause') mark(m, { pausedByAgent: true });
-      if (dec.action === 'resume' || dec.action === 'stop') mark(m, { pausedByAgent: false });
+      if (dec.action === 'pause') mark(m, { pausedByAgent: true, pausedFor: dec.loss ? 'loss' : 'stock' });
+      if (dec.action === 'resume' || dec.action === 'stop') mark(m, { pausedByAgent: false, pausedFor: null });
     }
     if (live(m.store)) await sleep(250);
   }
   const stays = (m) => { const r = rowOf.get(m.uid); return m.status === 9 && r && r.action !== 'stop' && r.action !== 'pause'; };
 
-  // 5. Search queries: exclude the ones that only burn money
+  // 5. Search queries: exclude the ones that cannot pay, carry over exclusions made in other campaigns of the product,
+  //    and bid up the clusters that sell where WB allows it
   for (const v of views) {
-    if (!stays(v.m)) continue;
-    for (const p of planMinus(v, plan && plan.minus, cfg)) {
-      const spend = p.add.reduce((s, c) => s + c.spend, 0), noOrders = p.add.every((c) => !c.orders);
-      const act = { t: out.generated, store: v.m.store, platform: 'wb', id: v.m.id, name: v.m.name, key: p.key, action: 'minus', nm: p.nm, n: p.add.length, queries: p.add.slice(0, 12).map((c) => c.q), snap: snapshot(v.m),
-        reason: 'Убираю ' + p.add.length + ' ' + plural(p.add.length, 'поисковый запрос', 'поисковых запроса', 'поисковых запросов') + ': за 30 дней на них ушло ' + rub(spend) + (noOrders ? ' без единого заказа' : ', а заказы с них обходятся дороже прибыли') + '. Например: ' + p.add.slice(0, 3).map((c) => '«' + c.q + '»').join(', ') + '.' };
-      await done(act, v.m.store, () => apis[v.m.store].setMinus(v.m.id, p.nm, [...new Set([...p.existing, ...p.add.map((c) => c.q)])].slice(0, 1000)));
-      if (act.result === 'ok') mark(v.m, { lastMinusAt: now });
+    if (v.kind !== 'active' || !stays(v.m)) continue;
+    const coolMinus = (camp[v.m.id] || {}).lastMinusAt > now - cfg.queries.cooldownDays * DAY;
+    for (const p of planMinus(v, plan && plan.minus, cfg, memory)) {
+      const add = coolMinus ? [] : p.add;
+      if (!add.length && !p.transfer.length) continue;
+      const spend = add.reduce((s, c) => s + c.spend, 0);
+      const parts = [];
+      if (add.length) parts.push('Исключаю ' + add.length + ' ' + plural(add.length, 'запрос', 'запроса', 'запросов') + ' (' + rub(spend) + ' за 30 дней): ' + add.slice(0, 3).map((c) => '«' + c.q + '» — ' + c.why).join('; ') + '.');
+      if (p.transfer.length) parts.push('Переношу ' + p.transfer.length + ' ' + plural(p.transfer.length, 'исключённый запрос', 'исключённых запроса', 'исключённых запросов') + ' этого товара из других кампаний.');
+      const act = { t: out.generated, store: v.m.store, platform: 'wb', id: v.m.id, name: v.m.name, key: p.key, action: 'minus', nm: p.nm, n: add.length, moved: p.transfer.length, queries: add.slice(0, 12).map((c) => c.q), snap: snapshot(v.m), reason: parts.join(' ') };
+      await done(act, v.m.store, () => apis[v.m.store].setMinus(v.m.id, +p.nm, [...new Set([...p.existing, ...add.map((c) => c.q), ...p.transfer])].slice(0, 1000)));
+      if (act.result === 'ok') { if (add.length) mark(v.m, { lastMinusAt: now }); kbAddBad(memory, p.key, add, 'агент', now); }
       out.actions.push(act);
+    }
+    const bids = (camp[v.m.id] || {}).lastClusterBidAt > now - 7 * DAY ? [] : planClusterBids(v, cfg);
+    if (bids.length) {
+      const act = { t: out.generated, store: v.m.store, platform: 'wb', id: v.m.id, name: v.m.name, key: v.items[0].key, action: 'boost', n: bids.length, queries: bids.map((b) => b.normQuery), reason: 'Поднимаю ставку на ' + bids.length + ' ' + plural(bids.length, 'кластер', 'кластера', 'кластеров') + ', которые продают дешевле прибыли: ' + bids.slice(0, 3).map((b) => '«' + b.normQuery + '»').join(', ') + ' — до ' + bids[0].bidMinorUnits / 100 + ' ₽ за 1000 показов.' };
+      await done(act, v.m.store, () => apis[v.m.store].setClusterBids(bids));
+      if (act.result === 'ok') mark(v.m, { lastClusterBidAt: now });
+      out.actions.push(act);
+    }
+  }
+
+  // 5b. Launch variants the owner approved in Telegram (from the plan he saw)
+  const prevPlan = state.plan || null, approvedNow = [];
+  if (approvals && prevPlan && (approvals.all || approvals.nums.length)) {
+    const chosen = (prevPlan.variants || []).filter((x) => approvals.all || approvals.nums.includes(x.n)).slice(0, cfg.plan.maxPerRun);
+    for (const v of chosen) {
+      const api = apis[v.store], m = v.kind === 'restart' ? metrics.find((x) => x.store === v.store && x.id === v.id) : null;
+      const act = { t: out.generated, store: v.store, platform: 'wb', action: v.kind === 'restart' ? 'restart' : 'launch', plan: v.n, id: v.kind === 'restart' ? v.id : undefined, sku: v.sku || (v.skus || [])[0], key: v.key, name: v.name,
+        reason: 'По вашему ответу в Telegram (вариант ' + v.n + '). ' + v.why };
+      if (!api) { act.result = 'error'; act.error = 'нет токена магазина'; out.actions.push(act); approvedNow.push(act); continue; }
+      if (v.kind === 'restart' && (!m || m.status !== 11)) { act.result = 'error'; act.error = 'кампания уже не на паузе'; out.actions.push(act); approvedNow.push(act); continue; }
+      await done(act, v.store, async () => {
+        if (v.kind === 'restart') {
+          const view = views.find((x) => x.uid === m.uid);
+          for (const i of (view ? view.items : [])) {
+            const add = i.clusters.filter((c) => c.flag === 'waste' || c.flag === 'costly' || c.flag === 'check').map((c) => c.q);
+            await api.setMinus(m.id, +i.nm, [...new Set([...i.existing, ...add, ...kbBad(memory, i.key)])].slice(0, 1000));
+            kbAddBad(memory, i.key, add, 'агент', now);
+          }
+          if (v.bidPct) { const items = newBids(m, v.bidPct, cfg, await api.minBids(m)); if (items.length) await api.setBids(m.id, items); }
+          if (m.budget == null || m.budget < 100) { await api.deposit(m.id, v.budget, cfg.budget.source); await sleep(1500); }
+          await api.start(m.id);
+          mark(m, { pausedByAgent: false, pausedFor: null, lastBidAt: now });
+          return;
+        }
+        const skus = v.skus || [v.sku];
+        const id = await api.create(('AI ' + skus[0] + ' ' + cleanTitle(v.name)).slice(0, 60), skus.map(Number), cfg.launch.paymentType);
+        act.id = +id || (id && (id.id || id.advertId)) || null;
+        if (!act.id) throw new Error('WB не вернул номер кампании');
+        await sleep(3000);
+        for (const sku of skus) { const list = kbBad(memory, storeName[v.store] + '|' + sku); if (list.length) await api.setMinus(act.id, +sku, list.slice(0, 1000)); }
+        await api.deposit(act.id, v.budget, cfg.budget.source); await sleep(1500); await api.start(act.id);
+      });
+      out.actions.push(act); approvedNow.push(act);
     }
   }
 
@@ -574,6 +598,9 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     if (Array.isArray(plan.helpers) && plan.helpers.length) memory.helpers = plan.helpers.slice(0, 6).map((h) => ({ role: String(h.role).slice(0, 80), task: String(h.task).slice(0, 500) }));
   }
   out.learned = learnedView(memory, fresh, tuned, plan ? plan.helpersUsed : []);
+  kbPrune(memory);
+  out.approved = approvedNow.map((a) => ({ n: a.plan, action: a.action, name: a.name, id: a.id || null, result: a.result, error: a.error || null }));
+  if (cfg.plan.enabled) out.plan = makePlan({ out, hist, metrics, views, variants, plan, cfg, now, done: approvedNow, live });
   out.candidates = pool.map((c) => ({ store: c.store, key: c.key, name: c.name, per1000: c.per1000, headroom: c.headroom, go: !(veto.get(c.key) && veto.get(c.key).go === false) }));
 
   const n = (a) => out.actions.filter((x) => x.action === a && x.result !== 'error').length;
@@ -589,6 +616,31 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     (failed.length ? ' Не выполнено из-за ошибок площадки: ' + failed.length + (failed.some((x) => /read-only/i.test(x.error || '')) ? ' — токен WB только на чтение, нужен токен «Продвижение» с правом записи.' : '.') : '');
   out.campaigns.sort((a, b) => (a.action === 'keep') - (b.action === 'keep') || b.spend30 - a.spend30);
   return { ...out, history: hist.slice(-400), camp, deposits: Object.fromEntries(Object.entries(deposits).slice(-14)), memory };
+}
+const cleanTitle = (s) => String(s || '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ').trim();
+// The plan the owner gets in Telegram: what was done in 24 h, what comes next, numbered launch variants
+function makePlan({ out, hist, metrics, views, variants, plan, cfg, now, done, live }) {
+  const since = now - DAY;
+  const real = hist.filter((a) => a.result === 'ok' && Date.parse(a.t) >= since);
+  const acts = real.length ? real : out.actions.filter((a) => a.result === 'planned');
+  const cnt = (f) => acts.filter(f).length, sum = (f, k) => acts.filter(f).reduce((s, a) => s + (a[k] || 0), 0);
+  const isLoss = (a) => a.action === 'stop' || (a.action === 'pause' && a.loss);
+  const d = { planned: !real.length && acts.length > 0, paused: cnt(isLoss), lower: cnt((a) => a.action === 'lower'), raise: cnt((a) => a.action === 'raise'), minus: sum((a) => a.action === 'minus', 'n'), transfer: sum((a) => a.action === 'minus', 'moved'),
+    launch: cnt((a) => a.action === 'launch'), resume: cnt((a) => a.action === 'resume' || a.action === 'restart'), savedDay: R(acts.filter(isLoss).reduce((s, a) => s + ((a.snap && a.snap.spendDay) || 0), 0)) };
+  const next = [];
+  const rows = out.campaigns;
+  const cool = rows.filter((r) => r.blocked && /жду статистику/.test(r.blocked)).length;
+  if (cool) next.push('Проверю ставки ещё в ' + cool + ' ' + plural(cool, 'кампании', 'кампаниях', 'кампаниях') + ', когда накопится статистика после прошлых изменений.');
+  const lim = rows.filter((r) => r.blocked && /лимит закрытий/.test(r.blocked)).length;
+  if (lim) next.push('Поставлю на паузу ещё ' + lim + ' ' + plural(lim, 'убыточную кампанию', 'убыточные кампании', 'убыточных кампаний') + ' (за раз не больше ' + cfg.stop.maxPerRun + ').');
+  const check = views.filter((v) => v.kind === 'active').reduce((s, v) => s + v.items.reduce((t, i) => t + i.clusters.filter((c) => c.flag === 'check').length, 0), 0);
+  if (check) next.push(check + ' ' + plural(check, 'спорный запрос', 'спорных запроса', 'спорных запросов') + ' (похожи на сам товар, но не продают) — ' + (plan ? 'разберёт помощник.' : 'жду больше данных, без ИИ-проверки не трогаю.'));
+  const wait = hist.filter((a) => a.result === 'ok' && !a.evaluated && Date.parse(a.t) >= now - 7 * DAY && ['lower', 'raise', 'pause', 'minus', 'launch', 'restart'].includes(a.action)).length;
+  if (wait) next.push('Через неделю сравню прибыль до и после по ' + wait + ' ' + plural(wait, 'своему действию', 'своим действиям', 'своим действиям') + ' и подстрою правила.');
+  const notes = new Map(((plan && plan.variantNotes) || []).map((x) => [x.n, x]));
+  const doneN = new Set(done.map((a) => a.plan));
+  const V = variants.filter((v) => !(notes.get(v.n) && notes.get(v.n).go === false)).map((v, i) => ({ ...v, n: i + 1, note: (notes.get(v.n) || {}).note || '' }));
+  return { generated: out.generated, live: live('wb1'), done: d, next: (plan && plan.nextSteps && plan.nextSteps.length ? plan.nextSteps : next).slice(0, 5), variants: V, executed: [...doneN] };
 }
 const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
 
@@ -608,7 +660,24 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   if (!Object.keys(apis).length) { console.error('No ad API keys: WB_SAKOVSKY_TOKEN / WB_DARMIL_TOKEN / OZON_PERF_*_CLIENT_ID + _CLIENT_SECRET'); process.exit(1); }
   const useClaude = cfg.llm.enabled && (env('ANTHROPIC_API_KEY') || env('ANTHROPIC_AUTH_TOKEN'));
   log('ads agent: WB', cfg.mode, '| Ozon', cfg.ozon.mode, '| accounts', Object.keys(apis).join(','), '| decisions by', useClaude ? cfg.llm.model + ' team' : 'rules (no ANTHROPIC_API_KEY)');
-  const { memory, ...out } = await run({ cfg, data, market, state: readJson('ads-agent.json', {}), memory: readJson('ads-memory.json', null), apis, brain: useClaude ? makeBrain(cfg) : null });
+  const state = readJson('ads-agent.json', {});
+  const tgToken = env('TELEGRAM_BOT_TOKEN'), tgChat = env('TELEGRAM_CHAT_ID');
+  let approvals = null;
+  if (tgToken && tgChat && state.plan) {
+    try {
+      const ups = await tg(tgToken, 'getUpdates', { offset: String((state.tgOffset || 0) + 1), limit: '100', allowed_updates: '["message"]' });
+      approvals = parseApprovals(ups, tgChat, state.plan.generated);
+      if (approvals.last) state.tgOffset = approvals.last;
+      if (approvals.seen) log('telegram approvals:', approvals.all ? 'all' : approvals.nums.join(','));
+    } catch (e) { log('telegram:', e.message); }
+  }
+  const { memory, ...out } = await run({ cfg, data, market, state, memory: readJson('ads-memory.json', null), apis, brain: useClaude ? makeBrain(cfg) : null, approvals });
+  out.tgOffset = state.tgOffset || 0;
+  if (tgToken && tgChat && approvals && approvals.seen) {
+    const lines = out.approved.length ? out.approved.map((a) => (a.result === 'ok' ? '✅ ' : a.result === 'planned' ? '🧪 ' : '⚠️ ') + a.n + '. ' + (a.action === 'restart' ? 'Перезапустил' : 'Запустил') + ' «' + cleanTitle(a.name) + '»' + (a.id ? ' — РК № ' + a.id : '') + (a.result === 'planned' ? ' (режим проверки, в кабинете без изменений)' : '') + (a.error ? ' — не получилось: ' + a.error.slice(0, 120) : ''))
+      : ['Не нашёл таких номеров в последнем плане. Пришлите, например: запуск 1 3'];
+    try { await tg(tgToken, 'sendMessage', { chat_id: tgChat, text: lines.join('\n') }); } catch (e) { log('telegram:', e.message); }
+  }
   writeFileSync(new URL('./ads-agent.json', import.meta.url), JSON.stringify(out));
   writeFileSync(new URL('./ads-memory.json', import.meta.url), JSON.stringify(memory, null, 1));
   log('\n' + out.summary);

@@ -4,6 +4,7 @@
 // Chat: TELEGRAM_CHAT_ID; without it the chat is taken from the last message sent to the bot (write /start to it).
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { planText } from './ads-plan.mjs';
 
 const DASH = 'https://akovsk.github.io/finansy-marketplace/';
 export const WB_ADS_URL = (id) => 'https://cmp.wildberries.ru/campaigns/edit/' + id;
@@ -16,7 +17,7 @@ const mskDay = (t) => new Date(Date.parse(t) + 3 * 3600e3).toISOString().slice(0
 const ACT = {
   stop: ['Закрыта', 'bad'], pause: ['Пауза', 'warn'], resume: ['Включена', 'good'], lower: ['Ставка ниже', 'warn'],
   raise: ['Ставка выше', 'good'], launch: ['Новая кампания', 'good'], topup: ['Пополнена', 'good'],
-  minus: ['Запросы убраны', 'good'], drop: ['Товары убраны', 'good'],
+  minus: ['Запросы убраны', 'good'], drop: ['Товары убраны', 'good'], restart: ['Перезапущена', 'good'], boost: ['Ставки на запросы', 'good'],
 };
 
 export function dayReport(A, now = Date.now()) {
@@ -32,7 +33,7 @@ export function dayReport(A, now = Date.now()) {
   const n = (k) => acts.filter((a) => a.action === k && a.result !== 'error').length;
   const errors = acts.filter((a) => a.result === 'error');
   // Money: closed campaigns spent this much per day over the last 30 days
-  const saved = acts.filter((a) => a.action === 'stop' && a.result !== 'error').reduce((s, a) => s + ((byId.get(a.id) || {}).spend30 || 0) / 30, 0);
+  const saved = acts.filter((a) => (a.action === 'stop' || (a.action === 'pause' && a.loss)) && a.result !== 'error').reduce((s, a) => s + ((byId.get(a.id) || {}).spend30 || 0) / 30, 0);
   const launched = hist.filter((a) => a.action === 'launch' && a.result === 'ok').map((a) => ({ a, c: byId.get(a.id) }));
   return { today, planned, acts, errors, saved, launched, n, A };
 }
@@ -89,8 +90,11 @@ export function messageText(R) {
   const k = (x) => x >= 1000 ? (Math.round(x / 100) / 10).toString().replace('.', ',') + 'к' : String(Math.round(x));
   const L = ['📊 <b>Реклама WB · ' + d + '</b>' + (R.planned ? '  🧪 <i>тест, без изменений</i>' : ''), ''];
   if (R.saved > 0) L.push('💸 Экономия: <b>+' + k(round(R.saved, 10)) + ' ₽/день</b>  (~' + k(R.saved * 30) + ' ₽/мес)');
-  if (n('stop')) L.push('✂️ Выключено: <b>' + n('stop') + '</b>');
-  if (n('pause')) L.push('⏸ Пауза (мало стока): <b>' + n('pause') + '</b>');
+  const lossN = ok.filter((a) => a.action === 'stop' || (a.action === 'pause' && a.loss)).length, stockN = ok.filter((a) => a.action === 'pause' && !a.loss).length;
+  if (lossN) L.push('⏸ На паузу (минус, запросы сохранены): <b>' + lossN + '</b>');
+  if (stockN) L.push('⏸ Пауза (мало стока): <b>' + stockN + '</b>');
+  const qn = ok.filter((a) => a.action === 'minus').reduce((s, a) => s + (a.n || 0), 0), mv = ok.filter((a) => a.action === 'minus').reduce((s, a) => s + (a.moved || 0), 0);
+  if (qn || mv) L.push('🧹 Запросы: исключено <b>' + qn + '</b>' + (mv ? ', перенесено из других РК <b>' + mv + '</b>' : ''));
   if (n('lower') || n('raise')) L.push('🎯 Ставки: ' + [n('lower') ? '↓' + n('lower') : '', n('raise') ? '↑' + n('raise') : ''].filter(Boolean).join(' '));
   if (n('resume')) L.push('▶️ Снова в работе: <b>' + n('resume') + '</b>');
   L.push('🚀 Новые РК: <b>' + n('launch') + '</b>' + (n('launch') ? '' : '  <i>нет товара под плюс</i>'));
@@ -125,7 +129,8 @@ export function messageText(R) {
     if (list.length > max) L.push('▫️ +' + (list.length - max) + ' на картинках');
   };
   group(['launch'], '🚀 Запустил', 5);
-  group(['stop', 'pause'], '✂️ Выключил', 10);
+  group(['stop', 'pause'], '⏸ Поставил на паузу', 10);
+  group(['restart'], '▶️ Перезапустил по вашему ответу', 5);
   group(['lower', 'raise', 'resume'], '🎯 Ставки', 5);
   if (R.errors.length) L.push('', '⚠️ WB не принял ' + R.errors.length + ' — повторю на следующей проверке');
   L.push('', '⏰ Следующая проверка 06:17  ·  <a href="' + DASH + '#rk">📲 дашборд</a>');
@@ -192,7 +197,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   if (!A || !A.generated) { console.error('ads-agent.json не найден: агент ещё не запускался'); process.exit(1); }
   const R = dayReport(A), html = reportHtml(R);
   writeFileSync(new URL('./ads-report.html', import.meta.url), html);
-  if (process.argv.includes('--html')) { console.log(messageText(R)); process.exit(0); }
+  if (process.argv.includes('--html')) { console.log(messageText(R)); console.log(); console.log(planText(A)); process.exit(0); }
   const token = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) { console.error('Нет секрета TELEGRAM_BOT_TOKEN'); process.exit(1); }
 
@@ -231,6 +236,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     console.log('Альбом не отправился (' + e.message + '), шлю по одному');
     for (const [name, buf] of shots) { const f = new FormData(); f.append('chat_id', id); f.append('photo', new Blob([buf], { type: 'image/png' }), name); await tg(token, 'sendPhoto', f); }
   }
+  // The development plan with launch variants — a separate message, so the answer «запуск 1 3» goes right under it
+  const plan = planText(A);
+  if (plan) await tg(token, 'sendMessage', new URLSearchParams({ chat_id: id, text: plan, parse_mode: 'HTML', disable_web_page_preview: 'true' }));
   if (found) await tg(token, 'sendMessage', new URLSearchParams({ chat_id: id, text: 'Отчёт пришёл в этот чат. Чтобы он приходил сюда всегда, добавьте секрет TELEGRAM_CHAT_ID со значением ' + id + ' (GitHub → Settings → Secrets → Actions).' }));
   console.log('Отчёт отправлен:', shots.map(([n]) => n).join(', '));
 }

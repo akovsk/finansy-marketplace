@@ -1006,6 +1006,7 @@ th[aria-sort] { color:var(--color-fg); }
     <div class="ts-kpis" data-draw="rk-kpis" data-source="sales"></div>
     <div class="ts-adsum" data-draw="ads-sum" data-source="sales"></div>
     <div class="ts-sec" data-draw="rk-agent" data-source="sales"></div>
+    <div class="ts-panel" data-draw="rk-plan" data-source="sales"></div>
     <div class="ts-rk-groups" data-draw="rk-groups" data-source="sales"></div>
   </section>
 
@@ -2595,7 +2596,7 @@ dash.loader('sales', {
   });
 
   /* ---- AI ads agent: what it decided and did on its last run (ads-agent.json, written by ads-agent.mjs) ---- */
-  const AG_ACT = { minus: ['Запросы убраны', 'ts-good', 'Убрать запросы'], drop: ['Товары убраны', 'ts-good', 'Убрать товары'], lower: ['Ставка ниже', 'ts-neg', 'Снизить ставку'], raise: ['Ставка выше', 'ts-good', 'Поднять ставку'], stop: ['Закрыта', 'ts-neg', 'Закрыть'], pause: ['Пауза', null, 'Поставить на паузу'], resume: ['Включена', 'ts-good', 'Включить'], topup: ['Бюджет пополнен', null, 'Пополнить бюджет'], launch: ['Новая кампания', 'ts-good', 'Запустить кампанию'] };
+  const AG_ACT = { restart: ['Перезапущена', 'ts-good', 'Перезапустить'], boost: ['Ставки на запросы', 'ts-good', 'Поднять ставки на запросы'], minus: ['Запросы убраны', 'ts-good', 'Убрать запросы'], drop: ['Товары убраны', 'ts-good', 'Убрать товары'], lower: ['Ставка ниже', 'ts-neg', 'Снизить ставку'], raise: ['Ставка выше', 'ts-good', 'Поднять ставку'], stop: ['Закрыта', 'ts-neg', 'Закрыть'], pause: ['Пауза', null, 'Поставить на паузу'], resume: ['Включена', 'ts-good', 'Включить'], topup: ['Бюджет пополнен', null, 'Пополнить бюджет'], launch: ['Новая кампания', 'ts-good', 'Запустить кампанию'] };
   dash.draw('rk-agent', (box) => {
     const s = dash.data('agent'), A = s.status === 'ok' && s.data[0] && s.data[0].generated ? s.data[0] : null;
     box.replaceChildren();
@@ -2614,26 +2615,60 @@ dash.loader('sales', {
     if (!acts.length) return;
     const list = T.el('div', 'ts-xlist');
     acts.forEach((a) => {
-      const k = AG_ACT[a.action] || [a.action, null];
+      let k = AG_ACT[a.action] || [a.action, null];
       const row = T.el('div', 'ts-xrow'), b = T.el('div', 'ts-xrow-b');
       row.append(a.key ? T.photo(a.key, true) : T.el('div', 'ts-ph ts-ph-s'));
       b.append(T.el('div', 'ts-xrow-t', a.name || ('Кампания ' + (a.id || a.sku))));
       b.append(T.el('div', 'ts-xrow-n', a.reason || ''));
+      if (a.moved) b.append(T.el('div', 'ts-xrow-n', 'Перенесено исключений из других кампаний товара: ' + a.moved));
       if (a.queries && a.queries.length) b.append(T.el('div', 'ts-xrow-n', 'Запросы: ' + a.queries.slice(0, 6).map((q) => '«' + q + '»').join(', ') + (a.n > 6 ? ' и ещё ' + (a.n - 6) : '')));
       if (a.note) b.append(T.el('div', 'ts-xrow-n', a.note));
       if (a.bids && a.bids.length) b.append(T.el('div', 'ts-xrow-n', 'Ставка: ' + a.bids.slice(0, 3).map((x) => x.wasRub + ' → ' + x.rub + ' ₽').join(', ') + (a.bids.length > 3 ? ' и ещё ' + (a.bids.length - 3) : '')));
       if (a.error) b.append(T.el('div', 'ts-xrow-n ts-neg', (a.platform === 'ozon' ? 'Ozon' : 'WB') + ' ответил ошибкой: ' + a.error));
       row.append(b);
       const r = T.el('div', 'ts-xrow-r');
+      if (a.action === 'pause' && a.loss) k = ['Пауза: минус', 'ts-neg', 'На паузу: минус'];
       r.append(T.el('b', k[1], a.result === 'ok' ? k[0] : (k[2] || k[0])), T.el('small', a.result === 'error' ? 'ts-neg' : null, a.result === 'ok' ? 'сделано' : a.result === 'error' ? 'ошибка' : 'план'));
       row.append(r); list.append(row);
     });
     box.append(list);
   });
+  // Development plan: next steps and numbered launch variants (approved in Telegram: «запуск 1 3»)
+  const PV_KIND = { restart: 'Перезапуск', recreate: 'Новая РК вместо закрытой', new: 'Новая РК' };
+  function planBox(A, box) {
+    const P = A.plan; if (!P) return;
+    const sec = T.el('div', 'ts-bot-learn');
+    sec.append(T.el('h4', null, 'План по кабинету'));
+    if ((P.next || []).length) { const ul = T.el('ul'); P.next.forEach((x) => ul.append(T.el('li', null, x))); sec.append(ul); }
+    const V = P.variants || [];
+    if (!V.length) sec.append(T.el('p', 'ts-muted', 'Вариантов запуска в плюс сейчас нет.'));
+    else {
+      const list = T.el('div', 'ts-xlist');
+      V.forEach((v) => {
+        const row = T.el('div', 'ts-xrow'), b = T.el('div', 'ts-xrow-b');
+        row.append(v.key ? T.photo(v.key, true) : T.el('div', 'ts-ph ts-ph-s'));
+        b.append(T.el('div', 'ts-xrow-t', v.n + '. ' + PV_KIND[v.kind] + ': ' + (v.name || 'арт. ' + v.sku)));
+        b.append(T.el('div', 'ts-xrow-n', v.why));
+        const extra = [v.transfer ? 'перенос ' + v.transfer + ' исключённых запросов' : '', v.good && v.good.length ? 'продают: ' + v.good.slice(0, 2).map((q) => '«' + q + '»').join(', ') : '', v.note || ''].filter(Boolean);
+        if (extra.length) b.append(T.el('div', 'ts-xrow-n', extra.join(' · ')));
+        row.append(b);
+        const r = T.el('div', 'ts-xrow-r'); r.append(T.el('b', 'ts-good', '+' + T.rub(v.profitMonth)), T.el('small', null, 'в месяц · бюджет ' + T.rub(v.budget)));
+        row.append(r); list.append(row);
+      });
+      sec.append(list, T.el('p', 'ts-muted', 'Чтобы запустить, ответьте боту в Telegram: «запуск» и номера вариантов, например «запуск 1 3». Агент сделает это при следующей проверке.'));
+    }
+    box.append(sec);
+  }
+  dash.draw('rk-plan', (box) => {
+    const s = dash.data('agent'), A = s.status === 'ok' && s.data[0] && s.data[0].generated ? s.data[0] : null;
+    box.replaceChildren();
+    if (!A || !A.plan) { box.style.display = 'none'; return; }
+    box.style.display = ''; planBox(A, box);
+  });
 
   /* ---- Overview: the two ad agents at a glance ---- */
   const TUNE_NAME = { targetShare: 'целевая доля ДРР от маржи', minSpend: 'минимум расхода для решений', minClicks: 'минимум кликов для решений', 'bid.maxStepPct': 'шаг снижения ставки, %', 'bid.upStepPct': 'шаг повышения ставки, %', 'bid.cooldownHours': 'пауза между сменами ставки, ч', 'stop.overMarginFactor': 'порог закрытия (ДРР к марже)', 'stop.noOrdersSpend': 'расход без заказов для закрытия, ₽', 'queries.minClicks': 'кликов для отсева запроса', 'queries.minSpend': 'расход для отсева запроса, ₽', 'launch.minMargin': 'минимальная маржа для запуска', 'launch.minHeadroom': 'запас окупаемости для запуска' };
-  const BOT_ACT = { stop: 'закрыто', pause: 'на паузу', resume: 'включено', lower: 'ставка ниже', raise: 'ставка выше', minus: 'убрано запросов', drop: 'убрано товаров', launch: 'запущено', topup: 'пополнено' };
+  const BOT_ACT = { moved: 'перенесено исключений', restart: 'перезапущено', boost: 'ставок на запросы', stop: 'закрыто', pause: 'на паузу', resume: 'включено', lower: 'ставка ниже', raise: 'ставка выше', minus: 'убрано запросов', drop: 'убрано товаров', launch: 'запущено', topup: 'пополнено' };
   const mskDay = (t) => new Date(Date.parse(t) + 3 * 3600e3).toISOString().slice(0, 10);
   dash.draw('bots', (box) => {
     const s = dash.data('agent'), A = s.status === 'ok' && s.data[0] && s.data[0].generated ? s.data[0] : null;
@@ -2665,7 +2700,7 @@ dash.loader('sales', {
       // What it did today (or plans to, in check mode)
       const src = mode === 'live' ? (A.history || []).filter((a) => a.result === 'ok') : (A.actions || []);
       const todays = src.filter((a) => plat(a) === p && a.t && mskDay(a.t) === today);
-      const cnt = {}; todays.forEach((a) => { cnt[a.action] = (cnt[a.action] || 0) + (a.action === 'minus' ? a.n || 1 : a.action === 'drop' ? (a.skus || []).length || 1 : 1); });
+      const cnt = {}; todays.forEach((a) => { if (a.action === 'minus') { if (a.n) cnt.minus = (cnt.minus || 0) + a.n; if (a.moved) cnt.moved = (cnt.moved || 0) + a.moved; return; } cnt[a.action] = (cnt[a.action] || 0) + (a.action === 'drop' ? (a.skus || []).length || 1 : 1); });
       const ul = T.el('ul', 'ts-bot-acts');
       Object.entries(cnt).forEach(([k, v]) => ul.append(T.el('li', null, (BOT_ACT[k] || k) + ': ' + v)));
       card.append(T.el('small', 'ts-muted', mode === 'live' ? 'Сегодня сделано:' : 'План на сегодня:'));
@@ -2687,6 +2722,8 @@ dash.loader('sales', {
       if ((L.helpers || []).length) lw.append(T.el('p', 'ts-muted', 'Помощники в этом запуске: ' + L.helpers.map((x) => x.role).join(', ') + '.'));
       box.append(lw);
     }
+    const nv = ((A.plan || {}).variants || []).length;
+    if (nv) box.append(T.el('p', 'ts-muted', 'В плане ' + nv + ' ' + (nv === 1 ? 'вариант' : nv < 5 ? 'варианта' : 'вариантов') + ' запуска в плюс — подробности во вкладке «Реклама», запуск по ответу в Telegram.'));
     const go = T.el('button', 'ts-btn', 'Все решения агентов'); go.type = 'button';
     go.addEventListener('click', () => { const t = document.querySelector('[data-tab="rk"]'); if (t) t.click(); });
     box.append(go);

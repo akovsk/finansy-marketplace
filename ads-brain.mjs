@@ -16,6 +16,7 @@ export const TUNE_BOUNDS = {
   'stop.overMarginFactor': [1.2, 2], 'stop.noOrdersSpend': [1500, 6000],
   'queries.minClicks': [10, 60], 'queries.minSpend': [100, 1000],
   'launch.minMargin': [0.15, 0.4], 'launch.minHeadroom': [1.1, 2.5],
+  'queries.minExpected': [1.5, 4], 'queries.lowCrShare': [0.25, 0.6], 'queries.cpcFactor': [1.5, 3],
 };
 const DEFAULT_HELPERS = [
   { role: 'Чистильщик запросов', task: 'Просмотреть поисковые кластеры кампаний и найти нерелевантные товару запросы, которые тратят бюджет без заказов.' },
@@ -120,7 +121,7 @@ Reading a campaign row:
 - target: the ДРР the seller wants (a share of margin, capped). drr30 / drr14 / drr7: ad spend divided by bought-out order revenue in that window; "inf" is spend with no orders. Seven days is noisy, and orders are attributed a day or two late.
 - stockDays: days of stock at the current pace. Advertising something about to sell out wastes money; scaling needs stock.
 - lastActions: what you did to this campaign before. rule: what the seller's fixed rule set would do — a baseline to depart from when trend, stock, rating or your own history gives a reason.
-- platform and strategy. WB: "stop" closes the campaign for good. Ozon: "stop" switches it off and can be undone; with strategy TARGET_BIDS a bid change moves the cost-per-click bid, with TARGET_CIR it moves the ДРР Ozon itself aims at, and with any other strategy Ozon sets bids, so only pause and stop do anything.
+- platform and strategy. WB: "stop" pauses the campaign rather than closing it. A WB campaign carries the seller's work on search queries — the clusters it learned and the queries excluded by hand — and closing it would destroy that, so code turns every WB "stop" into a pause; a paused campaign comes back only through a plan variant the owner approves. Ozon: "stop" switches the campaign off and can be undone; with strategy TARGET_BIDS a bid change moves the cost-per-click bid, with TARGET_CIR it moves the ДРР Ozon itself aims at, and with any other strategy Ozon sets bids, so only pause and stop do anything.
 
 Actions per campaign: "keep"; "lower" / "raise" with bidPct as a positive percentage; "pause" (for stock problems); "stop". Code enforces limits after you answer — step size, bid floor and ceiling, a cooldown between bid changes, raises only while ДРР is under target, "stop" only where stopAllowed is true — and silently drops anything outside them. The seller asked for ineffective campaigns to be closed rather than left running, so do not keep a clear loss-maker alive out of caution.
 
@@ -129,6 +130,11 @@ You get better over time through your memory, which is carried between runs:
 - lessons: notes you wrote to yourself. On every run return the full list as it should now stand: keep what the evidence still supports, drop what it contradicts, add what today taught you. A good lesson is specific to this account and testable ("У кампаний на силикон снижение ставки на 25% обнуляет показы — снижать по 10–15%"), not a truism.
 - tune: thresholds of the rule set you may move when outcomes show they are miscalibrated. Each has fixed bounds, and one run can move a value by a quarter at most. Change one only with evidence, and say what evidence.
 - helpers: the standing team you want next time.
+- queries: per product, every query excluded in any campaign (by the seller's staff in the cabinet or by you) and the queries that sell. Code copies the exclusions into the other and the new campaigns of the same product; knownBadElsewhere in a cluster row is how many such exclusions exist.
+
+Search queries are where most of the waste in this account sits. Code judges every cluster of every active campaign against the product's own numbers: no orders where the product's usual conversion would already have produced some, an order that costs more than it earns, conversion far below the product's average, or a click far above its average click price. It excludes the clear cases itself; the ones that look like the product's own wording go to a helper ("check"), because such a query is often the card's main traffic.
+
+You also shape the development plan the seller reads in Telegram: nextSteps (what you intend to do over the next days, in plain words) and a note on each launch variant code computed. Variants are numbered; the seller answers with the numbers to launch.
 
 Helpers are separate model instances you brief. A helper sees only the brief you write and the data kinds you select, and reports back. Use one where a focused look pays for itself: cleaning a campaign's search queries, vetting products for a launch, working out why a campaign's numbers moved, auditing your own past decisions. Create whatever roles the account needs today. Say in the brief what to find out, why it matters, and what you need back.
 
@@ -138,7 +144,7 @@ const HELPER = `You are a helper analyst. The lead agent runs a Russian marketpl
 
 Report what you found, with the numbers behind it, and say where the data is too thin to conclude anything. A short, specific report is more useful than a complete one.
 
-If the data includes search clusters and you find queries that should be excluded, list them in "minus". A query belongs there when a buyer typing it is not looking for this product — another product type, another purpose, a competitor's brand — and it has taken spend without orders. Use the cluster strings exactly as given. Clusters flagged "waste" or "costly" are unrelated to the product and are already being excluded by code. Clusters flagged "check" are yours to judge, and many of them contain a word from the product title. Such a query is often the product's own main traffic: one month without orders is weak evidence against it, so exclude it only when the wording shows the buyer wants something else (another product type, size, purpose or brand), not merely because it has not converted yet. Code re-checks every query you list and only excludes those with spend and no orders.
+If the data includes search clusters and you find queries that should be excluded, list them in "minus". Each cluster carries the product's own conversion and click price (base), its own numbers, and why code flagged it. A query belongs in "minus" when a buyer typing it is not looking for this product — another product type, another purpose, a competitor's brand — or when it keeps taking money at a cost per order the product cannot pay. Use the cluster strings exactly as given. Clusters flagged "waste" or "costly" are already being excluded by code. Clusters flagged "check" are yours to judge: they lose money by the numbers, but most of them contain a word from the product title or have too little data. Such a query is often the product's own main traffic, so exclude it only when the wording shows the buyer wants something else (another product type, size, purpose or brand) or the numbers leave no doubt that it cannot pay. Code excludes only "check" clusters you list; anything else in your list is ignored.
 
 Write the report in Russian.`;
 
@@ -156,7 +162,7 @@ export function makeBrain(cfg) {
       return res.parsed_output;
     };
     const { rows, clusters, candidates, memory, limits } = input;
-    const mem = { lessons: memory.lessons, outcomeTotals: outcomeStats(memory), recentOutcomes: (memory.outcomes || []).slice(-25), tunedNow: memory.tuned, standingHelpers: memory.helpers };
+    const mem = { lessons: memory.lessons, queryBase: Object.fromEntries(Object.entries(memory.queries || {}).slice(0, 40).map(([k, v]) => [k, { excluded: Object.keys(v.bad).length, selling: Object.keys(v.good).slice(0, 5) }])), outcomeTotals: outcomeStats(memory), recentOutcomes: (memory.outcomes || []).slice(-25), tunedNow: memory.tuned, standingHelpers: memory.helpers };
     const brief = (r) => ({ uid: r.uid, name: r.name, platform: r.platform, status: r.status, spend30: r.spend30, orders30: r.orders30, drr30: r.drr30, drr7: r.drr7, margin: r.margin, target: r.target, stockDays: r.stockDays, rule: r.rule.action });
 
     // 1. The lead plans the run and writes briefs for the helpers it wants
@@ -188,14 +194,16 @@ export function makeBrain(cfg) {
       summary: z.string(),
       decisions: z.array(z.object({ uid: z.string(), action: z.enum(['keep', 'lower', 'raise', 'pause', 'stop']), bidPct: z.number(), reason: z.string() })),
       launches: z.array(z.object({ key: z.string(), go: z.boolean(), reason: z.string() })),
+      nextSteps: z.array(z.string()),
+      variantNotes: z.array(z.object({ n: z.number(), go: z.boolean(), note: z.string() })),
       lessons: z.array(z.string()),
       tune: z.array(z.object({ key: z.enum(Object.keys(TUNE_BOUNDS)), value: z.number(), why: z.string() })),
       helpers: z.array(z.object({ role: z.string(), task: z.string() })),
     });
     const fin = await ask(LEAD, {
       stage: 'decide',
-      instruction: 'Return one decision for every campaign. For each launch candidate say go or not: candidates already passed the filters and are sorted by expected profit per 1000 ₽ of ads, so veto one only for a reason the estimate cannot see. Then return your lessons list as it should now stand (at most 12), any threshold changes, and the standing helper team for next time (at most 6). summary: two to four sentences on the state of the ad accounts and what you changed.',
-      limits, tuneBounds: TUNE_BOUNDS, memory: mem, campaigns: rows.map(({ days, ...r }) => r), launchCandidates: candidates,
+      instruction: 'Return one decision for every campaign. For each launch candidate say go or not: candidates already passed the filters and are sorted by expected profit per 1000 ₽ of ads, so veto one only for a reason the estimate cannot see. For each plan variant give a one-sentence note for the seller and go=false only if it should not be offered at all. nextSteps: up to five concrete things you plan for the coming days. Then return your lessons list as it should now stand (at most 12), any threshold changes, and the standing helper team for next time (at most 6). summary: two to four sentences on the state of the ad accounts and what you changed.',
+      limits, tuneBounds: TUNE_BOUNDS, memory: mem, campaigns: rows.map(({ days, ...r }) => r), launchCandidates: candidates, planVariants: input.variants || [],
       helperReports: reports.map((r) => ({ role: r.role, brief: r.task, report: r.report, queriesProposedForExclusion: r.minus.reduce((s, x) => s + x.queries.length, 0) })),
     }, Final, cfg.llm.leadEffort);
     log('claude team: calls', usage.calls, 'tokens in/out', usage.in, usage.out, '| helpers:', reports.map((r) => r.role).join(', ') || 'none');

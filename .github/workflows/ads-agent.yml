@@ -44,6 +44,8 @@ jobs:
           OZON_PERF_SUAVISS_CLIENT_ID: ${{ secrets.OZON_PERF_SUAVISS_CLIENT_ID }}
           OZON_PERF_SUAVISS_CLIENT_SECRET: ${{ secrets.OZON_PERF_SUAVISS_CLIENT_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || secrets.WBBOT1 }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || secrets.TETRIPAS134BOT }}
         run: node ads-agent.mjs
 
       - name: Сохранить решения

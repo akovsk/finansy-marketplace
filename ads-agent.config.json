@@ -14,7 +14,8 @@
   "stop": {
     "noOrdersSpend": 3000,
     "overMarginFactor": 1.4,
-    "maxPerRun": 5
+    "maxPerRun": 5,
+    "hardClose": false
   },
   "bid": {
     "maxStepPct": 25,
@@ -58,13 +59,20 @@
   },
   "queries": {
     "enabled": true,
-    "maxCampaigns": 20,
+    "maxCampaigns": 40,
     "minClicks": 20,
     "minSpend": 200,
     "irrelevantMinSpend": 50,
+    "minExpected": 2,
+    "relatedStrongExpected": 5,
     "costFactor": 2,
-    "maxPerCampaign": 15,
-    "cooldownDays": 3
+    "lowCrShare": 0.4,
+    "cpcFactor": 2,
+    "goodShare": 0.6,
+    "maxPerCampaign": 25,
+    "maxTransfer": 300,
+    "cooldownDays": 2,
+    "boostGood": true
   },
   "ozon": {
     "mode": "dry-run",
@@ -76,5 +84,11 @@
       "maxTotal": 3,
       "weeklyBudget": 3500
     }
+  },
+  "plan": {
+    "enabled": true,
+    "maxVariants": 5,
+    "budget": 1000,
+    "maxPerRun": 3
   }
 }
