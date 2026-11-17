@@ -2,7 +2,9 @@
   "mode": "live",
   "stores": [
     "wb1",
-    "wb2"
+    "wb2",
+    "oz1",
+    "oz2"
   ],
   "protect": [],
   "targetShare": 0.6,
@@ -43,11 +45,36 @@
     "minRating": 4.5,
     "paymentType": "cpm",
     "maxTotal": 5,
-    "minStockDays": 45
+    "minStockDays": 45,
+    "minHeadroom": 1.3
   },
   "llm": {
     "enabled": true,
     "model": "claude-opus-5-5",
-    "effort": "medium"
+    "effort": "medium",
+    "leadEffort": "high",
+    "helperEffort": "medium",
+    "maxHelpers": 5
+  },
+  "queries": {
+    "enabled": true,
+    "maxCampaigns": 20,
+    "minClicks": 20,
+    "minSpend": 200,
+    "irrelevantMinSpend": 50,
+    "costFactor": 2,
+    "maxPerCampaign": 15,
+    "cooldownDays": 3
+  },
+  "ozon": {
+    "mode": "dry-run",
+    "maxCpcRub": 60,
+    "maxDropsPerRun": 5,
+    "launch": {
+      "enabled": false,
+      "maxPerRun": 1,
+      "maxTotal": 3,
+      "weeklyBudget": 3500
+    }
   }
 }

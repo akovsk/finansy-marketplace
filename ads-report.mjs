@@ -16,6 +16,7 @@ const mskDay = (t) => new Date(Date.parse(t) + 3 * 3600e3).toISOString().slice(0
 const ACT = {
   stop: ['Закрыта', 'bad'], pause: ['Пауза', 'warn'], resume: ['Включена', 'good'], lower: ['Ставка ниже', 'warn'],
   raise: ['Ставка выше', 'good'], launch: ['Новая кампания', 'good'], topup: ['Пополнена', 'good'],
+  minus: ['Запросы убраны', 'good'], drop: ['Товары убраны', 'good'],
 };
 
 export function dayReport(A, now = Date.now()) {
