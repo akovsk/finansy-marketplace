@@ -651,6 +651,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   }
   out.learned = learnedView(memory, fresh, tuned, plan ? plan.helpersUsed : []);
   kbPrune(memory);
+  out.learned.skills = skillsView({ memory, hist, camp, views, metrics, noOzonKey, brain: !!brain, plan, now, closeAsk: out.closeAsk });
   out.approved = approvedNow.filter((a) => a.plan).concat(closedNow).map((a) => ({ n: a.plan || a.approved, action: a.action, name: a.name, id: a.id || null, result: a.result, error: a.error || null }));
   out.autoLaunched = approvedNow.filter((a) => a.auto).map((a) => ({ action: a.action, name: a.name, id: a.id || null, result: a.result, error: a.error || null }));
   if (cfg.plan.enabled) out.plan = makePlan({ out, hist, metrics, views, variants, skipped, plan, cfg, now, done: approvedNow, live });
@@ -671,6 +672,47 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   return { ...out, history: hist.slice(-400), camp, deposits: Object.fromEntries(Object.entries(deposits).slice(-14)), memory };
 }
 const cleanTitle = (s) => String(s || '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ').trim();
+
+// Skills the agents have actually used (with the date of the first time) and what they are going to learn next.
+// A skill counts only once it was done for real in a cabinet; until then it sits in the learning plan with what it waits for.
+export function skillsView({ memory, hist, camp, views, metrics, noOzonKey = [], brain, plan, now, closeAsk = [] }) {
+  const ok = hist.filter((a) => a.result === 'ok');
+  const first = (f) => { const a = ok.filter(f).sort((x, y) => (x.t < y.t ? -1 : 1))[0]; return a ? Date.parse(a.t) : null; };
+  const kb = Object.values(memory.queries || {}), bad = kb.reduce((s, x) => s + Object.keys(x.bad || {}).length, 0), good = kb.reduce((s, x) => s + Object.keys(x.good || {}).length, 0);
+  const pending = ok.filter((a) => !a.evaluated && ['lower', 'raise', 'pause', 'minus', 'launch', 'restart', 'stop', 'drop'].includes(a.action)).length;
+  const checked = (memory.outcomes || []).length;
+  const check = views.filter((v) => v.kind === 'active').reduce((s, v) => s + v.items.reduce((t, i) => t + i.clusters.filter((c) => c.flag === 'check').length, 0), 0);
+  const ozon = metrics.some((m) => m.platform === 'ozon');
+  const harvested = Object.values(camp).some((c) => c && c.harvested);
+  // id, what the skill is, when it was first used (null = not yet), what it is waiting for
+  const S = [
+    ['bids', 'Меняет ставки по ДРР и марже товара', first((a) => a.action === 'lower' || a.action === 'raise'), 'первая кампания, где ДРР уйдёт от цели'],
+    ['pause', 'Ставит убыточные кампании на паузу, сохраняя запросы и минус-фразы', first((a) => a.action === 'pause' && a.loss), 'первая подтверждённо убыточная кампания в боевом режиме'],
+    ['kb', 'Ведёт базу запросов по каждому товару' + (bad || good ? ': ' + bad + ' плохих, ' + good + ' продающих' : ''), bad + good ? (memory.skillsAt || {}).kb || now : null, 'первые прочитанные кластеры'],
+    ['harvest', 'Сохраняет минус-фразы закрытых кампаний', harvested ? (memory.skillsAt || {}).harvest || now : null, 'закрытая кампания с минус-фразами'],
+    ['minus', 'Исключает плохие поисковые запросы (низкая конверсия, дорогой клик, нерелевантные)', first((a) => a.action === 'minus' && a.n > 0), 'запрос, на который набралось достаточно кликов без заказов'],
+    ['transfer', 'Переносит исключения между кампаниями одного товара', first((a) => a.action === 'minus' && a.moved > 0), 'у товара должно быть две кампании или новая вместо закрытой'],
+    ['boost', 'Поднимает ставки на кластеры, которые продают', first((a) => a.action === 'boost'), 'кампания с ручной ставкой CPM и продающими кластерами'],
+    ['restart', 'Перезапускает кампании после чистки запросов, когда это окупается', first((a) => a.action === 'restart'), 'кампания на паузе, которую чистка запросов выведет в плюс'],
+    ['launch', 'Запускает новые кампании на прибыльные товары без рекламы', first((a) => a.action === 'launch'), 'товар с запасом маржи и остатков'],
+    ['ask', 'Спрашивает в Telegram разрешение закрыть кампанию', closeAsk.length || first((a) => a.action === 'stop' && a.approved) ? (memory.skillsAt || {}).ask || now : null, 'кампания на паузе из-за убытка дольше 5 дней'],
+    ['outcomes', 'Проверяет результат своих решений через неделю: прибыль до и после', checked ? (memory.skillsAt || {}).outcomes || now : null, 'неделя после первых изменений' + (pending ? ' (ждут проверки: ' + pending + ')' : '')],
+    ['tune', 'Сам подстраивает свои пороги по итогам проверок', (memory.tuneLog || []).length ? (memory.skillsAt || {}).tune || now : null, 'четыре проверенных решения одного типа'],
+    ['team', 'Работает командой Claude: ведущий и помощники под задачу', brain ? (memory.skillsAt || {}).team || now : null, 'ключ ANTHROPIC_API_KEY в секретах GitHub'],
+    ['ozon', 'Управляет рекламой Ozon: ставки, целевой ДРР, товары в кампаниях', ozon ? (memory.skillsAt || {}).ozon || now : null, noOzonKey.length ? 'ключи Ozon Performance API' : 'кампании Ozon'],
+  ];
+  memory.skillsAt = memory.skillsAt || {};
+  S.forEach(([id, , at]) => { if (at && !memory.skillsAt[id]) memory.skillsAt[id] = at; });
+  const has = S.filter((s) => s[2]).map(([id, text]) => ({ id, text, since: new Date(memory.skillsAt[id]).toISOString().slice(0, 10) })).sort((a, b) => (a.since < b.since ? 1 : -1));
+  const next = [];
+  if (pending) next.push('Оценить ' + pending + ' ' + (pending === 1 ? 'своё решение' : 'своих решений') + ' через неделю после них и по итогам подстроить шаг ставок и пороги паузы.');
+  if (check) next.push('Научиться различать спорные запросы: ' + check + ' похожи на сам товар, но не продают — ' + (brain ? 'разбирает помощник.' : 'жду больше кликов; с ключом Claude их разберёт помощник.'));
+  if (!brain) next.push('Подключить команду Claude (ключ ANTHROPIC_API_KEY): тогда агент будет сам писать уроки, звать помощников и разбирать спорные запросы.');
+  if (noOzonKey.length) next.push('Освоить рекламу Ozon (' + noOzonKey.join(', ') + '): нужны ключи Performance API.');
+  ((plan && plan.learnNext) || []).forEach((x) => next.push(String(x).slice(0, 300)));
+  S.filter((s) => !s[2] && !['team', 'ozon'].includes(s[0])).forEach(([, text, , wait]) => next.push(text + ' — жду: ' + wait + '.'));
+  return { has, next: next.slice(0, 8) };
+}
 // The plan the owner gets in Telegram: what was done in 24 h, what comes next, numbered launch variants
 function makePlan({ out, hist, metrics, views, variants, skipped = [], plan, cfg, now, done, live }) {
   const since = now - DAY;

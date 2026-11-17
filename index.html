@@ -238,7 +238,14 @@ img { max-width:100%; }
 .ts-bot-acts li { font-size:12px; border:1px solid var(--color-border-line); border-radius:999px; padding:2px 9px; white-space:nowrap; }
 .ts-bot-learn { display:flex; flex-direction:column; gap:6px; }
 .ts-bot-learn h4 { margin:0; font-size:13px; }
+.ts-xrow.ts-cab { grid-template-columns:minmax(0,1fr) auto; }
 .ts-cab .ts-xrow-t { display:flex; align-items:center; gap:6px; }
+.ts-skills { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; margin-top:6px; }
+.ts-skills > div { border:1px solid var(--color-border-line); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; min-width:0; }
+.ts-skills h4 { margin:0; font-size:13px; }
+.ts-skills ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; font-size:12.5px; line-height:1.45; }
+.ts-skills li { display:grid; grid-template-columns:18px minmax(0,1fr); gap:6px; }
+.ts-skills li small { display:block; color:var(--color-fg-muted); font-size:11.5px; }
 .ts-ask { border:1px solid var(--color-border-line); border-left:3px solid var(--color-warn); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; font-size:13px; margin:8px 0; }
 .ts-ask ul { margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; line-height:1.45; }
 .ts-ask p { margin:0; }
@@ -2718,6 +2725,7 @@ dash.loader('sales', {
       card.append(hd);
       if (off || (!C.length && p === 'ozon')) {
         card.append(T.el('p', 'ts-muted', p === 'ozon' ? 'Нужен ключ Ozon Performance API (seller.ozon.ru → Настройки → API-ключи → Performance API). После этого агент начнёт с режима проверки.' : 'Нет кампаний или токена WB.'));
+        if (p === 'ozon') (A.notes || []).filter((n) => /OZON_PERF/.test(n)).forEach((n) => card.append(T.el('p', 'ts-neg', n)));
         grid.append(card); return;
       }
       const spend = act.reduce((a, c) => a + (c.spend30 || 0), 0);
@@ -2802,6 +2810,21 @@ dash.loader('sales', {
     const c = (f) => ok.filter(f).length, sum = (k) => ok.filter((a) => a.action === 'minus').reduce((x, a) => x + (a[k] || 0), 0);
     const tot = [['Паузы', c((a) => a.action === 'pause')], ['Закрыто', c((a) => a.action === 'stop')], ['Ставки', c((a) => a.action === 'lower' || a.action === 'raise')], ['Исключено запросов', sum('n')], ['Перенесено', sum('moved')], ['Запущено', c((a) => a.action === 'launch' || a.action === 'restart')]].filter((x) => x[1]);
     if (tot.length) { const nums = T.el('div', 'ts-bot-nums ts-log-nums'); tot.forEach(([l, v]) => { const d = T.el('div'); d.append(T.el('small', null, l), T.el('b', null, T.num(v))); nums.append(d); }); box.append(T.el('h4', 'ts-log-h', 'За всё время' + (H.length ? ' (с ' + new Date(H[H.length - 1].t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) + ')' : '')), nums); }
+    // Skills: what the agents already do for real (since when) and what they are learning next
+    const SK = (A.learned || {}).skills;
+    if (SK && ((SK.has || []).length || (SK.next || []).length)) {
+      const g = T.el('div', 'ts-skills');
+      const a1 = T.el('div'); a1.append(T.el('h4', null, 'Чему научились агенты'));
+      const u1 = T.el('ul');
+      (SK.has || []).forEach((x) => { const li = T.el('li'); li.append(T.el('span', null, '✅')); const t = T.el('span', null, x.text); t.append(T.el('small', null, 'с ' + new Date(x.since + 'T12:00:00Z').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }))); li.append(t); u1.append(li); });
+      if (!u1.childNodes.length) a1.append(T.el('p', 'ts-muted', 'Пока только наблюдают.')); else a1.append(u1);
+      ((A.learned || {}).lessons || []).slice(0, 3).forEach((x) => a1.append(T.el('p', 'ts-muted', '💡 ' + x)));
+      const a2 = T.el('div'); a2.append(T.el('h4', null, 'План обучения'));
+      const u2 = T.el('ul');
+      (SK.next || []).forEach((x) => { const li = T.el('li'); li.append(T.el('span', null, '📚'), T.el('span', null, x)); u2.append(li); });
+      a2.append(u2);
+      g.append(a1, a2); box.append(g);
+    }
     // Plan of the next run when nothing changed in the cabinet (check mode)
     const planned = (A.actions || []).filter((a) => a.result === 'planned' && T.sidPass(a.store, p));
     const L = H.length ? H : planned;

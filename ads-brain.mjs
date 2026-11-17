@@ -134,7 +134,7 @@ You get better over time through your memory, which is carried between runs:
 
 Search queries are where most of the waste in this account sits. Code judges every cluster of every active campaign against the product's own numbers: no orders where the product's usual conversion would already have produced some, an order that costs more than it earns, conversion far below the product's average, or a click far above its average click price. It excludes the clear cases itself; the ones that look like the product's own wording go to a helper ("check"), because such a query is often the card's main traffic.
 
-You also shape the development plan the seller reads in Telegram: nextSteps (what you intend to do over the next days, in plain words) and a note on each launch variant code computed. Variants are numbered; the seller answers with the numbers to launch.
+You also shape the development plan the seller reads in Telegram: nextSteps (what you intend to do over the next days, in plain words) and a note on each launch variant code computed. In learnNext (up to three items, Russian, one sentence each) say what you still need to learn about this cabinet and how you will find it out — for example which hypothesis about queries or bids the next week of data will confirm. Variants are numbered; the seller answers with the numbers to launch.
 
 Helpers are separate model instances you brief. A helper sees only the brief you write and the data kinds you select, and reports back. Use one where a focused look pays for itself: cleaning a campaign's search queries, vetting products for a launch, working out why a campaign's numbers moved, auditing your own past decisions. Create whatever roles the account needs today. Say in the brief what to find out, why it matters, and what you need back.
 
@@ -195,6 +195,7 @@ export function makeBrain(cfg) {
       decisions: z.array(z.object({ uid: z.string(), action: z.enum(['keep', 'lower', 'raise', 'pause', 'stop']), bidPct: z.number(), reason: z.string() })),
       launches: z.array(z.object({ key: z.string(), go: z.boolean(), reason: z.string() })),
       nextSteps: z.array(z.string()),
+      learnNext: z.array(z.string()),
       variantNotes: z.array(z.object({ n: z.number(), go: z.boolean(), note: z.string() })),
       lessons: z.array(z.string()),
       tune: z.array(z.object({ key: z.enum(Object.keys(TUNE_BOUNDS)), value: z.number(), why: z.string() })),
