@@ -15,7 +15,7 @@ import { pathToFileURL } from 'node:url';
 import { ozonApi, ozonBids } from './ozon-ads.mjs';
 import { loadMemory, applyTuning, tune, snapshot, evaluateOutcomes, autoTune, learnedView, makeBrain } from './ads-brain.mjs';
 import { readQueries, planMinus, planClusterBids, kbBad, kbAddBad, kbPrune } from './ads-queries.mjs';
-import { buildVariants, parseApprovals, planText, tg } from './ads-plan.mjs';
+import { buildVariants, parseApprovals, planText, askText, tg } from './ads-plan.mjs';
 export { judgeCluster, relatedQuery, planMinus } from './ads-queries.mjs';
 
 const DAY = 864e5;
@@ -30,7 +30,9 @@ export const DEFAULTS = {
   mode: 'dry-run', stores: ['wb1', 'wb2', 'oz1', 'oz2'], protect: [],
   targetShare: 0.6, maxDrr: 0.25, minSpend: 1500, minClicks: 150,
   // WB: a loss-making campaign is paused, not closed — closing is irreversible and throws away its queries and minus phrases
-  stop: { noOrdersSpend: 3000, overMarginFactor: 1.4, maxPerRun: 5, hardClose: false },
+  // Closing for good happens only after the owner's «закрыть N» in Telegram: the agent asks about campaigns that have been
+  // on a loss pause for askAfterDays with no restart that would pay (at most askMax open questions)
+  stop: { noOrdersSpend: 3000, overMarginFactor: 1.4, maxPerRun: 5, hardClose: false, askAfterDays: 5, askMax: 6, restartGraceDays: 7 },
   bid: { maxStepPct: 25, upStepPct: 15, cooldownHours: 24, maxCpmKop: 100000, maxCpcKop: 5000, minOrdersToRaise: 5, minStockDaysToRaise: 14 },
   stock: { pauseWhenOut: true, resumeDays: 5 },
   budget: { autoTopUp: false, topUpSum: 1000, dailyCap: 5000, source: 1 },
@@ -40,8 +42,10 @@ export const DEFAULTS = {
   // relatedStrongExpected: the same for the product's own wording; lowCrShare / cpcFactor: conversion and click price
   // against the product's average (excluded only when the order then costs more than it earns)
   queries: { enabled: true, maxCampaigns: 40, minClicks: 20, minSpend: 200, irrelevantMinSpend: 50, minExpected: 2, relatedStrongExpected: 5, costFactor: 2, lowCrShare: 0.4, cpcFactor: 2, goodShare: 0.6, maxPerCampaign: 25, maxTransfer: 300, cooldownDays: 2, boostGood: true },
-  // Development plan with numbered launch variants; the owner approves them in Telegram
-  plan: { enabled: true, maxVariants: 5, budget: 1000, maxPerRun: 3 },
+  // Development plan with numbered launch variants. auto: restarts of paused campaigns and new campaigns in place of
+  // closed ones that the numbers say will pay are carried out without waiting (pausing and starting are the agent's own
+  // call); the rest wait for «запуск N» in Telegram
+  plan: { enabled: true, maxVariants: 5, budget: 1000, maxPerRun: 3, auto: true },
   // Ozon «Оплата за клик». Its own mode: stays "dry-run" until the owner has seen a plan built from real Ozon data.
   ozon: { mode: 'dry-run', maxCpcRub: 60, maxDropsPerRun: 5, launch: { enabled: false, maxPerRun: 1, maxTotal: 3, weeklyBudget: 3500 } },
   llm: { enabled: true, model: 'claude-opus-5-5', effort: 'medium', leadEffort: 'high', helperEffort: 'medium', maxHelpers: 5 },
@@ -286,7 +290,9 @@ export function guard(dec, m, cfg, st, now) {
   if (cfg.protect.map(String).includes(String(m.id))) return keep('кампания в списке protect');
   const cool = st.lastBidAt && now - st.lastBidAt < cfg.bid.cooldownHours * 3600e3;
   switch (dec.action) {
-    case 'stop': return stopReason(m, cfg) ? { ...dec, bidPct: 0 } : keep('для закрытия не хватает данных или убыток не подтверждён');
+    case 'stop':
+      if (st.restartedAt && now - st.restartedAt < cfg.stop.restartGraceDays * 864e5) return keep('перезапущена после чистки запросов — жду неделю новой статистики');
+      return stopReason(m, cfg) ? { ...dec, bidPct: 0 } : keep('для закрытия не хватает данных или убыток не подтверждён');
     case 'pause': return m.status === 9 ? { ...dec, bidPct: 0 } : keep('кампания не активна');
     case 'resume': return m.status === 11 && st.pausedByAgent && st.pausedFor !== 'loss' && m.stock > 0 ? { ...dec, bidPct: 0 } : keep('сам включаю только кампании, поставленные на паузу из-за остатков');
     case 'lower': case 'raise': {
@@ -437,8 +443,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     const st = stOf(m), api = apis[m.store];
     let dec = guard(proposed.get(m.uid), m, cfg, st, now);
     if (dec.action === 'stop' && ++stops > cfg.stop.maxPerRun) dec = { ...dec, action: 'keep', blocked: 'лимит закрытий за один запуск (' + cfg.stop.maxPerRun + ')' };
-    // WB: pause instead of the irreversible close, so the campaign keeps its queries and minus phrases
-    if (dec.action === 'stop' && m.platform !== 'ozon' && !cfg.stop.hardClose) dec = m.status === 9 ? { ...dec, action: 'pause', loss: true, reason: 'Ставлю на паузу, а не закрываю: собранные запросы и минус-фразы сохранятся. ' + dec.reason } : { ...dec, action: 'keep', blocked: 'уже на паузе' };
+    // Pause instead of closing: the campaign keeps its queries and minus phrases; closing for good only with the owner's «закрыть N»
+    if (dec.action === 'stop' && !cfg.stop.hardClose) dec = m.status === 9 ? { ...dec, action: 'pause', loss: true, reason: 'Ставлю на паузу, а не закрываю: собранные запросы и минус-фразы сохранятся' + (m.platform === 'ozon' ? '' : ', закрою только с вашего разрешения') + '. ' + dec.reason } : { ...dec, action: 'keep', blocked: 'уже на паузе' };
     const row = { id: m.id, store: m.store, platform: m.platform, name: m.name, status: m.status, spend30: R(m.w30.spend), orders30: m.w30.orders, drr30: fin(m.drr30), drr14: fin(m.drr14), margin: r3(m.margin), target: r3(m.target), stock: m.stock, action: dec.action, bidPct: dec.bidPct || 0, reason: dec.reason, blocked: dec.blocked };
     out.campaigns.push(row); rowOf.set(m.uid, row);
 
@@ -482,8 +488,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     out.actions.push(act);
     if (act.result === 'ok') {
       if (dec.action === 'lower' || dec.action === 'raise') mark(m, { lastBidAt: now });
-      if (dec.action === 'pause') mark(m, { pausedByAgent: true, pausedFor: dec.loss ? 'loss' : 'stock' });
-      if (dec.action === 'resume' || dec.action === 'stop') mark(m, { pausedByAgent: false, pausedFor: null });
+      if (dec.action === 'pause') mark(m, { pausedByAgent: true, pausedFor: dec.loss ? 'loss' : 'stock', pausedAt: now });
+      if (dec.action === 'resume' || dec.action === 'stop') mark(m, { pausedByAgent: false, pausedFor: null, pausedAt: null });
     }
     if (live(m.store)) await sleep(250);
   }
@@ -515,14 +521,23 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     }
   }
 
-  // 5b. Launch variants the owner approved in Telegram (from the plan he saw)
+  // 5b. Launch variants: the ones the owner approved in Telegram (from the plan he saw), and — with plan.auto — restarts
+  //     and replacements of closed campaigns that the numbers say will pay (starting and pausing are the agent's own call)
   const prevPlan = state.plan || null, approvedNow = [];
-  if (approvals && prevPlan && (approvals.all || approvals.nums.length)) {
-    const chosen = (prevPlan.variants || []).filter((x) => approvals.all || approvals.nums.includes(x.n)).slice(0, cfg.plan.maxPerRun);
-    for (const v of chosen) {
+  const vKey = (v) => v.kind + ':' + (v.id || v.sku);
+  const chosen = [];
+  if (approvals && prevPlan && (approvals.all || approvals.nums.length)) (prevPlan.variants || []).filter((x) => approvals.all || approvals.nums.includes(x.n)).forEach((v) => chosen.push({ ...v, by: 'owner' }));
+  if (cfg.plan.auto) {
+    let left = launchLeft.wb;
+    // never brings back on its own a campaign the owner chose to close
+    variants.filter((v) => v.kind === 'restart' || (v.kind === 'recreate' && !hist.some((h) => h.id === v.id && h.approved) && left-- > 0)).forEach((v) => { if (!chosen.some((x) => vKey(x) === vKey(v))) chosen.push({ ...v, by: 'agent' }); });
+  }
+  {
+    for (const v of chosen.slice(0, cfg.plan.maxPerRun)) {
+      if (v.kind !== 'restart') launchLeft.wb--;
       const api = apis[v.store], m = v.kind === 'restart' ? metrics.find((x) => x.store === v.store && x.id === v.id) : null;
-      const act = { t: out.generated, store: v.store, platform: 'wb', action: v.kind === 'restart' ? 'restart' : 'launch', plan: v.n, id: v.kind === 'restart' ? v.id : undefined, sku: v.sku || (v.skus || [])[0], key: v.key, name: v.name,
-        reason: 'По вашему ответу в Telegram (вариант ' + v.n + '). ' + v.why };
+      const act = { t: out.generated, store: v.store, platform: 'wb', action: v.kind === 'restart' ? 'restart' : 'launch', plan: v.by === 'owner' ? v.n : undefined, auto: v.by === 'agent' || undefined, vkey: vKey(v), id: v.kind === 'restart' ? v.id : undefined, sku: v.sku || (v.skus || [])[0], key: v.key, name: v.name,
+        reason: (v.by === 'owner' ? 'По вашему ответу в Telegram (вариант ' + v.n + '). ' : v.kind === 'restart' ? 'Сам перезапускаю: после чистки запросов кампания должна окупаться. ' : 'Сам запускаю новую кампанию вместо закрытой, с её минус-фразами. ') + v.why };
       if (!api) { act.result = 'error'; act.error = 'нет токена магазина'; out.actions.push(act); approvedNow.push(act); continue; }
       if (v.kind === 'restart' && (!m || m.status !== 11)) { act.result = 'error'; act.error = 'кампания уже не на паузе'; out.actions.push(act); approvedNow.push(act); continue; }
       await done(act, v.store, async () => {
@@ -536,7 +551,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
           if (v.bidPct) { const items = newBids(m, v.bidPct, cfg, await api.minBids(m)); if (items.length) await api.setBids(m.id, items); }
           if (m.budget == null || m.budget < 100) { await api.deposit(m.id, v.budget, cfg.budget.source); await sleep(1500); }
           await api.start(m.id);
-          mark(m, { pausedByAgent: false, pausedFor: null, lastBidAt: now });
+          mark(m, { pausedByAgent: false, pausedFor: null, pausedAt: null, lastBidAt: now, restartedAt: now });
           return;
         }
         const skus = v.skus || [v.sku];
@@ -549,6 +564,41 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
       });
       out.actions.push(act); approvedNow.push(act);
     }
+  }
+
+  // 5c. Closing for good: only the campaigns the owner allowed («закрыть N»); then new questions about campaigns that sit
+  //     on a loss pause with no restart that would pay. Their minus phrases are already in the knowledge base.
+  const asks0 = state.closeAsk || [], closedNow = [];
+  if (approvals && asks0.length) {
+    (approvals.keep || []).forEach((n) => { const a = asks0.find((x) => x.n === n); if (a) camp[a.id] = { ...(camp[a.id] || {}), closeDeclinedAt: now }; });
+    for (const a of asks0.filter((x) => approvals.closeAll || (approvals.close || []).includes(x.n))) {
+      const m = metrics.find((x) => x.store === a.store && x.id === a.id), api = apis[a.store];
+      const act = { t: out.generated, store: a.store, platform: 'wb', id: a.id, name: a.name, key: a.key, action: 'stop', approved: a.n, kept: a.kept,
+        reason: 'Закрываю по вашему ответу в Telegram («закрыть ' + a.n + '»). ' + a.why + (a.kept ? ' ' + a.kept + ' ' + plural(a.kept, 'минус-фраза сохранена', 'минус-фразы сохранены', 'минус-фраз сохранено') + ' в базе агента и переносятся в другие РК товара.' : '') };
+      if (!m || !api) { act.result = 'error'; act.error = !api ? 'нет токена магазина' : 'кампании уже нет среди активных и на паузе'; }
+      else { if (m) act.snap = snapshot(m); await done(act, a.store, () => api.stop(a.id)); if (act.result === 'ok') mark(m, { pausedByAgent: false, pausedFor: null, pausedAt: null }); }
+      out.actions.push(act); closedNow.push(act);
+    }
+  }
+  {
+    const gone = new Set(closedNow.filter((a) => a.result !== 'error').map((a) => a.id).concat((approvals && approvals.keep || []).map((n) => (asks0.find((x) => x.n === n) || {}).id)));
+    const restartIds = new Set(variants.filter((v) => v.kind === 'restart').map((v) => v.id).concat(approvedNow.map((a) => a.id)));
+    const pausedSince = (m) => { const st = camp[m.id] || {}; if (st.pausedAt) return st.pausedAt; const h = hist.filter((x) => x.id === m.id && x.action === 'pause' && x.result === 'ok').pop(); return h ? Date.parse(h.t) : null; };
+    const want = metrics.filter((m) => {
+      const st = camp[m.id] || {};
+      if (m.platform === 'ozon' || m.status !== 11 || st.pausedFor !== 'loss' || gone.has(m.id) || restartIds.has(m.id)) return false;
+      if (st.closeDeclinedAt && now - st.closeDeclinedAt < 30 * DAY) return false;
+      const since = pausedSince(m);
+      return since && now - since >= cfg.stop.askAfterDays * DAY;
+    });
+    const why = (m) => { const s = skipped.find((x) => x.kind === 'paused' && x.id === m.id); return 'На паузе с ' + new Date(pausedSince(m) + 3 * 3600e3).toISOString().slice(5, 10).split('-').reverse().join('.') + '. ' + (s ? 'Перезапуск не окупится: ' + s.why + '.' : stopReason(m, cfg) || 'Реклама этого товара не окупалась.'); };
+    const keptOf = (m) => m.skus.reduce((s, k) => s + kbBad(memory, k).length, 0);
+    const keepOld = asks0.filter((a) => want.some((m) => m.id === a.id));
+    let next = keepOld.reduce((s, a) => Math.max(s, a.n), 0);
+    out.closeAsk = keepOld.map((a) => { const m = want.find((x) => x.id === a.id); return { ...a, why: why(m), kept: keptOf(m) }; });
+    want.filter((m) => !keepOld.some((a) => a.id === m.id)).slice(0, Math.max(0, cfg.stop.askMax - keepOld.length)).forEach((m) => {
+      out.closeAsk.push({ n: ++next, store: m.store, id: m.id, name: m.name, key: m.skus[0], why: why(m), kept: keptOf(m), asked: out.generated });
+    });
   }
 
   // 6. Ozon: take loss-making products out of campaigns that otherwise stay
@@ -601,7 +651,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   }
   out.learned = learnedView(memory, fresh, tuned, plan ? plan.helpersUsed : []);
   kbPrune(memory);
-  out.approved = approvedNow.map((a) => ({ n: a.plan, action: a.action, name: a.name, id: a.id || null, result: a.result, error: a.error || null }));
+  out.approved = approvedNow.filter((a) => a.plan).concat(closedNow).map((a) => ({ n: a.plan || a.approved, action: a.action, name: a.name, id: a.id || null, result: a.result, error: a.error || null }));
+  out.autoLaunched = approvedNow.filter((a) => a.auto).map((a) => ({ action: a.action, name: a.name, id: a.id || null, result: a.result, error: a.error || null }));
   if (cfg.plan.enabled) out.plan = makePlan({ out, hist, metrics, views, variants, skipped, plan, cfg, now, done: approvedNow, live });
   out.candidates = pool.map((c) => ({ store: c.store, key: c.key, name: c.name, per1000: c.per1000, headroom: c.headroom, go: !(veto.get(c.key) && veto.get(c.key).go === false) }));
 
@@ -628,7 +679,7 @@ function makePlan({ out, hist, metrics, views, variants, skipped = [], plan, cfg
   const cnt = (f) => acts.filter(f).length, sum = (f, k) => acts.filter(f).reduce((s, a) => s + (a[k] || 0), 0);
   const isLoss = (a) => a.action === 'stop' || (a.action === 'pause' && a.loss);
   const d = { planned: !real.length && acts.length > 0, closed: cnt((a) => a.action === 'stop'), paused: cnt((a) => a.action === 'pause' && a.loss), lower: cnt((a) => a.action === 'lower'), raise: cnt((a) => a.action === 'raise'), minus: sum((a) => a.action === 'minus', 'n'), transfer: sum((a) => a.action === 'minus', 'moved'),
-    launch: cnt((a) => a.action === 'launch'), resume: cnt((a) => a.action === 'resume' || a.action === 'restart'), savedDay: R(acts.filter(isLoss).reduce((s, a) => s + ((a.snap && a.snap.spendDay) || 0), 0)) };
+    closedApproved: cnt((a) => a.action === 'stop' && a.approved), launch: cnt((a) => a.action === 'launch'), resume: cnt((a) => a.action === 'resume'), restart: cnt((a) => a.action === 'restart'), savedDay: R(acts.filter(isLoss).reduce((s, a) => s + ((a.snap && a.snap.spendDay) || 0), 0)) };
   const next = [];
   const rows = out.campaigns;
   const cool = rows.filter((r) => r.blocked && /жду статистику/.test(r.blocked)).length;
@@ -645,8 +696,8 @@ function makePlan({ out, hist, metrics, views, variants, skipped = [], plan, cfg
   const wait = hist.filter((a) => a.result === 'ok' && !a.evaluated && Date.parse(a.t) >= now - 7 * DAY && ['lower', 'raise', 'pause', 'minus', 'launch', 'restart'].includes(a.action)).length;
   if (wait) next.push('Через неделю сравню прибыль до и после по ' + wait + ' ' + plural(wait, 'своему действию', 'своим действиям', 'своим действиям') + ' и подстрою правила.');
   const notes = new Map(((plan && plan.variantNotes) || []).map((x) => [x.n, x]));
-  const doneN = new Set(done.map((a) => a.plan));
-  const V = variants.filter((v) => !(notes.get(v.n) && notes.get(v.n).go === false)).map((v, i) => ({ ...v, n: i + 1, note: (notes.get(v.n) || {}).note || '' }));
+  const doneN = new Set(done.map((a) => a.plan).filter(Boolean)), doneK = new Set(done.filter((a) => a.result !== 'error').map((a) => a.vkey));
+  const V = variants.filter((v) => !(notes.get(v.n) && notes.get(v.n).go === false) && !doneK.has(v.kind + ':' + (v.id || v.sku))).map((v, i) => ({ ...v, n: i + 1, note: (notes.get(v.n) || {}).note || '' }));
   return { generated: out.generated, live: live('wb1'), done: d, next: (plan && plan.nextSteps && plan.nextSteps.length ? plan.nextSteps : next).slice(0, 5), variants: V, executed: [...doneN] };
 }
 const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
@@ -670,10 +721,10 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const state = readJson('ads-agent.json', {});
   const tgToken = env('TELEGRAM_BOT_TOKEN'), tgChat = env('TELEGRAM_CHAT_ID');
   let approvals = null;
-  if (tgToken && tgChat && state.plan) {
+  if (tgToken && tgChat && (state.plan || (state.closeAsk || []).length)) {
     try {
       const ups = await tg(tgToken, 'getUpdates', { offset: String((state.tgOffset || 0) + 1), limit: '100', allowed_updates: '["message"]' });
-      approvals = parseApprovals(ups, tgChat, state.plan.generated);
+      approvals = parseApprovals(ups, tgChat, (state.plan || state).generated);
       if (approvals.last) state.tgOffset = approvals.last;
       if (approvals.seen) log('telegram approvals:', approvals.all ? 'all' : approvals.nums.join(','));
     } catch (e) { log('telegram:', e.message); }
@@ -681,9 +732,14 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const { memory, ...out } = await run({ cfg, data, market, state, memory: readJson('ads-memory.json', null), apis, brain: useClaude ? makeBrain(cfg) : null, approvals });
   out.tgOffset = state.tgOffset || 0;
   if (tgToken && tgChat && approvals && approvals.seen) {
-    const lines = out.approved.length ? out.approved.map((a) => (a.result === 'ok' ? '✅ ' : a.result === 'planned' ? '🧪 ' : '⚠️ ') + a.n + '. ' + (a.action === 'restart' ? 'Перезапустил' : 'Запустил') + ' «' + cleanTitle(a.name) + '»' + (a.id ? ' — РК № ' + a.id : '') + (a.result === 'planned' ? ' (режим проверки, в кабинете без изменений)' : '') + (a.error ? ' — не получилось: ' + a.error.slice(0, 120) : ''))
-      : ['Не нашёл таких номеров в последнем плане. Пришлите, например: запуск 1 3'];
+    const kept = (approvals.keep || []).map((n) => (state.closeAsk || []).find((a) => a.n === n)).filter(Boolean).map((a) => '⏸ ' + a.n + '. Оставил на паузе «' + cleanTitle(a.name) + '» — месяц не спрошу.');
+    const lines = out.approved.length || kept.length ? kept.concat(out.approved.map((a) => (a.result === 'ok' ? '✅ ' : a.result === 'planned' ? '🧪 ' : '⚠️ ') + a.n + '. ' + (a.action === 'restart' ? 'Перезапустил' : a.action === 'stop' ? 'Закрыл' : 'Запустил') + ' «' + cleanTitle(a.name) + '»' + (a.id ? ' — РК № ' + a.id : '') + (a.result === 'planned' ? ' (режим проверки, в кабинете без изменений)' : '') + (a.error ? ' — не получилось: ' + a.error.slice(0, 120) : '')))
+      : ['Не нашёл таких номеров. Пришлите, например: запуск 1 3 (варианты из плана) или закрыть 1 (кампании, о которых я спрашивал).'];
     try { await tg(tgToken, 'sendMessage', { chat_id: tgChat, text: lines.join('\n') }); } catch (e) { log('telegram:', e.message); }
+  }
+  // Ask for permission right away when there is something new to close (only from scheduled runs, not from «показать сейчас»)
+  if (tgToken && tgChat && cfg.mode === 'live' && (out.closeAsk || []).some((a) => !a.notified)) {
+    try { await tg(tgToken, 'sendMessage', { chat_id: tgChat, parse_mode: 'HTML', text: askText(out.closeAsk, true) }); out.closeAsk.forEach((a) => { a.notified = true; }); } catch (e) { log('telegram:', e.message); }
   }
   writeFileSync(new URL('./ads-agent.json', import.meta.url), JSON.stringify(out));
   writeFileSync(new URL('./ads-memory.json', import.meta.url), JSON.stringify(memory, null, 1));

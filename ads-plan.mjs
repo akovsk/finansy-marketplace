@@ -59,19 +59,32 @@ export function buildVariants({ views, pool, metrics, memory, cfg, archiveInfo =
 }
 
 // "запуск 1 3", "запусти 2", "да 1,2", "все" → numbers; only the owner's chat, only after the plan was made
+// "закрыть 1 2" / "закрыть все" → close requests the owner approved; "оставить 2" → do not ask about it for a month
 export function parseApprovals(updates, chatId, sinceIso) {
-  const since = Date.parse(sinceIso || 0) / 1000, nums = new Set();
-  let all = false, last = 0, seen = false;
+  const since = Date.parse(sinceIso || 0) / 1000, nums = new Set(), close = new Set(), keep = new Set();
+  let all = false, closeAll = false, last = 0, seen = false;
+  const isAll = (t) => /(^|\s)(все|всё)(\s|$)/.test(t), numsOf = (t) => (t.match(/\d+/g) || []).map(Number).filter((x) => x < 1000);
   (updates || []).forEach((u) => {
     last = Math.max(last, u.update_id || 0);
     const m = u.message; if (!m || String(m.chat && m.chat.id) !== String(chatId) || (m.date || 0) < since) return;
-    const t = String(m.text || '').toLowerCase().trim();
-    if (!/^(\/?запуск|\/?запусти|да|ок|ok|go|\/?go|запускай|все|всё)/.test(t)) return;
+    const t = String(m.text || '').toLowerCase().replace(/ё/g, 'е').trim();
+    if (/^\/?(не\s+закрыв|остав)/.test(t)) { seen = true; numsOf(t).forEach((x) => keep.add(x)); return; }
+    if (/^\/?закр/.test(t)) { seen = true; if (isAll(t)) closeAll = true; numsOf(t).forEach((x) => close.add(x)); return; }
+    if (!/^(\/?запуск|\/?запусти|да|ок|ok|go|\/?go|запускай|все)/.test(t)) return;
     seen = true;
-    if (/(^|\s)(все|всё)(\s|$)/.test(t)) all = true;
-    (t.match(/\d+/g) || []).forEach((x) => nums.add(+x));
+    if (isAll(t)) all = true;
+    numsOf(t).forEach((x) => nums.add(x));
   });
-  return { nums: [...nums], all, last, seen };
+  return { nums: [...nums], all, close: [...close], closeAll, keep: [...keep], last, seen };
+}
+
+// Telegram text asking the owner to allow closing campaigns for good
+export function askText(asks, live = true) {
+  if (!asks || !asks.length) return '';
+  const L = ['🔒 <b>Нужно ваше решение: закрыть кампании?</b>', 'Они на паузе из-за убытка, и перезапуск не окупится. Без вашего ответа ничего не закрываю.' + (live ? '' : ' <i>(режим проверки)</i>'), ''];
+  asks.forEach((a) => L.push('<b>' + a.n + '.</b> ' + esc(cleanName(a.name) || 'РК ' + a.id) + ' — РК № ' + a.id + '\n' + esc(a.why) + (a.kept ? '\n<i>' + a.kept + ' ' + plural(a.kept, 'минус-фраза сохранится', 'минус-фразы сохранятся', 'минус-фраз сохранится') + ' в базе агента и перейдёт в другие РК товара</i>' : '')));
+  L.push('', '👉 Ответьте <b>закрыть ' + asks[0].n + '</b>' + (asks.length > 1 ? ' (можно несколько номеров) или <b>закрыть все</b>' : '') + '. Оставить на паузе: <b>оставить ' + asks[0].n + '</b> — месяц не спрошу.');
+  return L.join('\n').slice(0, 4000);
 }
 
 /* ------------------------------ Telegram ------------------------------ */
@@ -91,8 +104,8 @@ export function planText(A) {
   if (!P) return '';
   const L = ['🧭 <b>План по рекламному кабинету</b>', ''];
   const d = P.done || {};
-  const done = [d.closed && '✂️ закрыто (до перехода на паузы) — ' + d.closed, d.paused && '⏸ на паузу из-за минуса — ' + d.paused, d.lower && '🎯 ставок снижено — ' + d.lower, d.raise && '📈 ставок поднято — ' + d.raise,
-    d.minus && '🧹 плохих запросов исключено — ' + d.minus, d.transfer && '🔁 исключений перенесено из других РК — ' + d.transfer, d.launch && '🚀 запущено — ' + d.launch, d.resume && '▶️ включено — ' + d.resume].filter(Boolean);
+  const done = [d.closed && '✂️ закрыто' + (d.closedApproved ? ' по вашему ответу' : ' (до перехода на паузы)') + ' — ' + d.closed, d.paused && '⏸ на паузу из-за минуса — ' + d.paused, d.lower && '🎯 ставок снижено — ' + d.lower, d.raise && '📈 ставок поднято — ' + d.raise,
+    d.minus && '🧹 плохих запросов исключено — ' + d.minus, d.transfer && '🔁 исключений перенесено из других РК — ' + d.transfer, d.launch && '🚀 запущено — ' + d.launch, d.resume && '▶️ включено — ' + d.resume, d.restart && '▶️ перезапущено после чистки запросов — ' + d.restart].filter(Boolean);
   L.push('<b>Сделано за сутки</b>');
   L.push(...(done.length ? done.map((x) => '▫️ ' + x) : ['▫️ изменений не понадобилось']));
   if (d.savedDay > 0) L.push('💸 экономия ~' + k(d.savedDay) + ' ₽/день');
@@ -109,5 +122,7 @@ export function planText(A) {
     });
     L.push('', '👉 Ответьте <b>запуск ' + (V.length > 1 ? '1 ' + V[1].n : '1') + '</b> (номера вариантов)' + (V.length > 1 ? ' или <b>запуск все</b>' : '') + ' — сделаю на следующей проверке.');
   } else L.push('', '💡 Вариантов запуска в плюс сейчас нет — проверю завтра.');
+  const asks = A.closeAsk || [];
+  if (asks.length) L.push('', '🔒 <b>Ждут вашего решения</b>: закрыть ' + asks.length + ' ' + plural(asks.length, 'кампанию', 'кампании', 'кампаний') + ' — ' + asks.slice(0, 3).map((a) => a.n + '. ' + esc(cleanName(a.name).slice(0, 30))).join(', ') + '. Ответьте <b>закрыть ' + asks[0].n + '</b> или <b>оставить ' + asks[0].n + '</b>.');
   return L.join('\n').slice(0, 4000);
 }

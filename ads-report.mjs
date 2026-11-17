@@ -129,8 +129,9 @@ export function messageText(R) {
     if (list.length > max) L.push('▫️ +' + (list.length - max) + ' на картинках');
   };
   group(['launch'], '🚀 Запустил', 5);
-  group(['stop', 'pause'], '⏸ Поставил на паузу', 10);
-  group(['restart'], '▶️ Перезапустил по вашему ответу', 5);
+  group(['pause'], '⏸ Поставил на паузу', 10);
+  group(['stop'], '✂️ Закрыл по вашему ответу', 10);
+  group(['restart'], '▶️ Перезапустил после чистки запросов', 5);
   group(['lower', 'raise', 'resume'], '🎯 Ставки', 5);
   if (R.errors.length) L.push('', '⚠️ WB не принял ' + R.errors.length + ' — повторю на следующей проверке');
   L.push('', '⏰ Следующая проверка 06:17  ·  <a href="' + DASH + '#rk">📲 дашборд</a>');

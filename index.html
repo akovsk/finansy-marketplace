@@ -238,6 +238,23 @@ img { max-width:100%; }
 .ts-bot-acts li { font-size:12px; border:1px solid var(--color-border-line); border-radius:999px; padding:2px 9px; white-space:nowrap; }
 .ts-bot-learn { display:flex; flex-direction:column; gap:6px; }
 .ts-bot-learn h4 { margin:0; font-size:13px; }
+.ts-cab .ts-xrow-t { display:flex; align-items:center; gap:6px; }
+.ts-ask { border:1px solid var(--color-border-line); border-left:3px solid var(--color-warn); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; font-size:13px; margin:8px 0; }
+.ts-ask ul { margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; line-height:1.45; }
+.ts-ask p { margin:0; }
+.ts-log-h { margin:14px 0 6px; font-size:13px; }
+.ts-log-nums { grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); }
+.ts-log { display:flex; flex-direction:column; }
+.ts-log-day { font-size:11.5px; font-weight:600; color:var(--color-fg-muted); text-transform:uppercase; letter-spacing:.03em; padding:10px 0 4px; }
+.ts-log-it { border-bottom:1px solid var(--color-border-line); }
+.ts-log-it summary { list-style:none; display:grid; grid-template-columns:22px minmax(0,1fr) auto; gap:8px; align-items:center; padding:8px 0; cursor:pointer; font-size:13px; }
+.ts-log-it summary::-webkit-details-marker { display:none; }
+.ts-log-t { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ts-log-r { font-size:12px; color:var(--color-fg-muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.ts-log-r.ts-neg { color:var(--color-bad); }
+.ts-log-b { padding:0 0 10px 30px; font-size:12.5px; line-height:1.45; display:flex; flex-direction:column; gap:4px; }
+.ts-log-b p { margin:0; }
+.ts-log-b a { color:var(--ts-wb, inherit); font-size:12px; }
 .ts-bot-learn ul { margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; font-size:13px; line-height:1.45; }
 #bots .ts-btn { align-self:flex-start; }
 .ts-acts { margin:0; padding:0 0 0 20px; list-style:decimal; display:flex; flex-direction:column; gap:9px; line-height:1.45; }
@@ -922,6 +939,7 @@ th[aria-sort] { color:var(--color-fg); }
       <p class="ts-muted" data-draw="fun-note" data-source="sales"></p>
     </div>
     <div class="ts-panel" id="bots" data-draw="bots" data-source="sales"></div>
+    <div class="ts-panel" id="bots-log" data-draw="bots-log" data-source="sales"></div>
     <div class="ts-panel" id="urgent">
       <div class="ts-panel-h"><h3>Срочные шаги: как поднять прибыль</h3></div>
       <div class="ts-urg" data-draw="urgent" data-source="sales"></div>
@@ -2727,6 +2745,76 @@ dash.loader('sales', {
     const go = T.el('button', 'ts-btn', 'Все решения агентов'); go.type = 'button';
     go.addEventListener('click', () => { const t = document.querySelector('[data-tab="rk"]'); if (t) t.click(); });
     box.append(go);
+  });
+
+  /* ---- Overview: each ad cabinet at a glance, questions waiting for the owner, and the agents' full action history ---- */
+  let logLimit = 15;
+  const LOG_ICON = { stop: '✂️', pause: '⏸', resume: '▶️', restart: '▶️', lower: '🎯', raise: '📈', minus: '🧹', boost: '🔎', drop: '➖', launch: '🚀', topup: '💳' };
+  dash.draw('bots-log', (box) => {
+    const s = dash.data('agent'), A = s.status === 'ok' && s.data[0] && s.data[0].generated ? s.data[0] : null;
+    box.replaceChildren();
+    if (!A) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const p = dash.params();
+    box.append(T.el('h3', null, 'Рекламные кабинеты и история агентов'));
+    // Cabinets: what is running, what it costs, what is losing
+    const C = (A.campaigns || []).filter((c) => T.sidPass(c.store, p));
+    const sids = [...new Set(C.map((c) => c.store))];
+    const cab = T.el('div', 'ts-xlist');
+    sids.forEach((sid) => {
+      const cs = C.filter((c) => c.store === sid), act = cs.filter((c) => c.status === 9), paused = cs.filter((c) => c.status === 11);
+      const spend = act.reduce((a, c) => a + (c.spend30 || 0), 0), sales = act.reduce((a, c) => a + (c.drr30 && c.drr30 !== 'inf' && c.drr30 > 0 ? (c.spend30 || 0) / c.drr30 : 0), 0);
+      const losing = act.filter((c) => c.margin != null && (c.drr30 === 'inf' || c.drr30 > c.margin)).length;
+      const row = T.el('div', 'ts-xrow ts-cab'), b = T.el('div', 'ts-xrow-b'), info = T.SID[sid] || { name: sid, mp: String(sid).startsWith('oz') ? 'Ozon' : 'WB' };
+      const t = T.el('div', 'ts-xrow-t'); t.append(T.mpChip(info.mp === 'Ozon' ? 'Ozon' : 'WB'), document.createTextNode(' ' + info.name)); b.append(t);
+      b.append(T.el('div', 'ts-xrow-n', 'Активных ' + act.length + ' · на паузе ' + paused.length + (losing ? ' · в минусе ' + losing : '')));
+      row.append(b);
+      const r = T.el('div', 'ts-xrow-r'); r.append(T.el('b', null, T.rub(spend)), T.el('small', sales && spend / sales > 0.25 ? 'ts-neg' : null, 'за 30 дн. · ДРР ' + (sales ? T.pct(spend / sales, 0) : '—')));
+      row.append(r); cab.append(row);
+    });
+    if (sids.length) box.append(cab);
+    const noKey = (A.notes || []).filter((n) => /нет ключа|нет токена/.test(n)).concat((A.errors || []).filter((n) => /нет токена/.test(n)));
+    noKey.forEach((n) => box.append(T.el('p', 'ts-muted', n)));
+    // Questions for the owner: closing only with his «закрыть N» in Telegram
+    const asks = (A.closeAsk || []).filter((a) => T.sidPass(a.store, p));
+    if (asks.length) {
+      const q = T.el('div', 'ts-ask');
+      q.append(T.el('b', null, '🔒 Ждут вашего решения: закрыть ' + asks.length + ' ' + (asks.length === 1 ? 'кампанию' : asks.length < 5 ? 'кампании' : 'кампаний') + '?'));
+      const ul = T.el('ul'); asks.forEach((a) => ul.append(T.el('li', null, a.n + '. ' + a.name + ' (РК № ' + a.id + ') — ' + a.why))); q.append(ul);
+      q.append(T.el('p', 'ts-muted', 'Ответьте боту в Telegram: «закрыть ' + asks[0].n + '» или «оставить ' + asks[0].n + '». Без ответа агент ничего не закрывает — кампании стоят на паузе, их минус-фразы сохранены.'));
+      box.append(q);
+    }
+    // Totals over the whole history
+    const H = (A.history || []).filter((a) => T.sidPass(a.store, p)).slice().sort((a, b) => (a.t < b.t ? 1 : -1));
+    const ok = H.filter((a) => a.result === 'ok');
+    const c = (f) => ok.filter(f).length, sum = (k) => ok.filter((a) => a.action === 'minus').reduce((x, a) => x + (a[k] || 0), 0);
+    const tot = [['Паузы', c((a) => a.action === 'pause')], ['Закрыто', c((a) => a.action === 'stop')], ['Ставки', c((a) => a.action === 'lower' || a.action === 'raise')], ['Исключено запросов', sum('n')], ['Перенесено', sum('moved')], ['Запущено', c((a) => a.action === 'launch' || a.action === 'restart')]].filter((x) => x[1]);
+    if (tot.length) { const nums = T.el('div', 'ts-bot-nums ts-log-nums'); tot.forEach(([l, v]) => { const d = T.el('div'); d.append(T.el('small', null, l), T.el('b', null, T.num(v))); nums.append(d); }); box.append(T.el('h4', 'ts-log-h', 'За всё время' + (H.length ? ' (с ' + new Date(H[H.length - 1].t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) + ')' : '')), nums); }
+    // Plan of the next run when nothing changed in the cabinet (check mode)
+    const planned = (A.actions || []).filter((a) => a.result === 'planned' && T.sidPass(a.store, p));
+    const L = H.length ? H : planned;
+    if (!L.length) { box.append(T.el('p', 'ts-muted', 'Агенты ещё ничего не меняли в кабинетах.')); return; }
+    box.append(T.el('h4', 'ts-log-h', H.length ? 'История действий' : 'План (режим проверки)'));
+    const list = T.el('div', 'ts-log');
+    let day = '';
+    L.slice(0, logLimit).forEach((a) => {
+      const d = mskDay(a.t);
+      if (d !== day) { day = d; list.append(T.el('div', 'ts-log-day', new Date(d + 'T12:00:00Z').toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' }))); }
+      const it = T.el('details', 'ts-log-it'), sm = T.el('summary');
+      const k = AG_ACT[a.action] || [a.action];
+      const label = a.action === 'pause' && a.loss ? 'Пауза: минус' : a.action === 'stop' && a.approved ? 'Закрыта по вашему ответу' : (a.action === 'restart' || a.action === 'launch') && a.auto ? k[0] + ' (сам)' : k[0];
+      const what = a.action === 'minus' ? (a.n ? '−' + a.n + ' запр.' : '') + (a.moved ? (a.n ? ', ' : '') + '+' + a.moved + ' перенос' : '') : a.bids && a.bids.length ? a.bids[0].wasRub + ' → ' + a.bids[0].rub + ' ₽' : '';
+      sm.append(T.el('span', 'ts-log-i', LOG_ICON[a.action] || '•'), T.el('span', 'ts-log-t', label + ' · ' + (a.name || 'РК ' + (a.id || a.sku))), T.el('span', a.result === 'error' ? 'ts-log-r ts-neg' : 'ts-log-r', a.result === 'error' ? 'ошибка' : what || new Date(a.t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })));
+      it.append(sm);
+      const body = T.el('div', 'ts-log-b');
+      body.append(T.el('p', null, a.reason || ''));
+      if (a.queries && a.queries.length) body.append(T.el('p', 'ts-muted', 'Запросы: ' + a.queries.slice(0, 8).map((q) => '«' + q + '»').join(', ')));
+      if (a.error) body.append(T.el('p', 'ts-neg', 'Площадка ответила: ' + a.error));
+      if (a.id && a.platform !== 'ozon' && !String(a.store).startsWith('oz')) { const lk = T.el('a', null, 'Открыть РК № ' + a.id + ' в кабинете WB'); lk.href = 'https://cmp.wildberries.ru/campaigns/edit/' + a.id; lk.target = '_blank'; lk.rel = 'noopener'; body.append(lk); }
+      it.append(body); list.append(it);
+    });
+    box.append(list);
+    if (L.length > logLimit) { const more = T.el('button', 'ts-btn ts-morebtn', 'Показать ещё (' + (L.length - logLimit) + ')'); more.type = 'button'; more.addEventListener('click', () => { logLimit += 30; dash.draw('bots-log'); }); box.append(more); }
   });
 
   /* ---- Reviews ---- */
