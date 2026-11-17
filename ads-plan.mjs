@@ -36,7 +36,7 @@ export function buildVariants({ views, pool, metrics, memory, cfg, archiveInfo =
     if (base.margin <= 0.02) return skip('товар убыточен ещё до рекламы (маржа ' + pct(base.margin) + ')');
     if (!base.orders) return skip('за 30 дней не было заказов с рекламы');
     const e = cleanedEconomics(v, base.spend, base.orders, base.ordSum, base.buyout || 0.9, base.margin);
-    if (e.drr == null || e.drr >= base.margin * 0.85 || !(e.profitMonth > 0)) return skip('даже без плохих запросов ДРР ' + pct(e.drr) + ' при марже ' + pct(base.margin));
+    if (e.drr == null || e.drr >= base.margin * 0.85 || !(e.profitMonth > 0)) return skip(e.drr != null && e.drr < base.margin ? 'без плохих запросов ДРР был бы ' + pct(e.drr) + ' при марже ' + pct(base.margin) + ' — в плюс почти ничего не остаётся' : 'даже без плохих запросов ДРР ' + pct(e.drr) + ' при марже ' + pct(base.margin));
     const target = base.target || Math.min(cfg.maxDrr, cfg.targetShare * base.margin);
     const bidPct = e.drr > target ? -clamp(Math.round((1 - target / e.drr) * 100), 5, cfg.bid.maxStepPct) : 0;
     // a restart keeps the campaign's own minus phrases; only the ones from other campaigns are new to it
