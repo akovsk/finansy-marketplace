@@ -50,7 +50,7 @@ async function http(token, method, path, body, tries = 4) {
     if (r.status === 429 && i < tries) { await sleep(15000 * i); continue; }
     if (r.status >= 500 && i < tries) { await sleep(4000 * i); continue; }
     const t = await r.text();
-    if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + method + ' ' + path.replace(/\?.*/, '') + ' ' + t.slice(0, 240));
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + method + ' ' + path.replace(/\?.*/, '') + ' ' + t.slice(0, 400));
     if (!t) return null;
     try { return JSON.parse(t); } catch (e) { return t; }
   }
@@ -113,7 +113,9 @@ export function wbApi(token) {
     async minBids(c) {
       const res = {};
       try {
-        const types = c.bidType === 'unified' ? ['combined'] : [c.search && 'search', c.recom && 'recommendation'].filter(Boolean);
+        // Placements from the bids the products actually have; the campaign's own placement list can be empty
+        let types = c.bidType === 'unified' ? ['combined'] : [(c.search || c.nms.some((n) => n.search)) && 'search', (c.recom || c.nms.some((n) => n.recom)) && 'recommendation'].filter(Boolean);
+        if (!types.length) types = c.nms.some((n) => n.search || n.recom) ? ['search'] : ['combined'];
         const j = await call('POST', '/api/advert/v1/bids/min', { advert_id: c.id, nm_ids: c.nms.map((n) => n.nm), payment_type: c.payType, placement_types: types });
         ((j && j.bids) || []).forEach((x) => { const o = (res[x.nm_id] = {}); (x.bids || []).forEach((b) => { o[String(b.type).startsWith('rec') ? 'recom' : b.type] = R(b.value); }); });
       } catch (e) { log('  min bids', c.id, e.message.slice(0, 160)); }
