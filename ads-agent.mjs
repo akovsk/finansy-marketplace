@@ -714,7 +714,14 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const name = (sid) => (data.stores.find((s) => s.id === sid) || {}).name || sid;
   const apis = {};
   [['wb1', 'WB_SAKOVSKY_TOKEN'], ['wb2', 'WB_DARMIL_TOKEN']].forEach(([sid, k]) => { if (env(k)) apis[sid] = wbApi(env(k)); });
-  [['oz1', 'OZON_PERF_SAKOVSKY'], ['oz2', 'OZON_PERF_SUAVISS']].forEach(([sid, k]) => { if (env(k + '_CLIENT_ID') && env(k + '_CLIENT_SECRET')) apis[sid] = ozonApi(env(k + '_CLIENT_ID'), env(k + '_CLIENT_SECRET'), name(sid)); });
+  const keyNotes = [];
+  [['oz1', 'OZON_PERF_SAKOVSKY'], ['oz2', 'OZON_PERF_SUAVISS']].forEach(([sid, k]) => {
+    const id = env(k + '_CLIENT_ID'), sec = env(k + '_CLIENT_SECRET');
+    if (id && sec) apis[sid] = ozonApi(id, sec, name(sid));
+    else if (id || sec) keyNotes.push(name(sid) + ': задан только секрет ' + k + (id ? '_CLIENT_ID' : '_CLIENT_SECRET') + ', не хватает ' + k + (id ? '_CLIENT_SECRET' : '_CLIENT_ID') + '.');
+    else keyNotes.push(name(sid) + ': секретов ' + k + '_CLIENT_ID / _CLIENT_SECRET нет в Actions secrets.');
+  });
+  keyNotes.forEach((n) => log('ozon key:', n));
   if (!Object.keys(apis).length) { console.error('No ad API keys: WB_SAKOVSKY_TOKEN / WB_DARMIL_TOKEN / OZON_PERF_*_CLIENT_ID + _CLIENT_SECRET'); process.exit(1); }
   const useClaude = cfg.llm.enabled && (env('ANTHROPIC_API_KEY') || env('ANTHROPIC_AUTH_TOKEN'));
   log('ads agent: WB', cfg.mode, '| Ozon', cfg.ozon.mode, '| accounts', Object.keys(apis).join(','), '| decisions by', useClaude ? cfg.llm.model + ' team' : 'rules (no ANTHROPIC_API_KEY)');
@@ -731,6 +738,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   }
   const { memory, ...out } = await run({ cfg, data, market, state, memory: readJson('ads-memory.json', null), apis, brain: useClaude ? makeBrain(cfg) : null, approvals });
   out.tgOffset = state.tgOffset || 0;
+  keyNotes.forEach((n) => out.notes.push(n));
   if (tgToken && tgChat && approvals && approvals.seen) {
     const kept = (approvals.keep || []).map((n) => (state.closeAsk || []).find((a) => a.n === n)).filter(Boolean).map((a) => '⏸ ' + a.n + '. Оставил на паузе «' + cleanTitle(a.name) + '» — месяц не спрошу.');
     const lines = out.approved.length || kept.length ? kept.concat(out.approved.map((a) => (a.result === 'ok' ? '✅ ' : a.result === 'planned' ? '🧪 ' : '⚠️ ') + a.n + '. ' + (a.action === 'restart' ? 'Перезапустил' : a.action === 'stop' ? 'Закрыл' : 'Запустил') + ' «' + cleanTitle(a.name) + '»' + (a.id ? ' — РК № ' + a.id : '') + (a.result === 'planned' ? ' (режим проверки, в кабинете без изменений)' : '') + (a.error ? ' — не получилось: ' + a.error.slice(0, 120) : '')))
