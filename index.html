@@ -756,8 +756,14 @@ th[aria-sort] { color:var(--color-fg); }
   #overview > #filters { order:2; }
   #overview > #ordchart { order:3; }
   #overview > .ts-kpis { order:4; }
-  #overview > .ts-grid-main { order:5; }
-  #overview > #funnel { order:6; }
+  /* AI agents and ads right under the summary, funnel after them */
+  #overview > #bots { order:5; }
+  #overview > #ov-ads { order:6; }
+  #overview > #bots-log { order:7; }
+  #overview > .ts-grid-main { order:8; }
+  #overview > #funnel { order:9; }
+  #overview > #urgent { order:10; }
+  #overview > #costal-ov { order:11; }
 }
 /* Phone: only orders and buyouts in the chart summary, centred */
 @media (max-width: 640px) {
@@ -845,7 +851,7 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-urg-steps b { font-weight:600; }
 .ts-urg-more { align-self:flex-start; }
 @media (max-width: 640px) {
-  #overview > #urgent { order:7; }
+  #overview > #urgent { order:10; }
   #overview > .ts-grid-main #todo { display:none; }
   .ts-urg-h { grid-template-columns:24px minmax(0,1fr) auto 12px; gap:8px; padding:10px; }
   .ts-urg-b { padding:0 10px 12px 42px; }
@@ -863,7 +869,7 @@ th[aria-sort] { color:var(--color-fg); }
 .ts-cost-r small { font-size:11px; color:var(--color-fg-muted); }
 .ts-cost-ok { font-size:12px; white-space:nowrap; color:var(--color-fg-muted); }
 .ts-cost-no { font-size:12px; white-space:nowrap; color:var(--color-bad); font-weight:600; }
-@media (max-width: 640px) { #overview > #costal-ov { order:8; } }
+@media (max-width: 640px) { #overview > #costal-ov { order:11; } }
 </style>
 
 <div class="ts">
@@ -940,6 +946,12 @@ th[aria-sort] { color:var(--color-fg); }
     </div>
     <div class="ts-panel" id="bots" data-draw="bots" data-source="sales"></div>
     <div class="ts-panel" id="bots-log" data-draw="bots-log" data-source="sales"></div>
+    <div class="ts-panel" id="ov-ads">
+      <div class="ts-panel-h"><h3>Реклама WB · 30 дней</h3></div>
+      <div class="ts-adsum" data-draw="ads-sum" data-source="sales"></div>
+      <div class="ts-kpis" data-draw="rk-kpis" data-source="sales"></div>
+      <button type="button" class="ts-btn" data-goto="rk" style="width:fit-content;align-self:center">Все кампании</button>
+    </div>
     <div class="ts-panel" id="urgent">
       <div class="ts-panel-h"><h3>Срочные шаги: как поднять прибыль</h3></div>
       <div class="ts-urg" data-draw="urgent" data-source="sales"></div>
@@ -3177,7 +3189,7 @@ dash.loader('sales', {
     const sp = L.reduce((s, x) => s + x.a.spend, 0), os = L.reduce((s, x) => s + x.a.ordSum, 0);
     const cnt = (v) => L.filter((x) => x.v === v);
     const off = cnt('off'), pause = cnt('pause'), down = cnt('down'), up = cnt('up');
-    const k = (l, val, sub, cls, go) => { const d = T.el('div', 'ts-kpi' + (go ? ' ts-kpi-go' : '')); d.append(T.el('div', 'ts-kpi-l', l), T.el('div', 'ts-kpi-v' + (cls ? ' ' + cls : ''), val), T.el('div', 'ts-kpi-d', sub)); if (go) { d.tabIndex = 0; d.addEventListener('click', () => { const t = document.getElementById('rk-g-' + go); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); } e.append(d); };
+    const k = (l, val, sub, cls, go) => { const d = T.el('div', 'ts-kpi' + (go ? ' ts-kpi-go' : '')); d.append(T.el('div', 'ts-kpi-l', l), T.el('div', 'ts-kpi-v' + (cls ? ' ' + cls : ''), val), T.el('div', 'ts-kpi-d', sub)); if (go) { d.tabIndex = 0; d.addEventListener('click', () => { const find = () => document.getElementById('rk-g-' + go), t = find(); if (t && !t.closest('[hidden]')) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); else { const b = document.querySelector('[data-goto="rk"]'); if (b) b.click(); setTimeout(() => { const x = find(); if (x) x.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 350); } }); } e.append(d); };
     k('Расход за 30 дней', T.rub(sp), L.length + ' кампаний с расходом');
     k('ДРР от заказов', T.pct(os ? sp / os : NaN, 0), 'заказы с рекламы ' + T.rub(os));
     const offA = off.filter((x) => x.active);
