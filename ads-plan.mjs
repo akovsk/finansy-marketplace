@@ -24,15 +24,19 @@ export function cleanedEconomics(view, spend, orders, ordSum, buyout, margin) {
 //   restart  — a campaign the agent paused for loss: same campaign (its queries are kept), cleaned, cheaper bid
 //   recreate — a campaign closed earlier: a new one for the same product with every excluded query carried over
 //   new      — a profitable product without ads
-export function buildVariants({ views, pool, metrics, memory, cfg, archiveInfo = {} }) {
+export function buildVariants({ views, pool, metrics, memory, cfg, archiveInfo = {}, skipped = [] }) {
   const out = [];
   const byUid = new Map(metrics.map((m) => [m.uid, m]));
   views.filter((v) => v.kind === 'paused' || v.kind === 'archive').forEach((v) => {
     const m = byUid.get(v.uid), a = archiveInfo[v.m.id];
     const base = m ? { spend: m.w30.spend, orders: m.w30.orders, ordSum: m.w30.ordSum, buyout: m.buyout, margin: m.margin, target: m.target } : a;
-    if (!base || base.margin == null || base.margin <= 0.02 || !base.orders) return;
+    // Why a paused or closed campaign is not offered: the seller should see that it was weighed, not forgotten
+    const skip = (why) => skipped.push({ kind: v.kind, id: v.m.id, name: v.name, why, kept: v.items.reduce((s, i) => s + kbBad(memory, i.key).length, 0) });
+    if (!base || base.margin == null) return skip('нет данных о прибыли товара');
+    if (base.margin <= 0.02) return skip('товар убыточен ещё до рекламы (маржа ' + pct(base.margin) + ')');
+    if (!base.orders) return skip('за 30 дней не было заказов с рекламы');
     const e = cleanedEconomics(v, base.spend, base.orders, base.ordSum, base.buyout || 0.9, base.margin);
-    if (e.drr == null || e.drr >= base.margin * 0.85 || !(e.profitMonth > 0)) return;
+    if (e.drr == null || e.drr >= base.margin * 0.85 || !(e.profitMonth > 0)) return skip('даже без плохих запросов ДРР ' + pct(e.drr) + ' при марже ' + pct(base.margin));
     const target = base.target || Math.min(cfg.maxDrr, cfg.targetShare * base.margin);
     const bidPct = e.drr > target ? -clamp(Math.round((1 - target / e.drr) * 100), 5, cfg.bid.maxStepPct) : 0;
     // a restart keeps the campaign's own minus phrases; only the ones from other campaigns are new to it
@@ -87,7 +91,7 @@ export function planText(A) {
   if (!P) return '';
   const L = ['🧭 <b>План по рекламному кабинету</b>', ''];
   const d = P.done || {};
-  const done = [d.paused && '⏸ на паузу (минус) — ' + d.paused, d.lower && '🎯 ставок снижено — ' + d.lower, d.raise && '📈 ставок поднято — ' + d.raise,
+  const done = [d.closed && '✂️ закрыто (до перехода на паузы) — ' + d.closed, d.paused && '⏸ на паузу из-за минуса — ' + d.paused, d.lower && '🎯 ставок снижено — ' + d.lower, d.raise && '📈 ставок поднято — ' + d.raise,
     d.minus && '🧹 плохих запросов исключено — ' + d.minus, d.transfer && '🔁 исключений перенесено из других РК — ' + d.transfer, d.launch && '🚀 запущено — ' + d.launch, d.resume && '▶️ включено — ' + d.resume].filter(Boolean);
   L.push('<b>Сделано за сутки</b>');
   L.push(...(done.length ? done.map((x) => '▫️ ' + x) : ['▫️ изменений не понадобилось']));

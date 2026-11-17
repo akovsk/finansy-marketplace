@@ -367,8 +367,9 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   const stOf = (m) => ({ ...(camp[ck(m)] || {}), recent: hist.filter((h) => h.id === m.id && h.store === m.store).slice(-4) });
   const mark = (m, patch) => { camp[ck(m)] = { ...(camp[ck(m)] || {}), ...patch }; };
   const metrics = [], byUid = new Map(), pool = [], views = [], storeName = {}, archiveInfo = {};
-  // Campaigns the agent closed before it learned to pause: their excluded queries are read once and kept
-  const closedByAgent = hist.filter((h) => h.action === 'stop' && h.result === 'ok' && h.platform !== 'ozon' && !String(h.store).startsWith('oz') && h.key && !(camp[h.id] || {}).harvested);
+  // Campaigns the agent closed before it learned to pause: their excluded queries are kept, and for 30 days
+  // (while WB still has their statistics) the agent weighs a new campaign in their place
+  const closedByAgent = hist.filter((h, i, all) => h.action === 'stop' && h.result === 'ok' && h.platform !== 'ozon' && !String(h.store).startsWith('oz') && h.key && Date.parse(h.t) >= now - 30 * DAY && all.findIndex((x) => x.action === 'stop' && x.result === 'ok' && x.id === h.id) === i);
   // New campaigns: at most launch.maxTotal ever launched by the agent on each marketplace (counted from its history)
   const launchedOk = hist.filter((a) => a.action === 'launch' && a.result === 'ok');
   const closedSkus = new Set(launchedOk.filter((a) => hist.some((h) => h.action === 'stop' && h.result === 'ok' && h.id === a.id)).map((a) => String(a.sku)));
@@ -405,7 +406,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   const fresh = evaluateOutcomes(memory, hist, (a) => byUid.get(a.store + ':' + a.id), now);
   const tuned = autoTune(memory, cfg, now);
 
-  const variants = cfg.plan.enabled ? buildVariants({ views, pool, metrics, memory, cfg, archiveInfo }) : [];
+  const skipped = [];
+  const variants = cfg.plan.enabled ? buildVariants({ views, pool, metrics, memory, cfg, archiveInfo, skipped }) : [];
 
   // 3. Decide: rules as the baseline, the Claude team on top when it is available
   metrics.sort((a, b) => b.w30.spend - a.w30.spend);     // biggest spenders first, so the per-run stop limit goes to the costliest losers
@@ -600,7 +602,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   out.learned = learnedView(memory, fresh, tuned, plan ? plan.helpersUsed : []);
   kbPrune(memory);
   out.approved = approvedNow.map((a) => ({ n: a.plan, action: a.action, name: a.name, id: a.id || null, result: a.result, error: a.error || null }));
-  if (cfg.plan.enabled) out.plan = makePlan({ out, hist, metrics, views, variants, plan, cfg, now, done: approvedNow, live });
+  if (cfg.plan.enabled) out.plan = makePlan({ out, hist, metrics, views, variants, skipped, plan, cfg, now, done: approvedNow, live });
   out.candidates = pool.map((c) => ({ store: c.store, key: c.key, name: c.name, per1000: c.per1000, headroom: c.headroom, go: !(veto.get(c.key) && veto.get(c.key).go === false) }));
 
   const n = (a) => out.actions.filter((x) => x.action === a && x.result !== 'error').length;
@@ -619,13 +621,13 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
 }
 const cleanTitle = (s) => String(s || '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ').trim();
 // The plan the owner gets in Telegram: what was done in 24 h, what comes next, numbered launch variants
-function makePlan({ out, hist, metrics, views, variants, plan, cfg, now, done, live }) {
+function makePlan({ out, hist, metrics, views, variants, skipped = [], plan, cfg, now, done, live }) {
   const since = now - DAY;
   const real = hist.filter((a) => a.result === 'ok' && Date.parse(a.t) >= since);
   const acts = real.length ? real : out.actions.filter((a) => a.result === 'planned');
   const cnt = (f) => acts.filter(f).length, sum = (f, k) => acts.filter(f).reduce((s, a) => s + (a[k] || 0), 0);
   const isLoss = (a) => a.action === 'stop' || (a.action === 'pause' && a.loss);
-  const d = { planned: !real.length && acts.length > 0, paused: cnt(isLoss), lower: cnt((a) => a.action === 'lower'), raise: cnt((a) => a.action === 'raise'), minus: sum((a) => a.action === 'minus', 'n'), transfer: sum((a) => a.action === 'minus', 'moved'),
+  const d = { planned: !real.length && acts.length > 0, closed: cnt((a) => a.action === 'stop'), paused: cnt((a) => a.action === 'pause' && a.loss), lower: cnt((a) => a.action === 'lower'), raise: cnt((a) => a.action === 'raise'), minus: sum((a) => a.action === 'minus', 'n'), transfer: sum((a) => a.action === 'minus', 'moved'),
     launch: cnt((a) => a.action === 'launch'), resume: cnt((a) => a.action === 'resume' || a.action === 'restart'), savedDay: R(acts.filter(isLoss).reduce((s, a) => s + ((a.snap && a.snap.spendDay) || 0), 0)) };
   const next = [];
   const rows = out.campaigns;
@@ -635,6 +637,11 @@ function makePlan({ out, hist, metrics, views, variants, plan, cfg, now, done, l
   if (lim) next.push('Поставлю на паузу ещё ' + lim + ' ' + plural(lim, 'убыточную кампанию', 'убыточные кампании', 'убыточных кампаний') + ' (за раз не больше ' + cfg.stop.maxPerRun + ').');
   const check = views.filter((v) => v.kind === 'active').reduce((s, v) => s + v.items.reduce((t, i) => t + i.clusters.filter((c) => c.flag === 'check').length, 0), 0);
   if (check) next.push(check + ' ' + plural(check, 'спорный запрос', 'спорных запроса', 'спорных запросов') + ' (похожи на сам товар, но не продают) — ' + (plan ? 'разберёт помощник.' : 'жду больше данных, без ИИ-проверки не трогаю.'));
+  // Paused and closed campaigns that were weighed for a restart and did not pass
+  const arch = skipped.filter((x) => x.kind === 'archive'), pz = skipped.filter((x) => x.kind === 'paused');
+  const kept = arch.reduce((s, x) => s + x.kept, 0);
+  if (arch.length) next.push('Закрытые кампании (' + arch.length + '): ' + (kept ? 'их ' + kept + ' ' + plural(kept, 'минус-фраза сохранена', 'минус-фразы сохранены', 'минус-фраз сохранено') + ' и переносятся в живые и новые РК этих товаров. ' : '') + 'Перезапуск пока не окупится — например, «' + cleanTitle(arch[0].name).slice(0, 40) + '»: ' + arch[0].why + '.');
+  if (pz.length) next.push('На паузе из-за минуса ' + pz.length + ' ' + plural(pz.length, 'кампания', 'кампании', 'кампаний') + ': перезапуск пока не окупится (' + pz[0].why + '), считаю заново при каждой проверке.');
   const wait = hist.filter((a) => a.result === 'ok' && !a.evaluated && Date.parse(a.t) >= now - 7 * DAY && ['lower', 'raise', 'pause', 'minus', 'launch', 'restart'].includes(a.action)).length;
   if (wait) next.push('Через неделю сравню прибыль до и после по ' + wait + ' ' + plural(wait, 'своему действию', 'своим действиям', 'своим действиям') + ' и подстрою правила.');
   const notes = new Map(((plan && plan.variantNotes) || []).map((x) => [x.n, x]));

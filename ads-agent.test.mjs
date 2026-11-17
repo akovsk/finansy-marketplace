@@ -169,9 +169,10 @@ console.log('ads-agent: launch checks passed');
   assert.ok(reads.includes(555), 'минус-фразы закрытой кампании прочитаны');
   assert.ok(first.out.camp[555].harvested);
   assert.deepEqual(sets.find((x) => x[0] === 101), [101, 1, ['исключил сотрудник', 'ещё одно']], 'перенесены в живую кампанию того же товара');
+  assert.match(first.out.plan.next.join(' '), /Закрытые кампании \(1\): их 2 минус-фразы сохранены/, 'в плане видно, что запросы закрытой РК сохранены');
   reads.length = 0;
-  await go({ stores: ['wb1'] }, { api, state: first.out, memory: first.out.memory });
-  assert.ok(!reads.includes(555), 'второй раз закрытую кампанию не читает');
+  await go({ stores: ['wb1'] }, { api, state: first.out, memory: first.out.memory, now: NOW + 31 * 864e5 });
+  assert.ok(!reads.includes(555), 'через 30 дней статистики нет — закрытую кампанию больше не читает');
 }
 // 14. Paused for loss: never switched back on by itself; a restart variant appears when cleaning makes it pay; the owner approves it in Telegram
 {
