@@ -11,6 +11,11 @@ on:
         type: choice
         default: config
         options: [config, dry-run, live]
+  # «Показать сейчас»: изменение файла .github/run-now запускает агента в режиме проверки,
+  # а следом отчёт с планом уходит в Telegram (workflow «Отчёт агента рекламы в Telegram»)
+  push:
+    branches: [main]
+    paths: ['.github/run-now']
 
 permissions:
   contents: write
@@ -36,7 +41,7 @@ jobs:
 
       - name: Агент - решения по кампаниям
         env:
-          ADS_AGENT_MODE: ${{ inputs.mode != 'config' && inputs.mode || '' }}
+          ADS_AGENT_MODE: ${{ github.event_name == 'push' && 'dry-run' || (inputs.mode != 'config' && inputs.mode || '') }}
           WB_SAKOVSKY_TOKEN: ${{ secrets.WB_SAKOVSKY_TOKEN }}
           WB_DARMIL_TOKEN: ${{ secrets.WB_DARMIL_TOKEN }}
           OZON_PERF_SAKOVSKY_CLIENT_ID: ${{ secrets.OZON_PERF_SAKOVSKY_CLIENT_ID }}

@@ -5,15 +5,22 @@ on:
     # каждый вечер в 21:00 по Москве: всё, что агент сделал за день, со скриншотами
     - cron: '0 18 * * *'
   workflow_dispatch:
+  # сразу после запуска агента кнопкой «показать сейчас» (.github/run-now)
+  workflow_run:
+    workflows: ['ИИ-агенты рекламы WB и Ozon']
+    types: [completed]
 
 permissions:
   contents: read
 
 jobs:
   report:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main   # свежий ads-agent.json, который агент только что сохранил
 
       - uses: actions/setup-node@v4
         with:
