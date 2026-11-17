@@ -6,7 +6,9 @@
     "oz1",
     "oz2"
   ],
-  "protect": [],
+  "protect": [
+    "13788182"
+  ],
   "targetShare": 0.6,
   "maxDrr": 0.25,
   "minSpend": 1500,
