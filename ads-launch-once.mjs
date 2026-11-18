@@ -9,7 +9,11 @@ import { mergeConfig, skuEconomics } from './ads-agent.mjs';
 
 const J = (f, d) => { try { return JSON.parse(readFileSync(new URL('./' + f, import.meta.url), 'utf8')); } catch (e) { if (d !== undefined) return d; throw e; } };
 const env = (k) => (process.env[k] || '').trim();
-const fail = (msg) => { console.error('STOP: ' + msg); process.exit(1); };
+// Every outcome lands in .github/launch-once.result.json, so it can be read without access to the Actions logs
+const report = (o) => writeFileSync(new URL('./.github/launch-once.result.json', import.meta.url), JSON.stringify({ t: new Date().toISOString(), ...o }, null, 1));
+const fail = (msg) => { console.error('STOP: ' + msg); report({ result: 'stopped', why: msg }); process.exit(1); };
+process.on('uncaughtException', (err) => fail('ошибка: ' + err.message));
+process.on('unhandledRejection', (err) => fail('ошибка: ' + (err && err.message || err)));
 
 const req = J('.github/launch-once.json');
 const KEYS = { oz1: 'OZON_PERF_SAKOVSKY', oz2: 'OZON_PERF_SUAVISS' };
@@ -33,6 +37,7 @@ const api = ozonApi(id, sec, store.name);
 const before = await api.list();
 const busy = before.find((c) => c.status === 9 && c.nms.some((n) => n.nm === String(req.sku)));
 if (busy) fail('товар уже рекламируется в активной кампании ' + busy.id + ' «' + busy.name + '» — новую не создаю');
+console.log('Кампаний в кабинете:', before.length);
 
 const out = J('ads-agent.json', {});
 const act = { t: new Date().toISOString(), store: req.store, platform: 'ozon', action: 'launch', owner: true, key, sku: String(req.sku), name: e.name,
@@ -63,4 +68,5 @@ console.log('\nРезультат:', act.result, act.id ? 'кампания ' + 
 out.history = (out.history || []).concat([act]).slice(-400);
 out.actions = (out.actions || []).concat([act]);
 writeFileSync(new URL('./ads-agent.json', import.meta.url), JSON.stringify(out));
+report({ result: act.result, id: act.id || null, error: act.error || null, check: act.check || null, title, cir, weekly });
 if (act.result !== 'ok') process.exit(1);
