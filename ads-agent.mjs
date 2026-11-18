@@ -724,6 +724,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     if (Array.isArray(plan.helpers) && plan.helpers.length) memory.helpers = plan.helpers.slice(0, 6).map((h) => ({ role: String(h.role).slice(0, 80), task: String(h.task).slice(0, 500) }));
   }
   out.learned = learnedView(memory, fresh, tuned, plan ? plan.helpersUsed : []);
+  // The Claude team the lead has formed (kept between runs): the dashboard's agents' room shows exactly these
+  out.team = (memory.helpers || []).map((h) => ({ role: h.role, task: h.task }));
   kbPrune(memory);
   // What was learned today (Moscow day), for the evening report per marketplace
   const isToday = (t) => t && new Date(Date.parse(t) + 3 * 3600e3).toISOString().slice(0, 10) === today;
