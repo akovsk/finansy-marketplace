@@ -264,6 +264,74 @@ img { max-width:100%; }
 .ts-log-b a { color:var(--ts-wb, inherit); font-size:12px; }
 .ts-bot-learn ul { margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; font-size:13px; line-height:1.45; }
 #bots .ts-btn { align-self:flex-start; }
+/* Agents' room: a 3D office drawn with CSS transforms; logical size 960×520, scaled to the panel width by JS */
+.ts-room-panel { gap:10px; }
+.rm { position:relative; width:100%; overflow:hidden; border-radius:14px; border:1px solid var(--color-border-line);
+  background:radial-gradient(120% 90% at 50% 0%, #2b2f45 0%, #161927 60%, #10121b 100%); }
+.rm-stage { position:absolute; left:0; top:0; width:960px; height:520px; transform-origin:0 0; perspective:1100px; perspective-origin:50% 28%; }
+.rm-world { position:absolute; left:480px; top:276px; transform-style:preserve-3d; transform:rotateX(calc(-17deg + var(--rx, 0deg))) rotateY(var(--ry, 0deg)); transition:transform .6s cubic-bezier(.2,.7,.2,1); }
+.rm-world > * { position:absolute; transform-style:preserve-3d; }
+.rm-floor { width:940px; height:560px; left:-470px; top:-280px; transform:translateY(150px) rotateX(90deg);
+  background:repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 70px), repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 70px), linear-gradient(#2a2d3d, #1d2030); }
+.rm-wall { height:400px; top:-250px; background:linear-gradient(#262a3c, #1f2232); border:1px solid rgba(255,255,255,.04); }
+.rm-wall-b { width:940px; left:-470px; transform:translateZ(-280px); }
+.rm-wall-l { width:560px; left:-280px; transform:translateX(-470px) rotateY(90deg); background:linear-gradient(90deg, #1b1e2c, #23263a); }
+.rm-wall-r { width:560px; left:-280px; transform:translateX(470px) rotateY(-90deg); background:linear-gradient(-90deg, #1b1e2c, #23263a); }
+.rm-board { position:absolute; left:160px; top:12px; width:620px; height:214px; border-radius:10px; padding:10px 18px; box-sizing:border-box;
+  background:linear-gradient(160deg, #1f3b33, #15291f); border:8px solid #6b4a2f; box-shadow:0 18px 40px rgba(0,0,0,.45), inset 0 0 40px rgba(0,0,0,.35);
+  color:#eaf3ea; font-family:inherit; display:flex; flex-direction:column; gap:8px; }
+.rm-board h4 { margin:0; font-size:17px; letter-spacing:.02em; display:flex; justify-content:space-between; align-items:baseline; color:#fff; }
+.rm-board h4 small { font-size:11px; font-weight:500; color:#b9d2bf; }
+.rm-money { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; padding-bottom:8px; border-bottom:1px dashed rgba(234,243,234,.25); }
+.rm-money div { display:flex; flex-direction:column; gap:1px; }
+.rm-money small { font-size:10.5px; color:#b9d2bf; }
+.rm-money b { font-size:18px; font-variant-numeric:tabular-nums; }
+.rm-money i { font-style:normal; font-size:10.5px; color:#b9d2bf; }
+.rm-ach { margin:0; padding:0; list-style:none; display:grid; grid-template-columns:1fr 1fr; gap:4px 18px; font-size:12.5px; line-height:1.3; }
+.rm-ach li { display:flex; gap:6px; align-items:baseline; min-width:0; }
+.rm-ach li span { min-width:0; }
+.rm-ach b { font-variant-numeric:tabular-nums; }
+.rm-ach .rm-new { color:#ffe08a; font-weight:700; animation:rmGlow 2.4s ease-in-out 3; }
+@keyframes rmGlow { 50% { text-shadow:0 0 12px #ffd24d; } }
+.rm-clock { position:absolute; left:200px; top:40px; width:150px; padding:10px 12px; border-radius:10px; background:#0f1220; color:#cfe3ff; font-size:11px; line-height:1.4; border:1px solid rgba(255,255,255,.08); }
+.rm-clock b { display:block; font-size:24px; font-variant-numeric:tabular-nums; color:#fff; }
+.rm-win { position:absolute; left:220px; top:60px; width:160px; height:150px; border-radius:6px; background:linear-gradient(#5d7fb8, #9ec1e6 70%, #d9e7f3); border:6px solid #3a3f56; box-shadow:inset 0 0 0 2px rgba(255,255,255,.2); }
+.rm-win::after { content:""; position:absolute; left:50%; top:0; bottom:0; width:5px; background:#3a3f56; }
+.rm-ag { width:120px; height:190px; left:-60px; top:-40px; }
+.rm-desk { position:absolute; left:6px; bottom:0; width:108px; height:52px; border-radius:6px 6px 2px 2px; background:linear-gradient(#6d5340, #4c3a2d); box-shadow:0 10px 18px rgba(0,0,0,.4); }
+.rm-pc { position:absolute; left:34px; bottom:52px; width:52px; height:36px; border-radius:4px; background:#0d0f17; border:3px solid #2c3042; box-shadow:0 0 0 rgba(0,0,0,0); }
+.rm-pc::after { content:""; position:absolute; left:20px; bottom:-10px; width:6px; height:7px; background:#2c3042; }
+.rm-ag.on .rm-pc { background:linear-gradient(var(--c), #0d0f17); box-shadow:0 0 22px var(--c); animation:rmScreen 1.6s steps(2) infinite; }
+@keyframes rmScreen { 50% { filter:brightness(1.35); } }
+.rm-fig { position:absolute; left:38px; bottom:60px; width:44px; height:78px; transform:translateZ(-30px); }
+.rm-head { position:absolute; left:8px; top:0; width:28px; height:28px; border-radius:50%; background:#f2cfae; box-shadow:inset -4px -3px 0 rgba(0,0,0,.12); }
+.rm-head::before { content:""; position:absolute; left:-1px; top:-3px; width:30px; height:14px; border-radius:14px 14px 4px 4px; background:var(--hair, #3b2a20); }
+.rm-body { position:absolute; left:0; top:26px; width:44px; height:52px; border-radius:18px 18px 6px 6px; background:var(--c); box-shadow:inset -6px -4px 0 rgba(0,0,0,.18); }
+.rm-ag.on .rm-fig { animation:rmBob .9s ease-in-out infinite; }
+.rm-ag:not(.on) .rm-fig { animation:rmBreath 4s ease-in-out infinite; }
+@keyframes rmBob { 50% { transform:translateZ(-30px) translateY(-3px); } }
+@keyframes rmBreath { 50% { transform:translateZ(-30px) scaleY(1.02); } }
+.rm-tag { position:absolute; left:50%; bottom:12px; transform:translateX(-50%) translateZ(2px); white-space:nowrap; font-size:12px; font-weight:700; color:#fff; background:rgba(0,0,0,.45); padding:2px 9px; border-radius:999px; border:1px solid rgba(255,255,255,.12); }
+.rm-tag i { display:inline-block; width:7px; height:7px; border-radius:50%; background:#8a8f98; margin-right:5px; vertical-align:1px; }
+.rm-ag.on .rm-tag i { background:#3ee08f; box-shadow:0 0 8px #3ee08f; }
+.rm-ag.err .rm-tag i { background:#ff6b6b; }
+.rm-say { position:absolute; left:50%; bottom:146px; transform:translateX(-50%); width:150px; padding:6px 9px; border-radius:11px; background:rgba(255,255,255,.93); color:#1c1f2b; font-size:10.5px; line-height:1.28; box-shadow:0 8px 20px rgba(0,0,0,.35); }
+.rm-say::after { content:""; position:absolute; left:50%; bottom:-6px; margin-left:-6px; border:6px solid transparent; border-bottom:0; border-top-color:rgba(255,255,255,.93); }
+.rm-ag:not(.on) .rm-say { background:rgba(255,255,255,.72); }
+.rm-say b { display:block; font-size:9.5px; color:#5b6070; font-weight:600; }
+.rm-say > span { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.rm-dots::after { content:"…"; display:inline-block; animation:rmDots 1.2s steps(3) infinite; overflow:hidden; vertical-align:bottom; width:1.1em; }
+@keyframes rmDots { from { width:0; } }
+.rm-hint { position:absolute; right:12px; bottom:10px; font-size:11px; color:#9aa0b4; }
+@media (hover:none) { .rm-hint { display:none; } }
+.rm-list { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:6px 14px; margin:0; padding:0; list-style:none; font-size:13px; }
+.rm-list li { display:flex; gap:8px; align-items:baseline; min-width:0; }
+.rm-list i { flex:none; width:8px; height:8px; border-radius:50%; background:var(--color-fg-muted); }
+.rm-list li.on i { background:var(--color-ok); box-shadow:0 0 6px var(--color-ok); }
+.rm-list li.err i { background:var(--color-bad); }
+.rm-list span { min-width:0; color:var(--color-fg-muted); }
+.rm-list b { color:var(--color-fg); }
+@media (prefers-reduced-motion:reduce) { .rm-ag .rm-fig, .rm-ag .rm-pc, .rm-dots::after, .rm-ach .rm-new { animation:none !important; } }
 .ts-acts { margin:0; padding:0 0 0 20px; list-style:decimal; display:flex; flex-direction:column; gap:9px; line-height:1.45; }
 .ts-acts li::marker { font-weight:700; color:var(--color-fg-muted); }
 .ts-acts .ts-pot { color:var(--color-ok); font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -763,14 +831,14 @@ th[aria-sort] { color:var(--color-fg); }
   #overview > #filters { order:2; }
   #overview > #ordchart { order:3; }
   #overview > .ts-kpis { order:4; }
-  /* AI agents and ads right under the summary, funnel after them */
-  #overview > #bots { order:5; }
+  /* AI agents (room, cards, log) and ads right under the summary; the funnel at the very bottom */
+  #overview > #room, #overview > #bots { order:5; }
   #overview > #ov-ads { order:6; }
   #overview > #bots-log { order:7; }
   #overview > .ts-grid-main { order:8; }
-  #overview > #funnel { order:9; }
   #overview > #urgent { order:10; }
   #overview > #costal-ov { order:11; }
+  #overview > #funnel { order:12; }
 }
 /* Phone: only orders and buyouts in the chart summary, centred */
 @media (max-width: 640px) {
@@ -946,11 +1014,7 @@ th[aria-sort] { color:var(--color-fg); }
       <div class="ts-chart ts-chart-big" data-draw="och" data-source="sales"></div>
       <p class="ts-muted" data-draw="och-note" data-source="sales"></p>
     </div>
-    <div class="ts-panel" id="funnel">
-      <div class="ts-panel-h"><h3>Воронка · все магазины</h3><span class="ts-muted" data-draw="fun-per" data-source="sales"></span></div>
-      <div class="ts-fun" data-draw="funnel" data-source="sales"></div>
-      <p class="ts-muted" data-draw="fun-note" data-source="sales"></p>
-    </div>
+    <div class="ts-panel ts-room-panel" id="room" data-draw="room" data-source="sales"></div>
     <div class="ts-panel" id="bots" data-draw="bots" data-source="sales"></div>
     <div class="ts-panel" id="bots-log" data-draw="bots-log" data-source="sales"></div>
     <div class="ts-panel" id="ov-ads">
@@ -964,6 +1028,11 @@ th[aria-sort] { color:var(--color-fg); }
       <div class="ts-urg" data-draw="urgent" data-source="sales"></div>
     </div>
     <div class="ts-costal" id="costal-ov" data-draw="cost-alert" data-source="sales"></div>
+    <div class="ts-panel" id="funnel">
+      <div class="ts-panel-h"><h3>Воронка · все магазины</h3><span class="ts-muted" data-draw="fun-per" data-source="sales"></span></div>
+      <div class="ts-fun" data-draw="funnel" data-source="sales"></div>
+      <p class="ts-muted" data-draw="fun-note" data-source="sales"></p>
+    </div>
   </section>
 
   <section class="ts-page" id="insights" role="tabpanel" hidden>
@@ -2813,6 +2882,174 @@ dash.loader('sales', {
   /* ---- Overview: each ad cabinet at a glance, questions waiting for the owner, and the agents' full action history ---- */
   let logLimit = 15;
   const LOG_ICON = { stop: '✂️', pause: '⏸', resume: '▶️', restart: '▶️', lower: '🎯', raise: '📈', minus: '🧹', boost: '🔎', drop: '➖', launch: '🚀', topup: '💳' };
+  /* ---- Agents' room: every agent by name, what it is doing right now and the achievements board ----
+     "Right now" comes from GitHub Actions (public API, no key): a running workflow means its agents are at work.
+     Polled every 90 s while the page is visible (~40 calls an hour, GitHub allows 60 without a key).
+     When the agents' run finishes, ads-agent.json is re-read from the repo, so the board updates by itself. */
+  const ROOM_REPO = 'akovsk/finansy-marketplace';
+  const ROOM_WF = { 'ads-agent.yml': 'ads', 'ads-launch-once.yml': 'ads', 'ads-wb-once.yml': 'ads', 'update.yml': 'data', 'ads-report.yml': 'report' };
+  const RL = { runs: null, step: null, err: null, at: 0, fresh: null, doneId: null, started: false };
+  const rmPlat = (x) => x.platform || (String(x.store || '').startsWith('oz') ? 'ozon' : 'wb');
+  const rmToday = (A, p, kinds) => {
+    const live = (p === 'ozon' ? A.ozonMode : A.mode) === 'live', today = mskDay(new Date().toISOString());
+    return (live ? (A.history || []).filter((a) => a.result === 'ok') : (A.actions || [])).filter((a) => rmPlat(a) === p && a.t && mskDay(a.t) === today && (!kinds || kinds.includes(a.action)));
+  };
+  const rmCount = (list) => { const c = {}; list.forEach((a) => { c[a.action] = (c[a.action] || 0) + 1; }); return c; };
+  const rmWords = (c, names) => Object.entries(c).filter(([k]) => names[k]).map(([k, v]) => names[k] + ' — ' + v).join(', ');
+  // next start of a schedule given in UTC minutes of the day → "15:17" Moscow time
+  const rmNext = (mins) => { const now = new Date(), m = now.getUTCHours() * 60 + now.getUTCMinutes(), n = mins.find((x) => x > m) ?? mins[0] + 1440; return String(Math.floor(((n + 180) % 1440) / 60)).padStart(2, '0') + ':' + String((n + 180) % 60).padStart(2, '0'); };
+  const ROOM_AG = [
+    { id: 'mark', name: 'Марк', role: 'ставки WB', c: '#7c5cff', hair: '#2b1d14', x: -220, z: 170, wf: 'ads',
+      busy: (A) => 'Пересчитываю ДРР и ставки по ' + (A.campaigns || []).filter((c) => rmPlat(c) === 'wb' && c.status === 9).length + ' кампаниям WB',
+      idle: (A) => { const w = rmWords(rmCount(rmToday(A, 'wb', ['lower', 'raise', 'pause', 'stop', 'resume', 'restart'])), { lower: 'ставка ниже', raise: 'ставка выше', pause: 'пауза', stop: 'закрыл', resume: 'включил', restart: 'перезапустил' }); return w ? 'Сегодня: ' + w : 'Все ставки в норме, жду ' + rmNext([197, 737]); } },
+    { id: 'vera', name: 'Вера', role: 'поисковые запросы', c: '#e0559a', hair: '#7a3b1e', x: -110, z: -110, wf: 'ads',
+      busy: () => 'Читаю поисковые кластеры и слежу за топ-запросами',
+      idle: (A) => { const m = rmToday(A, 'wb', ['minus']).reduce((s, a) => s + (a.n || 0), 0), top = A.top || [], slip = top.filter((t) => t.alerts && t.alerts.length).length; return (m ? 'Сегодня убрала ' + m + ' плохих запросов. ' : '') + (top.length ? 'Слежу за топ-запросами ' + top.length + ' товаров' + (slip ? ', просели у ' + slip : ', просадок нет') : 'Жду статистику кластеров'); } },
+    { id: 'petr', name: 'Пётр', role: 'запуски и план', c: '#f0a020', hair: '#1c1c1c', x: 0, z: 170, wf: 'ads',
+      busy: () => 'Ищу товары, где реклама окупится',
+      idle: (A) => { const l = rmToday(A, 'wb', ['launch', 'restart']).length + rmToday(A, 'ozon', ['launch']).length, v = ((A.plan || {}).variants || []).length; return l ? 'Сегодня запустил: ' + l : v ? 'Вариантов запуска в плюс: ' + v + ' — жду вашего ответа' : 'Товаров под окупаемый запуск пока нет'; } },
+    { id: 'sonya', name: 'Соня', role: 'учится на итогах', c: '#2bb673', hair: '#c9a15a', x: 110, z: -110, wf: 'ads',
+      busy: () => 'Сверяю прибыль до и после прошлых решений',
+      idle: (A) => { const T = (A.learned || {}).today || {}, o = (T.outcomes || []).length, pend = (A.history || []).filter((a) => a.result === 'ok' && !a.evaluated && ['lower', 'raise', 'pause', 'minus', 'launch', 'restart'].includes(a.action)).length; return o ? 'Сегодня проверила ' + o + ' решений' : pend ? pend + ' решений ждут недели для проверки' : 'Коплю статистику для выводов'; } },
+    { id: 'oskar', name: 'Оскар', role: 'реклама Ozon', c: '#2f7cf6', hair: '#4a3426', x: 220, z: 170, wf: 'ads',
+      busy: (A) => 'Проверяю ' + (A.campaigns || []).filter((c) => rmPlat(c) === 'ozon' && c.status === 9).length + ' кампаний Ozon',
+      idle: (A) => { const n = rmToday(A, 'ozon').length; return A.ozonMode === 'live' ? (n ? 'Сегодня изменений: ' + n : 'Ozon в норме') : 'Режим проверки' + (n ? ': в плане ' + n + ' изменений' : ''); } },
+    { id: 'tim', name: 'Тим', role: 'сбор данных', c: '#8a8f98', hair: '#2e2e2e', x: -330, z: -110, wf: 'data',
+      busy: () => 'Выгружаю продажи, остатки и рекламу из Торгстат и API',
+      idle: (A, d) => (d ? 'Данные обновил в ' + new Date(d.updated_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) + '. ' : '') + 'Следующая выгрузка в ' + rmNext([0, 90, 180, 270, 360, 450, 540, 630, 720, 810, 900, 990, 1080, 1170, 1260, 1350]) },
+    { id: 'nora', name: 'Нора', role: 'отчёты в Telegram', c: '#14b8c4', hair: '#5a2a1a', x: 330, z: -110, wf: 'report',
+      busy: () => 'Собираю отчёт со скриншотами и отправляю в Telegram',
+      idle: (A, d) => (d && mskDay(d.updated_at) === mskDay(new Date().toISOString()) ? 'Отчёт сегодня отправлен. ' : '') + 'Следующий отчёт в 21:00' },
+  ];
+  const wfOf = (r) => ROOM_WF[String(r.path || '').split('/').pop()] || null;
+  const rmRunning = (wf) => (RL.runs || []).find((r) => wfOf(r) === wf && r.status !== 'completed') || null;
+  const rmDone = (wf) => (RL.runs || []).find((r) => wfOf(r) === wf && r.status === 'completed') || null;
+  async function roomRefresh() {
+    try { const r = await fetch('https://raw.githubusercontent.com/' + ROOM_REPO + '/main/ads-agent.json?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) { RL.fresh = await r.json(); dash.draw('room'); } } catch (e) { /* the board keeps the data it has */ }
+  }
+  async function roomPoll() {
+    if (document.hidden) return;
+    try {
+      const r = await fetch('https://api.github.com/repos/' + ROOM_REPO + '/actions/runs?per_page=15', { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status === 403 || r.status === 429 ? 'GitHub ограничил частоту — статус обновится через пару минут' : 'GitHub ответил ' + r.status);
+      RL.runs = (await r.json()).workflow_runs || []; RL.err = null; RL.at = Date.now();
+      const run = rmRunning('ads');
+      RL.step = null;
+      if (run) { try { const j = await (await fetch(run.jobs_url, { cache: 'no-store' })).json(); const cur = (((j.jobs || [])[0] || {}).steps || []).find((s) => s.status === 'in_progress'); RL.step = cur ? cur.name : null; } catch (e) { /* step unknown */ } }
+      // the agents' run just finished: decisions and achievements are new (the commit lands a few seconds later)
+      const done = rmDone('ads');
+      if (done && RL.doneId && done.id !== RL.doneId) { setTimeout(roomRefresh, 20000); setTimeout(roomRefresh, 90000); }
+      if (done) RL.doneId = done.id;
+    } catch (e) { RL.err = e.message; }
+    dash.draw('room');
+  }
+  // Achievements: everything the agents did since they started, from their own history
+  function roomBoard(A) {
+    const H = (A.history || []).filter((a) => a.result === 'ok'), byId = new Map((A.campaigns || []).map((c) => [c.id, c]));
+    const sum = (f) => H.reduce((s, a) => s + (f(a) || 0), 0);
+    const loss = H.filter((a) => a.action === 'stop' || (a.action === 'pause' && a.loss));
+    const saved = loss.reduce((s, a) => s + ((a.snap && a.snap.spendDay) || ((byId.get(a.id) || {}).spend30 || 0) / 30), 0);
+    const st = Object.values((A.learned || {}).stats || {}).reduce((a, x) => ({ n: a.n + x.helped + x.neutral + x.hurt, ok: a.ok + x.helped }), { n: 0, ok: 0 });
+    const items = [
+      ['Убыточных кампаний остановлено', loss.length],
+      ['Экономия, ₽ в день', Math.round(saved / 10) * 10],
+      ['Плохих запросов убрано', sum((a) => (a.action === 'minus' ? (a.n || 0) + (a.moved || 0) : 0))],
+      ['Ставок исправлено', H.filter((a) => a.action === 'lower' || a.action === 'raise' || a.action === 'boost').length],
+      ['Кампаний запущено', H.filter((a) => a.action === 'launch' || a.action === 'restart').length],
+      ['Решений проверено на прибыль', st.n, st.n ? 'помогли ' + st.ok : null],
+      ['Топ-запросов под наблюдением', (A.top || []).reduce((s, t) => s + (t.rows || []).length, 0)],
+      ['Навыков освоено', (((A.learned || {}).skills || {}).has || []).length],
+    ];
+    return items;
+  }
+  // Money: ad spend, order sum and orders in pieces for the campaigns the agents run (30 days), per marketplace
+  function roomMoney(A) {
+    const M = T.mk(), ads = new Map(((M && M.ads) || []).map((a) => [a.s + ':' + a.id, a]));
+    const out = {};
+    (A.campaigns || []).forEach((c) => {
+      const p = rmPlat(c), o = (out[p] = out[p] || { spend: 0, sum: 0, n: 0, noSum: 0 });
+      o.spend += c.spend30 || 0; o.n += c.orders30 || 0;
+      const s = c.ordSum30 != null ? c.ordSum30 : (ads.get(c.store + ':' + c.id) || {}).ordSum;
+      if (s != null) o.sum += s; else if (c.orders30) o.noSum++;
+    });
+    return out;
+  }
+  dash.draw('room', (box) => {
+    const s = dash.data('agent'), A0 = s.status === 'ok' && s.data[0] && s.data[0].generated ? s.data[0] : null;
+    const A = RL.fresh && (!A0 || RL.fresh.generated >= A0.generated) ? RL.fresh : A0;
+    box.replaceChildren();
+    if (!A) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    if (!RL.started) {
+      RL.started = true; roomPoll(); setInterval(roomPoll, 90000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - RL.at > 60000) roomPoll(); });
+    }
+    const st = ROOM_AG.map((ag) => {
+      const run = rmRunning(ag.wf), d = rmDone(ag.wf);
+      const prep = run && ag.wf === 'ads' && RL.step && !/решени/i.test(RL.step);
+      return { ag, on: !!run, err: !run && d && d.conclusion === 'failure', text: run ? (prep ? 'Готовлюсь: ' + RL.step.toLowerCase() : ag.busy(A)) : ag.idle(A, d), since: run ? Date.parse(run.run_started_at || run.created_at) : null };
+    });
+    const working = st.filter((x) => x.on);
+    const h = T.el('div', 'ts-panel-h');
+    h.append(T.el('h3', null, 'Комната агентов'), T.el('span', 'ts-muted', RL.err ? RL.err : !RL.runs ? 'узнаю, кто сейчас работает…' : working.length ? 'сейчас работают: ' + working.map((x) => x.ag.name).join(', ') : 'все на месте, ждут следующего запуска в ' + rmNext([197, 737])));
+    box.append(h);
+
+    const room = T.el('div', 'rm'), stage = T.el('div', 'rm-stage'), world = T.el('div', 'rm-world');
+    ['rm-floor', 'rm-wall rm-wall-b', 'rm-wall rm-wall-l', 'rm-wall rm-wall-r'].forEach((c) => world.append(T.el('div', c)));
+    const [, back, left, right] = world.children;
+    left.append(T.el('div', 'rm-win'));
+    const clock = T.el('div', 'rm-clock');
+    clock.append(T.el('b', null, new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })), document.createTextNode('Москва · агенты в 06:17 и 15:17, отчёт в 21:00'));
+    right.append(clock);
+
+    // the board: money first, then achievements; values that grew since the last visit glow
+    const board = T.el('div', 'rm-board'), bh = T.el('h4');
+    bh.append(document.createTextNode('Доска достижений'), T.el('small', null, 'обновлено ' + new Date(A.generated).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })));
+    board.append(bh);
+    const money = roomMoney(A), mrow = T.el('div', 'rm-money');
+    const tot = Object.values(money).reduce((a, x) => ({ spend: a.spend + x.spend, sum: a.sum + x.sum, n: a.n + x.n }), { spend: 0, sum: 0, n: 0 });
+    const split = (f, fmt, isSum) => Object.entries(money).filter(([, x]) => x.spend || x.n).map(([p, x]) => (p === 'ozon' ? 'Ozon ' : 'WB ') + (isSum && x.noSum && !x.sum ? '— (после запуска агента)' : fmt(f(x)))).join(' · ');
+    [['Потрачено на рекламу, 30 дн.', T.rub(tot.spend), split((x) => x.spend, T.rub)], ['Заказы с рекламы на сумму', T.rub(tot.sum), split((x) => x.sum, T.rub, true)], ['Заказов, шт.', T.num(tot.n), split((x) => x.n, T.num)]].forEach(([l, v, sub]) => {
+      const d = T.el('div'); d.append(T.el('small', null, l), T.el('b', null, v), T.el('i', null, sub)); mrow.append(d);
+    });
+    board.append(mrow);
+    let seen = {}; try { seen = JSON.parse(localStorage.getItem('room-board') || '{}'); } catch (e) { /* no storage */ }
+    const now = {}, ul = T.el('ul', 'rm-ach');
+    roomBoard(A).forEach(([label, val, note]) => {
+      now[label] = val;
+      const li = T.el('li'), grew = seen[label] != null && val > seen[label];
+      li.append(T.el('b', grew ? 'rm-new' : null, T.num(val) + (grew ? ' ↑' + T.num(val - seen[label]) : '')), T.el('span', null, label + (note ? ' (' + note + ')' : '')));
+      ul.append(li);
+    });
+    board.append(ul);
+    back.append(board);
+    setTimeout(() => { try { localStorage.setItem('room-board', JSON.stringify(now)); } catch (e) { /* no storage */ } }, 8000);
+
+    // the agents at their desks
+    st.forEach(({ ag, on, err, text, since }) => {
+      const a = T.el('div', 'rm-ag' + (on ? ' on' : '') + (err ? ' err' : ''));
+      a.style.setProperty('--c', ag.c); a.style.setProperty('--hair', ag.hair);
+      a.style.transform = 'translate3d(' + ag.x + 'px, 0, ' + ag.z + 'px)';
+      const fig = T.el('div', 'rm-fig'); fig.append(T.el('div', 'rm-body'), T.el('div', 'rm-head'));
+      const say = T.el('div', 'rm-say'); say.append(T.el('b', null, ag.name + ' · ' + ag.role + (since ? ' · ' + Math.max(1, Math.round((Date.now() - since) / 60000)) + ' мин' : '')), T.el('span', on ? 'rm-dots' : null, text));
+      const tag = T.el('div', 'rm-tag'); tag.append(T.el('i'), document.createTextNode(ag.name));
+      a.append(fig, T.el('div', 'rm-pc'), T.el('div', 'rm-desk'), say, tag);
+      world.append(a);
+    });
+    stage.append(world); room.append(stage, T.el('div', 'rm-hint', 'наведите, чтобы осмотреться'));
+    box.append(room);
+    // scale the 960×520 scene to the panel; look around with the pointer
+    const fit = () => { const k = Math.min(1.15, room.clientWidth / 960); stage.style.transform = 'scale(' + k + ')'; room.style.height = Math.round(520 * k) + 'px'; };
+    requestAnimationFrame(fit); if (window.ResizeObserver) new ResizeObserver(fit).observe(room);
+    room.addEventListener('pointermove', (e) => { const r = room.getBoundingClientRect(); world.style.setProperty('--ry', (((e.clientX - r.left) / r.width - 0.5) * 16).toFixed(1) + 'deg'); world.style.setProperty('--rx', (((e.clientY - r.top) / r.height - 0.5) * -6).toFixed(1) + 'deg'); });
+    room.addEventListener('pointerleave', () => { world.style.setProperty('--ry', '0deg'); world.style.setProperty('--rx', '0deg'); });
+
+    // the same in plain text: readable on a phone, where the scene is small
+    const list = T.el('ul', 'rm-list');
+    st.forEach(({ ag, on, err, text }) => { const li = T.el('li', on ? 'on' : err ? 'err' : null); const sp = T.el('span'); sp.append(T.el('b', null, ag.name + ' '), document.createTextNode('(' + ag.role + ') — ' + (err ? 'последний запуск с ошибкой. ' : '') + text)); li.append(T.el('i'), sp); list.append(li); });
+    box.append(list);
+  });
+
   dash.draw('bots-log', (box) => {
     const s = dash.data('agent'), A = s.status === 'ok' && s.data[0] && s.data[0].generated ? s.data[0] : null;
     box.replaceChildren();
@@ -3602,6 +3839,9 @@ window.SAK_SA = {"bbox":[264.5,318.5,667.9,549.0],"source":"img/sa-monogram-sour
         for (const q of holes) shape.holes.push(new THREE.Path(q));
         const m = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: DEPTH, curveSegments: 4, bevelEnabled: true, bevelThickness: 2.5, bevelSize: 1.6, bevelSegments: 3 }), [face, side]);
         m.userData.layer = p.layer; m.position.z = p.layer * STEP;
+        // where the piece flies when the monogram comes apart: away from the centre of the whole sign
+        let sx = 0, sy = 0; for (const v of outer) { sx += v.x; sy += v.y; }
+        m.userData.dx = sx / outer.length - (bx + bw / 2); m.userData.dy = sy / outer.length - (by + bh / 2);
         root.add(m); meshes.push(m);
       }
       const S = 12 / bw, H = 12 * bh / bw;
@@ -3618,7 +3858,8 @@ window.SAK_SA = {"bbox":[264.5,318.5,667.9,549.0],"source":"img/sa-monogram-sour
       }
       size(); addEventListener('resize', size);
 
-      // постоянное вращение на 360°; пальцем/мышью можно крутить с инерцией; при наведении слои раздвигаются
+      // постоянное вращение на 360°: по ходу поворота монограмма разбирается на части и собирается обратно к фронту;
+      // пальцем/мышью можно крутить с инерцией; при наведении слои дополнительно раздвигаются
       const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
       const AUTO = still ? 0 : 0.9;
       let rotY = 0, rotX = 0, vel = AUTO, hover = 0, hv = 0, drag = null, visible = true;
@@ -3640,7 +3881,13 @@ window.SAK_SA = {"bbox":[264.5,318.5,667.9,549.0],"source":"img/sa-monogram-sour
         if (!visible || document.hidden) return;
         if (!drag) { vel += (AUTO - vel) * Math.min(dt * 1.5, 1); rotY += vel * dt; rotX += -rotX * Math.min(dt * 2, 1); }
         hv += (hover - hv) * 0.08;
-        for (const m of meshes) m.position.z = m.userData.layer * (STEP + hv * 60);
+        // comes apart as it turns and assembles again: whole when facing front, fully apart with its back to us
+        const k = still ? 0 : (1 - Math.cos(rotY)) / 2, e = k * k * (3 - 2 * k);
+        for (const m of meshes) {
+          const u = m.userData;
+          m.position.set(u.dx * 0.38 * e, u.dy * 0.38 * e, u.layer * (STEP + hv * 60) + (u.layer - 1) * 80 * e);
+        }
+        pivot.scale.setScalar(1 - 0.18 * e);   // stays inside its box while apart
         pivot.rotation.set(rotX + (still ? 0 : Math.sin(clock.elapsedTime * 0.7) * 0.06), rotY, 0);
         renderer.render(scene, camera);
       });

@@ -483,7 +483,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     if (dec.action === 'stop' && ++stops > cfg.stop.maxPerRun) dec = { ...dec, action: 'keep', blocked: 'лимит закрытий за один запуск (' + cfg.stop.maxPerRun + ')' };
     // Pause instead of closing: the campaign keeps its queries and minus phrases; closing for good only with the owner's «закрыть N»
     if (dec.action === 'stop' && !cfg.stop.hardClose) dec = m.status === 9 ? { ...dec, action: 'pause', loss: true, reason: 'Ставлю на паузу, а не закрываю: собранные запросы и минус-фразы сохранятся' + (m.platform === 'ozon' ? '' : ', закрою только с вашего разрешения') + '. ' + dec.reason } : { ...dec, action: 'keep', blocked: 'уже на паузе' };
-    const row = { id: m.id, store: m.store, platform: m.platform, name: m.name, status: m.status, spend30: R(m.w30.spend), orders30: m.w30.orders, drr30: fin(m.drr30), drr14: fin(m.drr14), margin: r3(m.margin), target: r3(m.target), stock: m.stock, action: dec.action, bidPct: dec.bidPct || 0, reason: dec.reason, blocked: dec.blocked };
+    const row = { id: m.id, store: m.store, platform: m.platform, name: m.name, status: m.status, spend30: R(m.w30.spend), orders30: m.w30.orders, ordSum30: R(m.w30.ordSum), drr30: fin(m.drr30), drr14: fin(m.drr14), margin: r3(m.margin), target: r3(m.target), stock: m.stock, action: dec.action, bidPct: dec.bidPct || 0, reason: dec.reason, blocked: dec.blocked };
     out.campaigns.push(row); rowOf.set(m.uid, row);
 
     // Top up a campaign that earns and is about to run dry (WB)
