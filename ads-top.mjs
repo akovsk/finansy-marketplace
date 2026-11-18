@@ -30,7 +30,9 @@ export function trackTop(views, memory, today, cfg) {
     });
     const alerts = [];
     rows.forEach((r) => {
-      if (r.pos && r.posP && r.pos - r.posP >= Math.max(T.posDrop, r.posP * 0.3)) alerts.push({ kind: 'pos', q: r.q, text: 'позиция ' + r.posP + ' → ' + r.pos });
+      // a position move matters only for a query that sells or is really shown; otherwise it is noise
+      const matters = r.orders30 > 0 || (r.oP || 0) > 0 || Math.max(r.v7 || 0, r.vP || 0) >= T.minViews / 3;
+      if (matters && r.pos && r.posP && r.pos - r.posP >= Math.max(T.posDrop, r.posP * 0.3)) alerts.push({ kind: 'pos', q: r.q, text: 'позиция ' + r.posP + ' → ' + r.pos });
       else if (r.vP >= T.minViews && r.v7 != null && r.v7 < r.vP * (1 - T.viewsDrop)) alerts.push({ kind: 'views', q: r.q, text: 'показы ' + r.vP.toLocaleString('ru-RU') + ' → ' + r.v7.toLocaleString('ru-RU') + ' за неделю' });
       if (r.oP >= T.minOrders && r.o7 === 0) alerts.push({ kind: 'orders', q: r.q, text: 'заказы пропали: было ' + r.oP + ' за неделю, стало 0' });
       if (r.isNew && r.rank <= 3) alerts.push({ kind: 'new', q: r.q, text: 'новый запрос в топ-3' });

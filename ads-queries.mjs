@@ -103,7 +103,11 @@ export async function readQueries(api, ms, ctx, camp, now, memory, archive = [])
       return { nm: n.nm, key: k, product: (e && e.name) || '', orderProfit: R(orderProfit), base: { cr: base.cr, cpc: base.cpc && Math.round(base.cpc * 10) / 10 }, total: tot, existing,
         clusters: judged.filter((c) => c.flag && c.flag !== 'good').sort((a, b) => b.spend - a.spend).slice(0, 60), good: good.slice(0, 10),
         // Top queries by views (last week when daily stats are there, else the 30 days): what the product is actually found by
-        top: kind === 'active' && (q.top || {}).enabled !== false ? rows.filter((c) => !gone.has(c.q)).sort((a, b) => (b.wk ? b.wk.w7.views : b.views) - (a.wk ? a.wk.w7.views : a.views) || b.views - a.views).slice(0, (q.top || {}).topN || 10) : [] };
+        // (some campaigns get no views per cluster from WB — then clicks, orders and spend decide the order)
+        top: kind === 'active' && (q.top || {}).enabled !== false ? rows.filter((c) => !gone.has(c.q)).sort((a, b) => {
+          const w = (c, f) => (c.wk ? c.wk.w7[f] : 0);
+          return w(b, 'views') - w(a, 'views') || b.views - a.views || b.clicks - a.clicks || b.orders - a.orders || b.spend - a.spend;
+        }).slice(0, (q.top || {}).topN || 10) : [] };
     }),
   })).filter((v) => v.items.length);
 }
