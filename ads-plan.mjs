@@ -20,6 +20,13 @@ export function cleanedEconomics(view, spend, orders, ordSum, buyout, margin) {
   return { badSpend: R(badSpend), badN: bad.length, spend: R(s2), orders: o2, drr, profitMonth: margin == null ? null : R(sum2 * buyout * margin - s2) };
 }
 
+// "store|sku" → the running (9) or ready-to-start (4) campaign that already shows this product
+export function activeSkus(metrics) {
+  const busy = new Map();
+  metrics.forEach((m) => { if (m.status === 9 || m.status === 4) (m.nms || []).forEach((n) => { const k = m.store + '|' + n.nm; if (!busy.has(k)) busy.set(k, { id: m.id, name: m.name }); }); });
+  return busy;
+}
+
 // Variants worth launching. Only ones the numbers say will be in profit.
 //   restart  — a campaign the agent paused for loss: same campaign (its queries are kept), cleaned, cheaper bid
 //   recreate — a campaign closed earlier: a new one for the same product with every excluded query carried over
@@ -27,11 +34,15 @@ export function cleanedEconomics(view, spend, orders, ordSum, buyout, margin) {
 export function buildVariants({ views, pool, metrics, memory, cfg, archiveInfo = {}, skipped = [] }) {
   const out = [];
   const byUid = new Map(metrics.map((m) => [m.uid, m]));
+  // Goods already shown by a running or ready campaign: a second campaign on them only splits the same placements
+  const busy = activeSkus(metrics);
   views.filter((v) => v.kind === 'paused' || v.kind === 'archive').forEach((v) => {
     const m = byUid.get(v.uid), a = archiveInfo[v.m.id];
     const base = m ? { spend: m.w30.spend, orders: m.w30.orders, ordSum: m.w30.ordSum, buyout: m.buyout, margin: m.margin, target: m.target } : a;
     // Why a paused or closed campaign is not offered: the seller should see that it was weighed, not forgotten
     const skip = (why) => skipped.push({ kind: v.kind, id: v.m.id, name: v.name, why, kept: v.items.reduce((s, i) => s + kbBad(memory, i.key).length, 0) });
+    const taken = v.items.map((i) => busy.get(v.m.store + '|' + i.nm)).find((c) => c && c.id !== v.m.id);
+    if (taken) return skip('товар уже рекламируется в кампании ' + taken.id + (taken.name ? ' «' + taken.name + '»' : ''));
     if (!base || base.margin == null) return skip('нет данных о прибыли товара');
     if (base.margin <= 0.02) return skip('товар убыточен ещё до рекламы (маржа ' + pct(base.margin) + ')');
     if (!base.orders) return skip('за 30 дней не было заказов с рекламы');

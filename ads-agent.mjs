@@ -15,7 +15,7 @@ import { pathToFileURL } from 'node:url';
 import { ozonApi, ozonBids } from './ozon-ads.mjs';
 import { loadMemory, applyTuning, tune, snapshot, evaluateOutcomes, autoTune, learnedView, makeBrain } from './ads-brain.mjs';
 import { readQueries, planMinus, planClusterBids, kbBad, kbAddBad, kbPrune } from './ads-queries.mjs';
-import { buildVariants, parseApprovals, planText, askText, tg } from './ads-plan.mjs';
+import { buildVariants, activeSkus, parseApprovals, planText, askText, tg } from './ads-plan.mjs';
 export { judgeCluster, relatedQuery, planMinus } from './ads-queries.mjs';
 
 const DAY = 864e5;
@@ -563,8 +563,15 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     chosen.push({ kind: 'restart', retest: n, by: 'agent', store: m.store, id: m.id, name: m.name, key: m.skus[0], skus: m.nms.map((x) => String(x.nm)), bidPct: -cfg.bid.maxStepPct, budget: cfg.plan.budget,
       why: 'Пробный перезапуск после ' + Math.round((now - since) / DAY) + ' дн. паузы (попытка ' + n + ' из ' + cfg.repair.maxRetests + '): все плохие запросы исключены, ставка −' + cfg.bid.maxStepPct + '%. Неделю смотрю на новые цифры.' });
   });
+  // One product — one running campaign: WB splits the impressions of campaigns that share placements («Конфликт кампаний»).
+  // Checked right before every start or launch, including campaigns started earlier in this same run.
+  const busyNow = activeSkus(metrics);
+  const takenBy = (store, skus, self) => skus.map((s) => busyNow.get(store + '|' + s)).find((c) => c && c.id !== self);
+  const occupy = (store, skus, id, name) => skus.forEach((s) => busyNow.set(store + '|' + s, { id, name }));
   {
     for (const v of chosen.slice(0, cfg.plan.maxPerRun)) {
+      const vSkus = (v.skus || [v.sku]).filter(Boolean).map(String), clash = takenBy(v.store, vSkus, v.kind === 'restart' ? v.id : null);
+      if (clash) { out.notes.push('«' + v.name + '»: не ' + (v.kind === 'restart' ? 'включаю' : 'запускаю') + ' — товар уже рекламируется в кампании ' + clash.id + ', вторая кампания только разделит показы.'); continue; }
       if (v.kind !== 'restart') launchLeft.wb--;
       const api = apis[v.store], m = v.kind === 'restart' ? metrics.find((x) => x.store === v.store && x.id === v.id) : null;
       const act = { t: out.generated, store: v.store, platform: m ? m.platform : 'wb', action: v.kind === 'restart' ? 'restart' : 'launch', plan: v.by === 'owner' ? v.n : undefined, auto: v.by === 'agent' || undefined, vkey: vKey(v), id: v.kind === 'restart' ? v.id : undefined, sku: v.sku || (v.skus || [])[0], key: v.key, name: v.name,
@@ -601,6 +608,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
         for (const sku of skus) { const list = kbBad(memory, storeName[v.store] + '|' + sku); if (list.length) await api.setMinus(act.id, +sku, list.slice(0, 1000)); }
         await api.deposit(act.id, v.budget, cfg.budget.source); await sleep(1500); await api.start(act.id);
       });
+      if (act.result === 'ok' || act.result === 'planned') occupy(v.store, vSkus, act.id || v.id, v.name);
       out.actions.push(act); approvedNow.push(act);
     }
   }
@@ -663,6 +671,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   for (const cand of order) {
     const L = launchCfg(cand.platform), v = veto.get(cand.key), api = apis[cand.store];
     if (v && v.go === false) continue;
+    if (takenBy(cand.store, [String(cand.sku)], null)) continue;
     if (launchLeft[cand.platform] <= 0 || (perStore[cand.store] || 0) >= L.maxPerRun) continue;
     launchLeft[cand.platform]--; perStore[cand.store] = (perStore[cand.store] || 0) + 1;
     const goal = Math.min(cfg.maxDrr, cfg.targetShare * cand.margin);
@@ -678,6 +687,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
       await sleep(3000);
       if (act.id) { await api.deposit(act.id, L.budget, cfg.budget.source); await sleep(1500); await api.start(act.id); }
     });
+    if (act.result === 'ok' || act.result === 'planned') occupy(cand.store, [String(cand.sku)], act.id || null, cand.name);
     out.actions.push(act);
   }
 

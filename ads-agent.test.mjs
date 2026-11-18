@@ -1,7 +1,7 @@
 // Checks of the agent's decision logic and hard limits on small made-up data: node ads-agent.test.mjs
 import assert from 'node:assert/strict';
 import { mergeConfig, run, guard, newBids, stopReason, normCampaign, judgeCluster, launchCandidates, skuEconomics } from './ads-agent.mjs';
-import { parseApprovals, planText, askText } from './ads-plan.mjs';
+import { parseApprovals, planText, askText, buildVariants, activeSkus } from './ads-plan.mjs';
 import { normOzonCampaign, ozonStats, ozonBids, num } from './ozon-ads.mjs';
 import { emptyMemory, applyTuning, tune, evaluateOutcomes, autoTune, TUNE_BOUNDS } from './ads-brain.mjs';
 
@@ -317,10 +317,30 @@ console.log('ads-agent: launch checks passed');
   const m2 = { ...market };
   const calls = [];
   const paused = { 105: { pausedByAgent: true, pausedFor: 'loss', pausedAt: NOW - 8 * 864e5 } };
-  const api = { ...mockApi(calls), list: async () => (await mockApi([]).list()).map((c) => (c.id === 105 ? { ...c, status: 11 } : c)) };
+  // 105 and 107 advertise the same product (SKU 5): while 107 runs, 105 must not come back — that is a campaign conflict on WB
+  const callsBusy = [];
+  const apiBusy = { ...mockApi(callsBusy), list: async () => (await mockApi([]).list()).map((c) => (c.id === 105 ? { ...c, status: 11 } : c)) };
+  const rb = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: { camp: paused }, apis: { wb1: apiBusy }, now: NOW });
+  assert.ok(!callsBusy.some((c) => c[0] === 'start' && c[1] === 105), 'товар уже в активной 107 — 105 не включаем');
+  assert.ok(rb.notes.some((n) => /уже рекламируется в кампании 107/.test(n)));
+  const api = { ...mockApi(calls), list: async () => (await mockApi([]).list()).map((c) => (c.id === 105 || c.id === 107 ? { ...c, status: 11 } : c)) };
   const rr = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: { camp: paused }, apis: { wb1: api }, now: NOW });
   assert.ok(calls.some((c) => c[0] === 'start' && c[1] === 105), 'пробный перезапуск');
   assert.ok(rr.actions.find((a) => a.action === 'restart').reason.startsWith('Пробный перезапуск после 8 дн. паузы (попытка 1 из 2)'));
   assert.equal(rr.camp[105].retests, 1); assert.equal(rr.closeAsk.length, 0);
 }
 console.log('ads-agent: ozon, queries and learning checks passed');
+
+// One product — one running campaign: no replacement for a closed campaign while another one already shows the product
+{
+  const metrics = [{ uid: 'wb1:41989944', id: 41989944, store: 'wb1', name: 'AI 196519290', status: 9, nms: [{ nm: 196519290 }] },
+    { uid: 'wb1:500', id: 500, store: 'wb1', name: 'Пауза', status: 11, nms: [{ nm: 777 }] }];
+  const busy = activeSkus(metrics);
+  assert.equal(busy.get('wb1|196519290').id, 41989944); assert.ok(!busy.has('wb1|777'), 'кампания на паузе товар не занимает');
+  const skipped = [];
+  const views = [{ kind: 'archive', uid: 'wb1:34433534', m: { id: 34433534, store: 'wb1' }, name: 'TANTI', items: [{ key: 'ВБ Саковский|196519290', nm: 196519290, existing: [], good: [], clusters: [] }] }];
+  const vs = buildVariants({ views, pool: [], metrics, memory: emptyMemory(), cfg: mergeConfig({}), archiveInfo: { 34433534: { spend: 20000, orders: 60, ordSum: 100000, buyout: 0.9, margin: 0.15 } }, skipped });
+  assert.equal(vs.length, 0, 'замену закрытой кампании не предлагает: товар уже в 41989944');
+  assert.match(skipped[0].why, /уже рекламируется в кампании 41989944/);
+}
+console.log('ads-agent: duplicate-campaign checks passed');
