@@ -1,1 +1,1 @@
-{ "store": "oz1", "sku": "2168789889", "weeklyBudget": 3500, "attempt": 2 }
+{ "store": "oz1", "skus": ["1778065359", "2065202906"], "weeklyBudget": 3500, "attempt": 3 }

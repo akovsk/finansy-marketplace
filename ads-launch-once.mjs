@@ -23,8 +23,20 @@ if (!id || !sec) fail('нет ключей Ozon Performance API для ' + req.s
 
 const data = J('data.json'), cfg = mergeConfig(J('ads-agent.config.json'));
 const store = data.stores.find((s) => s.id === req.store);
-const key = store.name + '|' + req.sku, e = skuEconomics(data).get(key);
-if (!e) fail('товара ' + key + ' нет в данных за последние 30 дней');
+const api = ozonApi(id, sec, store.name);
+const before = await api.list();
+console.log('Кампаний в кабинете:', before.length);
+// "skus": goods in order of preference — the first one with data and not in an active campaign is launched
+const econ = skuEconomics(data), skipped = [];
+for (const s of (req.skus || [req.sku]).map(String)) {
+  const b = before.find((c) => c.status === 9 && c.nms.some((n) => n.nm === s));
+  if (b) { skipped.push(s + ' уже в активной кампании ' + b.id + ' «' + b.name + '»'); continue; }
+  if (!econ.get(store.name + '|' + s)) { skipped.push(s + ' нет в данных за 30 дней'); continue; }
+  req.sku = s; break;
+}
+skipped.forEach((x) => console.log('Пропускаю:', x));
+if (!req.sku || skipped.some((x) => x.startsWith(req.sku + ' '))) fail('нет подходящего товара: ' + skipped.join('; '));
+const key = store.name + '|' + req.sku, e = econ.get(key);
 const weekly = Math.round(+req.weeklyBudget || cfg.ozon.launch.weeklyBudget || 3500);
 // Target ДРР: the agent's own goal for a new campaign — a share of the margin before ads, capped
 const goal = e.margin > 0 ? Math.min(cfg.maxDrr, cfg.targetShare * e.margin) : 0.1;
@@ -33,11 +45,6 @@ const title = ('AI ' + req.sku + ' ' + String(e.name).replace(/[\/|]+/g, ' ').re
 console.log('Товар:', key, '|', e.name, '| маржа до рекламы', Math.round(e.margin * 100) + '%', '| продаж за 30 дн', e.q);
 console.log('План: «' + title + '», целевой ДРР ' + cir + '%, недельный бюджет ' + weekly + ' ₽, поиск + каталог');
 
-const api = ozonApi(id, sec, store.name);
-const before = await api.list();
-const busy = before.find((c) => c.status === 9 && c.nms.some((n) => n.nm === String(req.sku)));
-if (busy) fail('товар уже рекламируется в активной кампании ' + busy.id + ' «' + busy.name + '» — новую не создаю');
-console.log('Кампаний в кабинете:', before.length);
 
 const out = J('ads-agent.json', {});
 const act = { t: new Date().toISOString(), store: req.store, platform: 'ozon', action: 'launch', owner: true, key, sku: String(req.sku), name: e.name,
@@ -68,5 +75,5 @@ console.log('\nРезультат:', act.result, act.id ? 'кампания ' + 
 out.history = (out.history || []).concat([act]).slice(-400);
 out.actions = (out.actions || []).concat([act]);
 writeFileSync(new URL('./ads-agent.json', import.meta.url), JSON.stringify(out));
-report({ result: act.result, id: act.id || null, error: act.error || null, check: act.check || null, title, cir, weekly });
+report({ result: act.result, sku: req.sku, skipped, id: act.id || null, error: act.error || null, check: act.check || null, title, cir, weekly });
 if (act.result !== 'ok') process.exit(1);
