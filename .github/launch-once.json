@@ -1,1 +1,1 @@
-{ "store": "oz1", "skus": ["1778065359", "2065202906"], "weeklyBudget": 3500, "attempt": 3 }
+{ "store": "oz1", "auto": { "minMargin": 0.2, "minSales30": 5, "minStockDays": 30 }, "weeklyBudget": 3500, "attempt": 4 }

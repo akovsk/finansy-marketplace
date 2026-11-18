@@ -28,7 +28,18 @@ const before = await api.list();
 console.log('Кампаний в кабинете:', before.length);
 // "skus": goods in order of preference — the first one with data and not in an active campaign is launched
 const econ = skuEconomics(data), skipped = [];
-for (const s of (req.skus || [req.sku]).map(String)) {
+// "auto": pick by itself — goods of this store with enough margin, sales and stock, most profitable first
+let list = req.skus || (req.sku ? [req.sku] : []);
+if (req.auto) {
+  const market = J('market.json', {}), a = { minMargin: 0.2, minSales30: 5, minStockDays: 30, ...req.auto };
+  list = [...econ.values()].filter((x) => {
+    if (x.store !== req.store || x.noCogs || !(x.margin >= a.minMargin) || x.q < a.minSales30) return false;
+    const stock = (((market.stocks || {})[store.name + '|' + x.sku]) || {}).q || 0;
+    return stock / (x.q / 30) >= a.minStockDays;
+  }).sort((x, y) => (y.np - y.adv) - (x.np - x.adv)).map((x) => x.sku);
+  console.log('Подходят по цифрам:', list.length, list.slice(0, 15).join(', '));
+}
+for (const s of list.map(String)) {
   const b = before.find((c) => c.status === 9 && c.nms.some((n) => n.nm === s));
   if (b) { skipped.push(s + ' уже в активной кампании ' + b.id + ' «' + b.name + '»'); continue; }
   if (!econ.get(store.name + '|' + s)) { skipped.push(s + ' нет в данных за 30 дней'); continue; }
