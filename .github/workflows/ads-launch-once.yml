@@ -1,0 +1,48 @@
+name: Разовый запуск кампании Ozon
+
+# Запускается, когда меняется .github/launch-once.json (какой товар, в каком кабинете, с каким бюджетом)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/launch-once.json']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ads-agent
+  cancel-in-progress: false
+
+jobs:
+  launch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Создать и настроить кампанию
+        env:
+          OZON_PERF_SAKOVSKY_CLIENT_ID: ${{ secrets.OZON_PERF_SAKOVSKY_CLIENT_ID }}
+          OZON_PERF_SAKOVSKY_CLIENT_SECRET: ${{ secrets.OZON_PERF_SAKOVSKY_CLIENT_SECRET }}
+          OZON_PERF_SUAVISS_CLIENT_ID: ${{ secrets.OZON_PERF_SUAVISS_CLIENT_ID }}
+          OZON_PERF_SUAVISS_CLIENT_SECRET: ${{ secrets.OZON_PERF_SUAVISS_CLIENT_SECRET }}
+        run: node ads-launch-once.mjs
+
+      - name: Сохранить в историю агента
+        if: always()
+        run: |
+          git config user.name "data-bot"
+          git config user.email "data-bot@users.noreply.github.com"
+          git add ads-agent.json
+          if git diff --cached --quiet; then
+            echo "Изменений нет"
+          else
+            git commit -m "Агент рекламы: разовый запуск Ozon $(TZ=Europe/Moscow date '+%d.%m.%Y %H:%M')"
+            git pull --rebase -X theirs --autostash && git push
+          fi
