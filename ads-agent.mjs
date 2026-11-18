@@ -15,6 +15,7 @@ import { pathToFileURL } from 'node:url';
 import { ozonApi, ozonBids } from './ozon-ads.mjs';
 import { loadMemory, applyTuning, tune, snapshot, evaluateOutcomes, autoTune, learnedView, makeBrain } from './ads-brain.mjs';
 import { readQueries, planMinus, planClusterBids, kbBad, kbAddBad, kbPrune } from './ads-queries.mjs';
+import { trackTop } from './ads-top.mjs';
 import { buildVariants, activeSkus, parseApprovals, planText, askText, tg } from './ads-plan.mjs';
 export { judgeCluster, relatedQuery, planMinus } from './ads-queries.mjs';
 
@@ -41,7 +42,9 @@ export const DEFAULTS = {
   // minExpected: exclude a query without orders once the product's usual conversion would have given this many;
   // relatedStrongExpected: the same for the product's own wording; lowCrShare / cpcFactor: conversion and click price
   // against the product's average (excluded only when the order then costs more than it earns)
-  queries: { enabled: true, maxCampaigns: 40, minClicks: 20, minSpend: 200, irrelevantMinSpend: 50, minExpected: 2, relatedStrongExpected: 5, costFactor: 2, lowCrShare: 0.4, cpcFactor: 2, goodShare: 0.6, maxPerCampaign: 25, maxTransfer: 300, cooldownDays: 2, boostGood: true },
+  queries: { enabled: true, maxCampaigns: 40, minClicks: 20, minSpend: 200, irrelevantMinSpend: 50, minExpected: 2, relatedStrongExpected: 5, costFactor: 2, lowCrShare: 0.4, cpcFactor: 2, goodShare: 0.6, maxPerCampaign: 25, maxTransfer: 300, cooldownDays: 2, boostGood: true,
+    // Top queries watch: per product the topN clusters by views, week to week; alerts when a top query slips
+    top: { enabled: true, topN: 10, maxProducts: 20, posDrop: 3, viewsDrop: 0.4, minViews: 300, minOrders: 3 } },
   // Development plan with numbered launch variants. auto: restarts of paused campaigns and new campaigns in place of
   // closed ones that the numbers say will pay are carried out without waiting (pausing and starting are the agent's own
   // call); the rest wait for «запуск N» in Telegram
@@ -96,15 +99,34 @@ export function normCampaign(a) {
     }).filter((n) => n.nm),
   };
 }
-// v1 daily cluster stats → one row per cluster for the whole period (same shape as v0)
+// Average position of a cluster in search, whatever WB calls the field (null when it does not send one)
+export const posOf = (s) => { const p = +(s.avgPos ?? s.avg_pos ?? s.avgPosition ?? s.avg_position ?? s.position ?? 0); return p > 0 ? p : null; };
+let posLogged = false;
+// v1 daily cluster stats → one row per cluster for the whole period (same shape as v0).
+// With real dates it also gives wk: the last 7 days (w7) and the 7 before (p7), for the top queries watch.
 export function sumClusterDays(it) {
   const by = new Map();
+  const dates = (it.dailyStats || []).map((d) => Date.parse(String(d.date || '').slice(0, 10))).filter((x) => !isNaN(x));
+  const last = dates.length ? Math.max(...dates) : null;
+  if (!posLogged && (it.dailyStats || [])[0]) { posLogged = true; log('  cluster day sample', JSON.stringify(it.dailyStats[0]).slice(0, 300)); }
   (it.dailyStats || []).forEach((d) => {
     const s = d.stat || {}, q = s.normQuery; if (!q) return;
     const a = by.get(q) || { norm_query: q, views: 0, clicks: 0, atbs: 0, orders: 0, spend: 0 };
     a.views += +s.views || 0; a.clicks += +s.clicks || 0; a.atbs += +s.atbs || 0; a.orders += +s.orders || 0; a.spend += +s.spend || 0;
+    const t = Date.parse(String(d.date || '').slice(0, 10));
+    if (last != null && !isNaN(t)) {
+      const ago = Math.round((last - t) / DAY), b = ago < 7 ? 'w7' : ago < 14 ? 'p7' : null;
+      if (b) {
+        a.wk = a.wk || { w7: { views: 0, clicks: 0, orders: 0, spend: 0, posSum: 0, posW: 0 }, p7: { views: 0, clicks: 0, orders: 0, spend: 0, posSum: 0, posW: 0 } };
+        const w = a.wk[b], v = +s.views || 0, p = posOf(s);
+        w.views += v; w.clicks += +s.clicks || 0; w.orders += +s.orders || 0; w.spend += +s.spend || 0;
+        if (p) { w.posSum += p * Math.max(v, 1); w.posW += Math.max(v, 1); }
+      }
+    }
     by.set(q, a);
   });
+  // position weighted by views over each week
+  by.forEach((a) => { if (a.wk) ['w7', 'p7'].forEach((b) => { const w = a.wk[b]; w.pos = w.posW ? Math.round((w.posSum / w.posW) * 10) / 10 : null; delete w.posSum; delete w.posW; }); });
   return { advert_id: it.advertId, nm_id: it.nmId, stats: [...by.values()] };
 }
 export function wbApi(token) {
@@ -411,6 +433,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     }
   }
   if (noOzonKey.length) out.notes.push('Ozon (' + noOzonKey.join(', ') + '): нет ключа Performance API — реклама Ozon пока не управляется.');
+  // Top queries watch: what each advertised product is found by, week to week, and which top query slipped
+  try { out.top = trackTop(views, memory, today, cfg); } catch (e) { out.errors.push('Топ-запросы: ' + e.message.slice(0, 200)); }
 
   // 2. Learn from what past actions did, before deciding anything new
   const fresh = evaluateOutcomes(memory, hist, (a) => byUid.get(a.store + ':' + a.id), now);
@@ -742,6 +766,7 @@ export function skillsView({ memory, hist, camp, views, metrics, noOzonKey = [],
     ['bids', 'Меняет ставки по ДРР и марже товара', first((a) => a.action === 'lower' || a.action === 'raise'), 'первая кампания, где ДРР уйдёт от цели'],
     ['pause', 'Ставит убыточные кампании на паузу, сохраняя запросы и минус-фразы', first((a) => a.action === 'pause' && a.loss), 'первая подтверждённо убыточная кампания в боевом режиме'],
     ['kb', 'Ведёт базу запросов по каждому товару' + (bad || good ? ': ' + bad + ' плохих, ' + good + ' продающих' : ''), bad + good ? (memory.skillsAt || {}).kb || now : null, 'первые прочитанные кластеры'],
+    ['top', 'Следит за топ-запросами каждого товара: позиция, показы и заказы неделя к неделе', (views || []).some((v) => v.items.some((i) => i.top && i.top.length)) ? (memory.skillsAt || {}).top || now : null, 'первые кластеры активных кампаний'],
     ['harvest', 'Сохраняет минус-фразы закрытых кампаний', harvested ? (memory.skillsAt || {}).harvest || now : null, 'закрытая кампания с минус-фразами'],
     ['minus', 'Исключает плохие поисковые запросы (низкая конверсия, дорогой клик, нерелевантные)', first((a) => a.action === 'minus' && a.n > 0), 'запрос, на который набралось достаточно кликов без заказов'],
     ['transfer', 'Переносит исключения между кампаниями одного товара', first((a) => a.action === 'minus' && a.moved > 0), 'у товара должно быть две кампании или новая вместо закрытой'],

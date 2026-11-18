@@ -143,6 +143,22 @@ export function messageText(R, p = 'wb') {
   if (L.length === before) L.push('▫️ правки не понадобились — всё в пределах цели');
   if (errors.length) L.push('⚠️ ' + MP + ' не принял ' + errors.length + ' — повторю на следующей проверке');
 
+  // 1b. Top queries: which search queries each product is found by, and which of them slipped this week
+  if (p === 'wb' && Array.isArray(A.top) && A.top.length) {
+    const T = A.top, hit = T.filter((t) => t.alerts.length);
+    L.push('', '<b>🔝 Топ-запросы</b> <i>(' + T.length + ' ' + plural(T.length, 'товар', 'товара', 'товаров') + ' под наблюдением)</i>');
+    const tl = (t) => '<a href="' + WB_ADS_URL(t.id) + '">' + esc(cleanName(t.product || t.name).slice(0, 32)) + '</a>';
+    hit.slice(0, 4).forEach((t) => {
+      L.push('   ▫️ ' + tl(t) + ':');
+      t.alerts.slice(0, 2).forEach((x) => L.push('      «' + esc(x.q) + '» — ' + esc(x.text)));
+    });
+    if (hit.length > 4) L.push('   ▫️ и ещё ' + (hit.length - 4) + ' — в дашборде');
+    if (!hit.length) {
+      const t = T[0], r = t.rows.slice(0, 3).map((x) => '«' + esc(x.q) + '»' + (x.pos ? ' (поз. ' + x.pos + ')' : '')).join(', ');
+      L.push('   ▫️ без просадок за неделю. Главные запросы у «' + esc(cleanName(t.product || t.name).slice(0, 28)) + '»: ' + r);
+    }
+  }
+
   // 2. Plan
   const next = [];
   const fix = C.filter((c) => /улучшаю кампанию/i.test(c.reason || '') && c.action === 'keep').length;

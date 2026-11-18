@@ -92,7 +92,8 @@ export async function readQueries(api, ms, ctx, camp, now, memory, archive = [])
       const existing = mMap.get(key(m.id, n.nm)) || [], gone = new Set(existing);
       // Exclusions already made in this campaign — by a person in the cabinet or by the agent — are knowledge about the product
       kbAddBad(memory, k, existing, 'РК ' + m.id, now);
-      const rows = (sMap.get(key(m.id, n.nm)) || []).filter((c) => c.norm_query).map((c) => ({ q: c.norm_query, views: R(c.views), clicks: R(c.clicks), atbs: R(c.atbs), orders: R(c.orders), spend: R(c.spend != null ? c.spend : c.cpc != null ? c.cpc * c.clicks : (c.cpm || 0) * (c.views || 0) / 1000) }));
+      const rows = (sMap.get(key(m.id, n.nm)) || []).filter((c) => c.norm_query).map((c) => ({ q: c.norm_query, views: R(c.views), clicks: R(c.clicks), atbs: R(c.atbs), orders: R(c.orders), spend: R(c.spend != null ? c.spend : c.cpc != null ? c.cpc * c.clicks : (c.cpm || 0) * (c.views || 0) / 1000),
+        wk: c.wk || null, pos: c.wk ? c.wk.w7.pos : (+(c.avg_pos ?? c.avgPos ?? c.avg_position ?? 0) || null) }));
       const tot = rows.reduce((a, c) => ({ clicks: a.clicks + c.clicks, orders: a.orders + c.orders, spend: a.spend + c.spend }), { clicks: 0, orders: 0, spend: 0 });
       const base = { orderProfit, cr: tot.clicks >= 50 && tot.orders ? tot.orders / tot.clicks : null, cpc: tot.clicks >= 50 ? tot.spend / tot.clicks : null };
       const own = new Set([...stems(e && e.name), ...stems(m.name), ...stems(n.subject)]);
@@ -100,7 +101,9 @@ export async function readQueries(api, ms, ctx, camp, now, memory, archive = [])
       const good = judged.filter((c) => c.flag === 'good').sort((a, b) => b.orders - a.orders);
       kbAddGood(memory, k, good, now);
       return { nm: n.nm, key: k, product: (e && e.name) || '', orderProfit: R(orderProfit), base: { cr: base.cr, cpc: base.cpc && Math.round(base.cpc * 10) / 10 }, total: tot, existing,
-        clusters: judged.filter((c) => c.flag && c.flag !== 'good').sort((a, b) => b.spend - a.spend).slice(0, 60), good: good.slice(0, 10) };
+        clusters: judged.filter((c) => c.flag && c.flag !== 'good').sort((a, b) => b.spend - a.spend).slice(0, 60), good: good.slice(0, 10),
+        // Top queries by views (last week when daily stats are there, else the 30 days): what the product is actually found by
+        top: kind === 'active' && (q.top || {}).enabled !== false ? rows.filter((c) => !gone.has(c.q)).sort((a, b) => (b.wk ? b.wk.w7.views : b.views) - (a.wk ? a.wk.w7.views : a.views) || b.views - a.views).slice(0, (q.top || {}).topN || 10) : [] };
     }),
   })).filter((v) => v.items.length);
 }

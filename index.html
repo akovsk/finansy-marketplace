@@ -1043,6 +1043,7 @@ th[aria-sort] { color:var(--color-fg); }
     <div class="ts-kpis" data-draw="rk-kpis" data-source="sales"></div>
     <div class="ts-adsum" data-draw="ads-sum" data-source="sales"></div>
     <div class="ts-sec" data-draw="rk-agent" data-source="sales"></div>
+    <div class="ts-sec" data-draw="rk-top" data-source="sales"></div>
     <div class="ts-panel" data-draw="rk-plan" data-source="sales"></div>
     <div class="ts-rk-groups" data-draw="rk-groups" data-source="sales"></div>
   </section>
@@ -2630,6 +2631,48 @@ dash.loader('sales', {
       box.append(row);
     });
     if (L.length > adsLimit) { const more = T.el('button', 'ts-btn ts-morebtn', 'Показать все ' + L.length); more.type = 'button'; more.addEventListener('click', () => { adsLimit = 999; dash.draw('ads-list'); }); box.append(more); }
+  });
+
+  /* ---- Top search queries per advertised product, week to week (ads-agent.json → top, written by ads-top.mjs) ---- */
+  let topLimit = 5;
+  dash.draw('rk-top', (box) => {
+    const s = dash.data('agent'), A = s.status === 'ok' && s.data[0] ? s.data[0] : null;
+    box.replaceChildren();
+    const p = dash.params(), L = A && Array.isArray(A.top) ? A.top.filter((t) => T.sidPass(t.store, p)) : [];
+    if (!L.length) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const hit = L.filter((t) => t.alerts.length).length;
+    box.append(T.el('h3', null, 'Топ-запросы'));
+    box.append(T.el('p', 'ts-muted', 'По каким запросам находят рекламируемые товары: последние 7 дней против предыдущих 7. ' + (hit ? 'Просели запросы у ' + hit + ' ' + (hit === 1 ? 'товара' : 'товаров') + '.' : 'Просадок за неделю нет.')));
+    const num = (x) => (x == null ? '—' : T.num(x));
+    const dlt = (a, b, lowerIsBetter) => {
+      if (a == null || b == null || !b) return null;
+      const d = lowerIsBetter ? b - a : (a - b) / b;
+      if (lowerIsBetter ? Math.abs(d) < 0.5 : Math.abs(d) < 0.05) return null;
+      return T.el('small', d > 0 ? 'ts-good' : 'ts-neg', ' ' + (lowerIsBetter ? (d > 0 ? '↑' : '↓') + Math.abs(Math.round(d * 10) / 10) : (d > 0 ? '+' : '') + Math.round(d * 100) + '%'));
+    };
+    L.slice(0, topLimit).forEach((t) => {
+      const head = T.el('div', 'ts-xrow');
+      head.append(t.key ? T.photo(t.key, true) : T.el('div', 'ts-ph ts-ph-s'));
+      const b = T.el('div', 'ts-xrow-b');
+      b.append(T.el('div', 'ts-xrow-t', t.product || t.name), T.el('div', 'ts-xrow-n', 'Кампания ' + t.id + ' · арт. ' + t.nm));
+      t.alerts.forEach((x) => { const e = T.el('div', 'ts-xrow-n', '⚠ «' + x.q + '» — ' + x.text); e.style.color = 'var(--color-bad)'; b.append(e); });
+      if (t.gone && t.gone.length) b.append(T.el('div', 'ts-xrow-n', 'Выпали из топа: ' + t.gone.map((q) => '«' + q + '»').join(', ')));
+      head.append(b); box.append(head);
+      const wrap = T.el('div', 'ts-tablewrap'), tb = T.el('table', 'ts-table'), th = T.el('thead'), tr = T.el('tr');
+      ['Запрос', 'Показы, 7 дн', 'Заказы, 7 дн', 'Расход, 7 дн', 'Позиция'].forEach((h) => tr.append(T.el('th', null, h)));
+      th.append(tr); tb.append(th);
+      const body = T.el('tbody');
+      t.rows.slice(0, 5).forEach((r) => {
+        const row = T.el('tr'), q = T.el('td', 'ts-name', r.q);
+        if (r.isNew) q.append(T.el('small', 'ts-good', ' новый'));
+        const c = (v, d) => { const td = T.el('td', null, num(v)); if (d) td.append(d); return td; };
+        row.append(q, c(r.v7 ?? r.views30, dlt(r.v7, r.vP)), c(r.o7 ?? r.orders30, dlt(r.o7, r.oP)), c(r.s7 ?? r.spend30), c(r.pos, dlt(r.pos, r.posP, true)));
+        body.append(row);
+      });
+      tb.append(body); wrap.append(tb); box.append(wrap);
+    });
+    if (L.length > topLimit) { const more = T.el('button', 'ts-btn ts-morebtn', 'Показать все ' + L.length); more.type = 'button'; more.addEventListener('click', () => { topLimit = 999; dash.draw('rk-top'); }); box.append(more); }
   });
 
   /* ---- AI ads agent: what it decided and did on its last run (ads-agent.json, written by ads-agent.mjs) ---- */

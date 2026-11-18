@@ -344,3 +344,42 @@ console.log('ads-agent: ozon, queries and learning checks passed');
   assert.match(skipped[0].why, /уже рекламируется в кампании 41989944/);
 }
 console.log('ads-agent: duplicate-campaign checks passed');
+// Top queries watch: week windows from daily cluster stats, alerts on a slipping top query, snapshots in memory
+{
+  const { sumClusterDays } = await import('./ads-agent.mjs');
+  const { trackTop } = await import('./ads-top.mjs');
+  const { messageText, dayReport } = await import('./ads-report.mjs');
+  const day = (n) => new Date(Date.parse('2026-11-18') - n * 864e5).toISOString().slice(0, 10);
+  const daily = [];
+  for (let n = 0; n < 14; n++) {
+    const recent = n < 7;
+    daily.push({ date: day(n) + 'T00:00:00Z', stat: { normQuery: 'тушенка говяжья', views: recent ? 100 : 300, clicks: recent ? 4 : 10, orders: recent ? 0 : 1, spend: 30, avgPos: recent ? 18 : 6 } });
+    daily.push({ date: day(n), stat: { normQuery: 'тушенка', views: 200, clicks: 8, orders: 1, spend: 40, avgPos: 4 } });
+  }
+  const r = sumClusterDays({ advertId: 7, nmId: 9, dailyStats: daily });
+  const a = r.stats.find((x) => x.norm_query === 'тушенка говяжья');
+  assert.deepEqual(a.wk.w7, { views: 700, clicks: 28, orders: 0, spend: 210, pos: 18 }, 'последние 7 дней');
+  assert.deepEqual(a.wk.p7, { views: 2100, clicks: 70, orders: 7, spend: 210, pos: 6 }, 'предыдущие 7 дней');
+  const row = (c) => ({ q: c.norm_query, views: c.views, clicks: c.clicks, orders: c.orders, spend: c.spend, wk: c.wk, pos: c.wk.w7.pos });
+  const view = { kind: 'active', m: { store: 'wb1', id: 7, name: 'РК тушёнка' }, items: [{ nm: 9, key: 'ВБ Саковский|9', product: 'Тушёнка', top: r.stats.map(row).sort((x, y) => y.wk.w7.views - x.wk.w7.views) }] };
+  const memory = {};
+  const top = trackTop([view], memory, '2026-11-18', mergeConfig({}));
+  assert.equal(top.length, 1);
+  const kinds = top[0].alerts.map((x) => x.kind + ':' + x.q);
+  assert.ok(kinds.includes('pos:тушенка говяжья'), 'позиция 6 → 18');
+  assert.ok(kinds.includes('orders:тушенка говяжья'), 'заказы пропали');
+  assert.ok(!kinds.some((k) => k.endsWith(':тушенка')), 'стабильный запрос без сигналов');
+  assert.equal(memory.top['wb1:7:9'].length, 1, 'срез дня сохранён');
+  // the same day again replaces the snapshot; a paused campaign is not watched
+  trackTop([view, { ...view, kind: 'paused' }], memory, '2026-11-18', mergeConfig({}));
+  assert.equal(memory.top['wb1:7:9'].length, 1);
+  // a week later a new query enters the top-3 → alert from the snapshot comparison (no daily stats this time)
+  const later = { ...view, items: [{ ...view.items[0], top: [{ q: 'тушенка белорусская', views: 900, clicks: 30, orders: 3, spend: 200, wk: null, pos: null }, ...view.items[0].top.map((x) => ({ ...x, wk: null }))] }] };
+  const t2 = trackTop([later], memory, '2026-11-25', mergeConfig({}));
+  assert.ok(t2[0].alerts.some((x) => x.kind === 'new' && x.q === 'тушенка белорусская'));
+  // Telegram: the section with the alert
+  const A = { generated: '2026-11-18T09:00:00Z', mode: 'live', campaigns: [{ id: 7, store: 'wb1', status: 9, spend30: 1000 }], history: [], actions: [], top };
+  const txt = messageText(dayReport(A, Date.parse('2026-11-18T12:00:00Z')), 'wb');
+  assert.match(txt, /🔝 Топ-запросы/); assert.match(txt, /«тушенка говяжья» — позиция 6 → 18/);
+}
+console.log('ads-agent: top queries checks passed');
