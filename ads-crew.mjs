@@ -1,10 +1,10 @@
 // The whole crew works every hourly check, each on its own part, and each writes one journal entry per hour:
 // either something it learned from the fresh numbers ("learn") or a new action it proposes for the account ("idea").
-//   wb       — Марк, агент WB: ставки и статистика кампаний WB
-//   ozon     — Оскар, агент Ozon: ставки и целевой ДРР в Ozon
-//   queries  — Вера, чистильщик запросов: поисковые кластеры, слив, продающие запросы
-//   products — Пётр, подборщик товаров: товары без рекламы, кампания дня
-//   audit    — Соня, ревизор решений: проверка прошлых решений через неделю, подстройка порогов
+//   wb       — Вайлд, агент WB: ставки и статистика кампаний WB
+//   ozon     — Озон, агент Ozon: ставки и целевой ДРР в Ozon
+//   queries  — Фильтр, чистильщик запросов: поисковые кластеры, слив, продающие запросы
+//   products — Старт, подборщик товаров: товары без рекламы, кампания дня
+//   audit    — Аудит, ревизор решений: проверка прошлых решений через неделю, подстройка порогов
 // Everything is built from the account's real numbers; an idea is a proposal for the owner, never an action the agents
 // take outside their rules (they never pause or finish campaigns). Shift: 04:00–00:00 Moscow (ads-agent.yml).
 const R = (x) => Math.round(+x || 0);
@@ -12,7 +12,7 @@ const pct = (x) => (x == null || !isFinite(x) ? '—' : Math.round(x * 100) + '%
 const rub = (x) => R(x).toLocaleString('ru-RU') + ' ₽';
 const nm = (m) => String(m.name || '').trim().replace(/^(СРС|CPC|АРК|АУК|AI)\s+/i, '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ').replace(/\s+[A-Z]$/, '').replace(/\s+/g, ' ').slice(0, 36);
 const ddmm = (t) => new Date(t).toISOString().slice(5, 10).split('-').reverse().join('.');
-export const CREW = { wb: 'Марк', ozon: 'Оскар', queries: 'Вера', products: 'Пётр', audit: 'Соня' };
+export const CREW = { wb: 'Вайлд', ozon: 'Озон', queries: 'Фильтр', products: 'Старт', audit: 'Аудит' };
 
 function forWB(ctx, plat) {
   const { metrics, out } = ctx, A = metrics.filter((m) => m.platform === plat && m.status === 9);
@@ -50,14 +50,14 @@ function forQueries(ctx) {
   const flagged = items.flatMap(({ v, i }) => i.clusters.map((c) => ({ v, i, c })));
   const waste = flagged.filter((x) => !x.c.orders), wasteSum = waste.reduce((s, x) => s + x.c.spend, 0);
   const check = flagged.filter((x) => x.c.flag === 'check');
-  const did = V.length ? ['Разобрала запросы ' + V.length + ' кампаний: проблемных ' + flagged.length + ' (без заказов — ' + waste.length + ' на ' + rub(wasteSum) + '), спорных ' + check.length] : ['Активных кампаний с поисковыми запросами нет'];
+  const did = V.length ? ['Разобрал запросы ' + V.length + ' кампаний: проблемных ' + flagged.length + ' (без заказов — ' + waste.length + ' на ' + rub(wasteSum) + '), спорных ' + check.length] : ['Активных кампаний с поисковыми запросами нет'];
   const learn = [], idea = [];
   if (waste.length) { const w = waste.sort((a, b) => b.c.spend - a.c.spend)[0]; learn.push('Самый дорогой запрос без заказов — «' + w.c.q + '»: ' + rub(w.c.spend) + ' и ' + w.c.clicks + ' кликов за 30 дней в «' + nm(w.v.m) + '».'); }
   const good = items.flatMap(({ v, i }) => (i.good || []).map((c) => ({ v, c }))).sort((a, b) => b.c.orders - a.c.orders);
   if (good.length) learn.push('Лучший продающий запрос — «' + good[0].c.q + '»: ' + good[0].c.orders + ' заказов в «' + nm(good[0].v.m) + '». Всего продающих запросов сейчас ' + good.length + '.');
   const kb = Object.values(memory.queries || {}), bad = kb.reduce((s, x) => s + Object.keys(x.bad || {}).length, 0), gd = kb.reduce((s, x) => s + Object.keys(x.good || {}).length, 0);
   const wbA = ctx.metrics.filter((m) => m.platform === 'wb' && m.status === 9), cpc = wbA.filter((m) => m.payType === 'cpc');
-  if (wbA.length) learn.push('Из ' + wbA.length + ' активных кампаний WB с оплатой за клик — ' + cpc.length + ': в них WB не даёт исключать запросы через API, там помогаю ставкой; в остальных ' + (wbA.length - cpc.length) + ' исключаю плохие запросы сама.');
+  if (wbA.length) learn.push('Из ' + wbA.length + ' активных кампаний WB с оплатой за клик — ' + cpc.length + ': в них WB не даёт исключать запросы через API, там помогаю ставкой; в остальных ' + (wbA.length - cpc.length) + ' исключаю плохие запросы сам.');
   if (bad + gd) learn.push('В моей базе по товарам: ' + bad + ' исключённых запросов и ' + gd + ' продающих — переношу исключения между кампаниями одного товара.');
   (ctx.out.queryAdvice || []).slice(0, 1).forEach((x) => idea.push('Предлагаю для «' + nm(x) + '» завести кампанию с оплатой за показы: там можно исключать запросы, а в кампании за клик «' + x.queries[0].q + '» сливает ' + rub(x.queries[0].spend) + ' за 30 дней.'));
   if (check.length) { const c = check.sort((a, b) => b.c.spend - a.c.spend)[0]; idea.push('Предлагаю разобрать спорный запрос «' + c.c.q + '» (' + rub(c.c.spend) + ', ' + c.c.clicks + ' кликов без заказа): он похож на сам товар. С ключом Claude разберу такие запросы по смыслу.'); }
@@ -100,10 +100,10 @@ function forAudit(ctx) {
   const pend = hist.filter((a) => a.result === 'ok' && !a.evaluated && ['lower', 'raise', 'minus', 'launch'].includes(a.action));
   const first = pend.map((a) => Date.parse(a.t) + (a.action === 'launch' ? 14 : 7) * 864e5).sort((a, b) => a - b)[0];
   const outc = memory.outcomes || [];
-  const did = ['Проверила решения: новых итогов — ' + fresh.length + ', ждут недели — ' + pend.length + (first ? ' (первые итоги ' + ddmm(first) + ')' : '')];
+  const did = ['Проверил решения: новых итогов — ' + fresh.length + ', ждут недели — ' + pend.length + (first ? ' (первые итоги ' + ddmm(first) + ')' : '')];
   const learn = [], idea = [];
   fresh.slice(0, 2).forEach((o) => learn.push('Итог через неделю: «' + nm(o) + '», ' + ({ lower: 'снижение ставки', raise: 'повышение ставки', minus: 'исключение запросов', launch: 'новая кампания', pause: 'пауза', stop: 'закрытие' }[o.action] || o.action) + ' — ' + ({ helped: 'помогло', hurt: 'навредило', neutral: 'без заметного эффекта' }[o.verdict]) + (o.effect ? ' (' + (o.effect > 0 ? '+' : '−') + rub(Math.abs(o.effect)) + ' за неделю)' : '') + '.'));
-  tuned.forEach((t) => learn.push('Подстроила порог «' + t.key + '»: ' + t.from + ' → ' + t.to + '. ' + t.why));
+  tuned.forEach((t) => learn.push('Подстроил порог «' + t.key + '»: ' + t.from + ' → ' + t.to + '. ' + t.why));
   if (outc.length) { const h = outc.filter((o) => o.verdict === 'helped').length, b = outc.filter((o) => o.verdict === 'hurt').length; learn.push('Всего проверено решений: ' + outc.length + ' — помогли ' + h + ', навредили ' + b + ', итог ' + (outc.reduce((s, o) => s + (o.effect || 0), 0) >= 0 ? '+' : '−') + rub(Math.abs(outc.reduce((s, o) => s + (o.effect || 0), 0))) + ' за неделю.'); }
   if (pend.length) learn.push('Жду недели по ' + pend.length + ' решениям; к ' + ddmm(first) + ' будут первые цифры «до и после».');
   const lows = outc.filter((o) => o.action === 'lower').slice(-6);

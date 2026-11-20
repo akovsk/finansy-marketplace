@@ -321,7 +321,7 @@ console.log('ads-agent: ozon, queries and learning checks passed');
   const r1 = await go({ stores: ['wb1'], mode: 'live' });
   const C = r1.out.crew;
   ['wb', 'queries', 'products', 'audit'].forEach((k) => { assert.ok(C[k] && C[k].did.length && C[k].entry, 'работает и пишет: ' + k); });
-  assert.equal(C.wb.name, 'Марк'); assert.equal(C.audit.name, 'Соня');
+  assert.equal(C.wb.name, 'Вайлд'); assert.equal(C.audit.name, 'Аудит');
   assert.match(C.audit.did[0], /ждут недели — 3/);
   const again = await go({ stores: ['wb1'], mode: 'live' }, { state: r1.out, memory: r1.out.memory, now: NOW + 3600e3 });
   const j = again.out.memory.crew.wb;
