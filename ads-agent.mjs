@@ -23,6 +23,7 @@ import { loadMemory, applyTuning, tune, snapshot, evaluateOutcomes, autoTune, le
 import { readQueries, planMinus, planClusterBids, kbBad, kbAddBad, kbPrune } from './ads-queries.mjs';
 import { trackTop } from './ads-top.mjs';
 import { CURRICULUM, learnSkills, nextSkill, runSkills, impactView } from './ads-skills.mjs';
+import { crewWork } from './ads-crew.mjs';
 import { parseApprovals, tg } from './ads-plan.mjs';
 export { judgeCluster, relatedQuery, planMinus } from './ads-queries.mjs';
 
@@ -606,6 +607,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   memory.runs++;
   // What the agents changed in money (the achievements board shows only this)
   out.impact = impactView({ hist, metrics, memory });
+  // The whole crew: what each agent did this hour and what it learned or proposes (ads-crew.mjs)
+  try { out.crew = crewWork({ metrics, views, out, pool, econ, market, memory, hist, cfg, now, fresh, tuned, insights: out.insights }); } catch (e) { out.errors.push('Команда: ' + e.message.slice(0, 200)); }
   if (plan) {
     if (Array.isArray(plan.lessons)) memory.lessons = plan.lessons.map((x) => String(x).slice(0, 400)).filter(Boolean).slice(0, 12);
     (plan.tune || []).forEach((x) => { const rec = tune(memory, cfg, x.key, x.value, x.why, 'claude', now); if (rec) tuned.push(rec); });
