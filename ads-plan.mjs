@@ -107,33 +107,20 @@ export async function tg(token, method, params) {
 }
 
 /* ------------------------------ The plan message ------------------------------ */
-const KIND = { restart: '▶️ Перезапуск', recreate: '♻️ Новая РК вместо закрытой', new: '🆕 Новая РК' };
 const k = (x) => (Math.abs(x) >= 1000 ? (Math.round(x / 100) / 10).toString().replace('.', ',') + 'к' : String(R(x)));
-// Short, plain Telegram text (HTML): done in 24 h → next steps → variants with the answer to send
+// Short, plain Telegram text (HTML): done in 24 h → next steps. Bids and queries only: the agents no longer launch,
+// restart, pause or close campaigns, so there are no launch variants and no close questions to answer.
 export function planText(A) {
   const P = A.plan;
   if (!P) return '';
   const L = ['🧭 <b>План по рекламному кабинету</b>', ''];
   const d = P.done || {};
-  const done = [d.closed && '✂️ закрыто' + (d.closedApproved ? ' по вашему ответу' : ' (до перехода на паузы)') + ' — ' + d.closed, d.paused && '⏸ на паузу из-за минуса — ' + d.paused, d.lower && '🎯 ставок снижено — ' + d.lower, d.raise && '📈 ставок поднято — ' + d.raise,
-    d.minus && '🧹 плохих запросов исключено — ' + d.minus, d.transfer && '🔁 исключений перенесено из других РК — ' + d.transfer, d.launch && '🚀 запущено — ' + d.launch, d.resume && '▶️ включено — ' + d.resume, d.restart && '▶️ перезапущено после чистки запросов — ' + d.restart].filter(Boolean);
+  const done = [d.lower && '🎯 ставок снижено — ' + d.lower, d.raise && '📈 ставок поднято — ' + d.raise,
+    d.minus && '🧹 плохих запросов исключено — ' + d.minus, d.transfer && '🔁 исключений перенесено из других РК — ' + d.transfer, d.boost && '🚀 ставка поднята на продающие запросы — ' + d.boost].filter(Boolean);
   L.push('<b>Сделано за сутки</b>');
   L.push(...(done.length ? done.map((x) => '▫️ ' + x) : ['▫️ изменений не понадобилось']));
-  if (d.savedDay > 0) L.push('💸 экономия ~' + k(d.savedDay) + ' ₽/день');
   if ((P.next || []).length) { L.push('', '<b>Что дальше</b>'); P.next.slice(0, 5).forEach((x) => L.push('▫️ ' + esc(x))); }
-  const V = P.variants || [];
-  if (V.length) {
-    L.push('', '<b>Варианты запуска</b>');
-    V.forEach((v) => {
-      L.push('', '<b>' + v.n + '. ' + KIND[v.kind] + '</b> — ' + esc(cleanName(v.name) || 'арт. ' + v.sku));
-      L.push(esc(v.why));
-      const extra = [v.transfer ? 'перенесу ' + v.transfer + ' ' + plural(v.transfer, 'исключённый запрос', 'исключённых запроса', 'исключённых запросов') + ' из других РК' : '', v.good && v.good.length ? 'продают: ' + v.good.slice(0, 2).map((q) => '«' + q + '»').join(', ') : ''].filter(Boolean);
-      if (extra.length) L.push('<i>' + esc(extra.join(' · ')) + '</i>');
-      L.push('Бюджет ' + rub(v.budget) + ' · ждём <b>+' + k(v.profitMonth) + ' ₽/мес</b>' + (v.note ? '\n💬 ' + esc(v.note) : ''));
-    });
-    L.push('', '👉 Ответьте <b>запуск ' + (V.length > 1 ? '1 ' + V[1].n : '1') + '</b> (номера вариантов)' + (V.length > 1 ? ' или <b>запуск все</b>' : '') + ' — сделаю на следующей проверке.');
-  } else L.push('', '💡 Вариантов запуска в плюс сейчас нет — проверю завтра.');
-  const asks = A.closeAsk || [];
-  if (asks.length) L.push('', '🔒 <b>Ждут вашего решения</b>: закрыть ' + asks.length + ' ' + plural(asks.length, 'кампанию', 'кампании', 'кампаний') + ' — ' + asks.slice(0, 3).map((a) => a.n + '. ' + esc(cleanName(a.name).slice(0, 30))).join(', ') + '. Ответьте <b>закрыть ' + asks[0].n + '</b> или <b>оставить ' + asks[0].n + '</b>.');
+  const att = A.attention || [];
+  if (att.length) L.push('', '⚠️ <b>Нужно ваше решение</b>: ставка уже минимальная, а реклама в минусе — ' + att.slice(0, 3).map((a) => esc(cleanName(a.name).slice(0, 30)) + ' (РК ' + a.id + ')').join(', ') + '. Агенты кампании не останавливают — это можно сделать в кабинете.');
   return L.join('\n').slice(0, 4000);
 }

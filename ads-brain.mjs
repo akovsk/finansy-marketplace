@@ -121,9 +121,9 @@ Reading a campaign row:
 - target: the ДРР the seller wants (a share of margin, capped). drr30 / drr14 / drr7: ad spend divided by bought-out order revenue in that window; "inf" is spend with no orders. Seven days is noisy, and orders are attributed a day or two late.
 - stockDays: days of stock at the current pace. Advertising something about to sell out wastes money; scaling needs stock.
 - lastActions: what you did to this campaign before. rule: what the seller's fixed rule set would do — a baseline to depart from when trend, stock, rating or your own history gives a reason.
-- platform and strategy. WB: "stop" pauses the campaign rather than closing it. A WB campaign carries the seller's work on search queries — the clusters it learned and the queries excluded by hand — and closing it would destroy that, so code turns every "stop" into a pause. Closing for good happens only when the owner answers "закрыть N" in Telegram: code asks him about campaigns that have sat on a loss pause for several days with no restart that would pay. Pausing, restarting a paused campaign once cleaning its queries makes it pay, and excluding bad queries are yours to do without asking. The seller does not want campaigns sitting on pause: code first repairs a losing campaign from inside (up to three bid cuts while bad queries are excluded) and pauses only when that is used up, then tries trial restarts with cleaned queries. So prefer "lower" plus query exclusions over "stop" while the goods earn before ads, and use your minus list and nextSteps to say how you will make each weak campaign work. Ozon: "stop" switches the campaign off and can be undone; with strategy TARGET_BIDS a bid change moves the cost-per-click bid, with TARGET_CIR it moves the ДРР Ozon itself aims at, and with any other strategy Ozon sets bids, so only pause and stop do anything.
+- platform and strategy. The seller's rule: you work only with bids, campaign statistics, metrics and search queries. Starting, pausing, finishing, creating and topping up campaigns, and taking products out of them, are the seller's own decisions; code has no way to do them for you. losing true means the numbers show the campaign loses money: your tools there are a bid cut and excluding the queries that do not sell. When the bid is already at WB's minimum and the campaign still loses, code tells the seller; say in the reason what you see. WB: payType "cpc" (cost per click) campaigns do not accept minus phrases through the API (queryExclusionPossible false), so for them the bid is the only lever. Ozon: with strategy TARGET_BIDS a bid change moves the cost-per-click bid, with TARGET_CIR it moves the ДРР Ozon itself aims at, and with any other strategy Ozon sets bids itself, so keep it.
 
-Actions per campaign: "keep"; "lower" / "raise" with bidPct as a positive percentage; "pause" (for stock problems); "stop". Code enforces limits after you answer — step size, bid floor and ceiling, a cooldown between bid changes, raises only while ДРР is under target, "stop" only where stopAllowed is true — and silently drops anything outside them. The seller asked for ineffective campaigns to be closed rather than left running, so do not keep a clear loss-maker alive out of caution.
+Actions per campaign: "keep"; "lower" / "raise" with bidPct as a positive percentage. Code enforces limits after you answer — step size, bid floor and ceiling, a cooldown between bid changes, raises only while ДРР is under target — and silently drops anything outside them. Do not keep a clear loss-maker at its current bid out of caution: lower it.
 
 You get better over time through your memory, which is carried between runs:
 - outcomes: for each past action, profit per day in the week before and the week after, with a verdict. This is the only real evidence of what works in this particular account. Weigh it above general advertising wisdom.
@@ -134,9 +134,9 @@ You get better over time through your memory, which is carried between runs:
 
 Search queries are where most of the waste in this account sits. Code judges every cluster of every active campaign against the product's own numbers: no orders where the product's usual conversion would already have produced some, an order that costs more than it earns, conversion far below the product's average, or a click far above its average click price. It excludes the clear cases itself; the ones that look like the product's own wording go to a helper ("check"), because such a query is often the card's main traffic.
 
-You also shape the development plan the seller reads in Telegram: nextSteps (what you intend to do over the next days, in plain words) and a note on each launch variant code computed. In learnNext (up to three items, Russian, one sentence each) say what you still need to learn about this cabinet and how you will find it out — for example which hypothesis about queries or bids the next week of data will confirm. Variants are numbered; the seller answers with the numbers to launch.
+You also shape the development plan the seller reads in Telegram: nextSteps (what you intend to do over the next days with bids and queries, in plain words). In learnNext (up to three items, Russian, one sentence each) say what you still need to learn about this cabinet and how you will find it out — for example which hypothesis about queries or bids the next week of data will confirm.
 
-Helpers are separate model instances you brief. A helper sees only the brief you write and the data kinds you select, and reports back. Use one where a focused look pays for itself: cleaning a campaign's search queries, vetting products for a launch, working out why a campaign's numbers moved, auditing your own past decisions. Create whatever roles the account needs today. Say in the brief what to find out, why it matters, and what you need back.
+Helpers are separate model instances you brief. A helper sees only the brief you write and the data kinds you select, and reports back. Use one where a focused look pays for itself: cleaning a campaign's search queries, working out why a campaign's numbers moved, auditing your own past decisions. Create whatever roles the account needs today. Say in the brief what to find out, why it matters, and what you need back.
 
 Write every reason, the summary and the lessons in Russian, in plain words with the numbers that drove them, for a seller who is not an ads specialist.`;
 
@@ -192,19 +192,17 @@ export function makeBrain(cfg) {
     // 3. The lead decides, then rewrites its lessons and tunes its thresholds
     const Final = z.object({
       summary: z.string(),
-      decisions: z.array(z.object({ uid: z.string(), action: z.enum(['keep', 'lower', 'raise', 'pause', 'stop']), bidPct: z.number(), reason: z.string() })),
-      launches: z.array(z.object({ key: z.string(), go: z.boolean(), reason: z.string() })),
+      decisions: z.array(z.object({ uid: z.string(), action: z.enum(['keep', 'lower', 'raise']), bidPct: z.number(), reason: z.string() })),
       nextSteps: z.array(z.string()),
       learnNext: z.array(z.string()),
-      variantNotes: z.array(z.object({ n: z.number(), go: z.boolean(), note: z.string() })),
       lessons: z.array(z.string()),
       tune: z.array(z.object({ key: z.enum(Object.keys(TUNE_BOUNDS)), value: z.number(), why: z.string() })),
       helpers: z.array(z.object({ role: z.string(), task: z.string() })),
     });
     const fin = await ask(LEAD, {
       stage: 'decide',
-      instruction: 'Return one decision for every campaign. For each launch candidate say go or not: candidates already passed the filters and are sorted by expected profit per 1000 ₽ of ads, so veto one only for a reason the estimate cannot see. For each plan variant give a one-sentence note for the seller and go=false only if it should not be offered at all. nextSteps: up to five concrete things you plan for the coming days. Then return your lessons list as it should now stand (at most 12), any threshold changes, and the standing helper team for next time (at most 6). summary: two to four sentences on the state of the ad accounts and what you changed.',
-      limits, tuneBounds: TUNE_BOUNDS, memory: mem, campaigns: rows.map(({ days, ...r }) => r), launchCandidates: candidates, planVariants: input.variants || [],
+      instruction: 'Return one decision for every campaign. nextSteps: up to five concrete things you plan for the coming days with bids and queries. Then return your lessons list as it should now stand (at most 12), any threshold changes, and the standing helper team for next time (at most 6). summary: two to four sentences on the state of the ad accounts and what you changed.',
+      limits, tuneBounds: TUNE_BOUNDS, memory: mem, campaigns: rows.map(({ days, ...r }) => r),
       helperReports: reports.map((r) => ({ role: r.role, brief: r.task, report: r.report, queriesProposedForExclusion: r.minus.reduce((s, x) => s + x.queries.length, 0) })),
     }, Final, cfg.llm.leadEffort);
     log('claude team: calls', usage.calls, 'tokens in/out', usage.in, usage.out, '| helpers:', reports.map((r) => r.role).join(', ') || 'none');

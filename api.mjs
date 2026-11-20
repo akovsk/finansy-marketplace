@@ -203,7 +203,11 @@ async function wbStore(st) {
     const names = {};
     for (let i = 0; i < ids.length; i += 50) {
       try {
-        const info = await wb(st, 'https://advert-api.wildberries.ru/api/advert/v2/adverts?ids=' + ids.slice(i, i + 50).join(','));
+        // v3: WB switches v2 off on 10 January; same fields used here (advertId, status, settings.name), v2 only as a fallback
+        const part = ids.slice(i, i + 50).join(',');
+        let info;
+        try { info = await wb(st, 'https://advert-api.wildberries.ru/api/advert/v3/adverts?advertIds=' + part); }
+        catch (e) { log('  adverts v3:', e.message.slice(0, 160)); info = await wb(st, 'https://advert-api.wildberries.ru/api/advert/v2/adverts?ids=' + part); }
         const arr = Array.isArray(info) ? info : (info && (info.adverts || info.data)) || [];
         if (i === 0) log('  advert sample', JSON.stringify(arr[0] || info).slice(0, 400));
         arr.forEach((a) => { const id = a.advertId || a.id; names[id] = { name: a.name || (a.settings && a.settings.name) || '', status: a.status || 0 }; });
