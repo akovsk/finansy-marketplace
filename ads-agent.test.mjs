@@ -316,6 +316,20 @@ console.log('ads-agent: ozon, queries and learning checks passed');
   assert.ok(tuned && tuned.to > tuned.from, 'запуски в минусе — порог окупаемости выше');
 }
 
+// The whole crew works every check: each agent says what it did and writes one entry an hour (learned / proposes)
+{
+  const r1 = await go({ stores: ['wb1'], mode: 'live' });
+  const C = r1.out.crew;
+  ['wb', 'queries', 'products', 'audit'].forEach((k) => { assert.ok(C[k] && C[k].did.length && C[k].entry, 'работает и пишет: ' + k); });
+  assert.equal(C.wb.name, 'Марк'); assert.equal(C.audit.name, 'Соня');
+  assert.match(C.audit.did[0], /ждут недели — 3/);
+  const again = await go({ stores: ['wb1'], mode: 'live' }, { state: r1.out, memory: r1.out.memory, now: NOW + 3600e3 });
+  const j = again.out.memory.crew.wb;
+  assert.equal(j.length, 2, 'через час — вторая запись');
+  assert.notEqual(j[0].text, j[1].text, 'без повторов');
+  assert.notEqual(j[0].kind, j[1].kind, 'час учёбы, час идей');
+}
+
 // Daily skills: exactly one new skill per Moscow day, learned skills report every run; impact before → now
 {
   const { CURRICULUM, learnSkills } = await import('./ads-skills.mjs');

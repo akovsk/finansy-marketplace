@@ -2879,8 +2879,11 @@ dash.loader('sales', {
   // next start of a schedule given in UTC minutes of the day → "15:17" Moscow time
   const rmNext = (mins) => { const now = new Date(), m = now.getUTCHours() * 60 + now.getUTCMinutes(), n = mins.find((x) => x > m) ?? mins[0] + 1440; return String(Math.floor(((n + 180) % 1440) / 60)).padStart(2, '0') + ':' + String((n + 180) % 60).padStart(2, '0'); };
   // the agents' shift: a check every hour from 12:17 to 20:17 Moscow (9:17–17:17 UTC, ads-agent.yml)
-  const NEXT_ADS = () => rmNext([9, 10, 11, 12, 13, 14, 15, 16, 17].map((h) => h * 60 + 17));
-  const onShift = () => { const h = (new Date().getUTCHours() + 3) % 24; return h >= 12 && h < 20; };
+  // the crew's shift: a check every hour from 04:17 to 23:17 Moscow (1:17–20:17 UTC, ads-agent.yml); off 00:00–04:00
+  const NEXT_ADS = () => rmNext(Array.from({ length: 20 }, (_, k) => (k + 1) * 60 + 17));
+  const onShift = () => { const h = (new Date().getUTCHours() + 3) % 24; return h >= 4; };
+  // which part of the crew's work (ads-agent.json → crew) belongs to this agent
+  const crewKey = (ag) => (ag.p === 'wb' ? 'wb' : ag.p === 'ozon' ? 'ozon' : /запрос|кластер/i.test(ag.role) ? 'queries' : /товар|запуск|подбор/i.test(ag.role) ? 'products' : /ревиз|решени|итог|провер/i.test(ag.role) ? 'audit' : null);
   const wfOf = (r) => ROOM_WF[String(r.path || '').split('/').pop()] || null;
   const rmRunning = (wf) => (RL.runs || []).find((r) => wfOf(r) === wf && r.status !== 'completed') || null;
   const rmDone = (wf) => (RL.runs || []).find((r) => wfOf(r) === wf && r.status === 'completed') || null;
@@ -3006,23 +3009,24 @@ dash.loader('sales', {
     const run = rmRunning('ads'), d = rmDone('ads');
     const nWB = (A.campaigns || []).filter((c) => rmPlat(c) === 'wb' && c.status === 9).length, nOz = (A.campaigns || []).filter((c) => rmPlat(c) === 'ozon' && c.status === 9).length;
     const team = A.engine === 'claude';
-    // on shift (12–20 Moscow) the WB and Ozon agents sit at their desks; a running check is the active part of it
-    const duty = onShift() && !ag.helper;
-    const on = (!!run && (!ag.helper || team)) || duty;
-    const prep = on && RL.step && !/решени/i.test(RL.step);
+    // shift 04:00–00:00 Moscow: the whole crew is at the desks; a running check is the active part of it.
+    // What each one did this hour and what it learned or proposes comes from the agent itself (ads-agent.json → crew).
+    const cw = (A.crew || {})[crewKey(ag)];
+    const on = !!run || onShift();
+    const prep = !!run && RL.step && !/решени/i.test(RL.step);
     let lines;
     if (prep) lines = ['Самопроверка перед работой: ' + RL.step.toLowerCase()];
-    else if (on && !run) lines = ag.p === 'wb' ? ['На смене до 20:00 — проверяю кабинет WB каждый час, следующая проверка в ' + NEXT_ADS(), 'Смотрю, как ' + nWB + ' активных кампаний отработали за час: расход, клики, заказы', 'Слежу за ставками после прошлых изменений']
-      : ['На смене до 20:00 — проверяю кабинет Ozon каждый час, следующая проверка в ' + NEXT_ADS(), 'Смотрю ' + nOz + ' активных кампаний Ozon: расход и целевой ДРР'];
+    else if (on && cw) lines = [run ? 'Идёт проверка кабинета — работаю над своей частью' : 'На смене до 00:00 · следующая проверка в ' + NEXT_ADS()].concat(cw.did || []).concat(cw.entry ? [(cw.entry.kind === 'idea' ? '💡 ' : '📚 ') + cw.entry.text] : []);
+    else if (on && !run) lines = ['На смене до 00:00 · следующая проверка в ' + NEXT_ADS()];
     else if (on) lines = ag.p === 'wb' ? ['Пересчитываю ДРР и ставки по ' + nWB + ' кампаниям WB', 'Сверяю ставки с маржой товаров до рекламы', 'Читаю поисковые кластеры и отсеиваю плохие запросы', 'Слежу за топ-запросами и их позициями', 'Сверяю статистику кампаний: показы, клики, заказы']
       : ag.p === 'ozon' ? ['Проверяю ' + nOz + ' кампаний Ozon', 'Сверяю целевой ДРР с маржой товаров', 'Считаю ставки по статистике кампаний']
       : /запрос|кластер/i.test(ag.role) ? ['Просматриваю поисковые кластеры кампаний', 'Ищу запросы, которые тратят бюджет без заказов', 'Докладываю ведущему о находках']
       : /товар|запуск|подбор/i.test(ag.role) ? ['Проверяю кандидатов на запуск рекламы', 'Смотрю, где расчёт прибыли надёжен, а где случайность', 'Докладываю ведущему о находках']
       : /ревиз|решени|итог|провер/i.test(ag.role) ? ['Сверяю прошлые решения с их результатом', 'Ищу повторяющиеся ошибки', 'Докладываю ведущему о находках']
       : ['Работаю над задачей ведущего: ' + short(ag.task, 90), 'Докладываю ведущему о находках'];
-    else if (ag.p === 'wb') { const w = rmWords(rmCount(rmToday(A, 'wb', ['lower', 'raise', 'pause', 'stop', 'resume', 'restart', 'launch'])), { lower: 'ставка ниже', raise: 'ставка выше', pause: 'пауза', stop: 'закрыто', resume: 'включено', restart: 'перезапуск', launch: 'запуск' }); lines = [(w ? 'Сегодня: ' + w + '.' : 'Ставки в норме.') + ' Смена с 12:00 до 20:00, первая проверка в ' + NEXT_ADS()]; }
-    else if (ag.p === 'ozon') { const n = rmToday(A, 'ozon').length; lines = [(A.ozonMode === 'live' ? (n ? 'Сегодня изменений: ' + n + '.' : 'Ozon в норме.') : 'Режим проверки' + (n ? ', в плане ' + n + ' изменений.' : '.')) + ' Смена с 12:00 до 20:00, первая проверка в ' + NEXT_ADS()]; }
-    else lines = [run ? 'Сегодня решения по правилам — команду не звали' : team ? 'Отдыхаю до запуска в ' + NEXT_ADS() : 'Отдыхаю: команда Claude в последних запусках не работала'];
+    else if (ag.p === 'wb') { const w = rmWords(rmCount(rmToday(A, 'wb', ['lower', 'raise', 'pause', 'stop', 'resume', 'restart', 'launch'])), { lower: 'ставка ниже', raise: 'ставка выше', pause: 'пауза', stop: 'закрыто', resume: 'включено', restart: 'перезапуск', launch: 'запуск' }); lines = [(w ? 'Сегодня: ' + w + '.' : 'Ставки в норме.') + ' Смена с 04:00 до 00:00, первая проверка в ' + NEXT_ADS()]; }
+    else if (ag.p === 'ozon') { const n = rmToday(A, 'ozon').length; lines = [(A.ozonMode === 'live' ? (n ? 'Сегодня изменений: ' + n + '.' : 'Ozon в норме.') : 'Режим проверки' + (n ? ', в плане ' + n + ' изменений.' : '.')) + ' Смена с 04:00 до 00:00, первая проверка в ' + NEXT_ADS()]; }
+    else lines = ['Смена с 04:00 до 00:00, первая проверка в ' + NEXT_ADS()];
     // at rest: what this agent is doing on the sofa, in front of the status
     if (!on) { const rk = RM_REST_KIND[restOf(ag.name)]; lines = lines.map((x, k) => (k ? x : rk[0] + ' ' + rk[1].charAt(0).toUpperCase() + rk[1].slice(1) + '. ' + x)); }
     return { on, lines, err: !run && d && d.conclusion === 'failure', since: run && on ? Date.parse(run.run_started_at || run.created_at) : null };
@@ -3628,7 +3632,7 @@ dash.loader('sales', {
       const F = (s, wt) => (wt || 600) + ' ' + s + 'px "Inter", "Segoe UI", system-ui, sans-serif';
       g.fillStyle = '#ffffff'; g.font = F(132, 800); g.textAlign = 'center';
       g.fillText(new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }), w / 2, 150);
-      g.fillStyle = '#9fb4ff'; g.font = F(30, 600); g.fillText('Москва · смена агентов 12:00–20:00', w / 2, 212);
+      g.fillStyle = '#9fb4ff'; g.font = F(30, 600); g.fillText('Москва · смена агентов 04:00–00:00', w / 2, 212);
       g.fillStyle = '#7f8bb3'; g.font = F(28, 500); g.fillText('следующая проверка в ' + NEXT_ADS(), w / 2, 258);
     }
   }
@@ -3666,8 +3670,8 @@ dash.loader('sales', {
       // what changed in the room today (one step a day, ROOM_STEPS)
       const lv = roomLevel(), st = ROOM_STEPS[lv - 1];
       RM.upd = T.el('p', 'ts-muted rm-upd', 'Обновление комнаты · день ' + lv + ' из ' + ROOM_STEPS.length + '. Агенты: ' + st[0] + '. Комната: ' + st[1] + '.' + (roomDay() > ROOM_STEPS.length ? ' Новые обновления ещё не подготовлены.' : ''));
-      RM.dev = T.el('div', 'rm-dev');
-      box.append(RM.head, RM.upd, RM.wrap, RM.board, RM.list, RM.dev);
+      RM.dev = T.el('div', 'rm-dev'); RM.crew = T.el('div', 'rm-dev');
+      box.append(RM.head, RM.upd, RM.wrap, RM.board, RM.list, RM.crew, RM.dev);
       // the agents' development log (agents-log.json): important decisions made with the owner, per agent
       fetch('agents-log.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).then((j) => { RL.devlog = j; RM.devWho = RM.devWho || 'wb'; dash.draw('room'); }).catch(() => {});
       loadThree().then(() => { try { RM.api = room3d(RM.wrap, RM.labels); RM.load.remove(); dash.draw('room'); } catch (e) { console.warn('room 3D', e); flat(); } }).catch(flat);
@@ -3678,8 +3682,8 @@ dash.loader('sales', {
     const working = team.filter((a) => states[a.id].on);
     RM.status.textContent = RL.err ? RL.err : !RL.runs ? 'узнаю, кто сейчас работает…'
       : rmRunning('ads') ? 'идёт проверка кабинета: ' + working.map((a) => a.name).join(', ')
-      : working.length ? 'на смене до 20:00: ' + working.map((a) => a.name).join(', ') + ' · следующая проверка в ' + NEXT_ADS()
-      : 'агентов: ' + team.length + ' · смена с 12:00 до 20:00, первая проверка в ' + NEXT_ADS();
+      : working.length ? 'на смене до 00:00: ' + working.map((a) => a.name).join(', ') + ' · следующая проверка в ' + NEXT_ADS()
+      : 'агентов: ' + team.length + ' · смена с 04:00 до 00:00, первая проверка в ' + NEXT_ADS();
     // the board shows what the agents changed (impact); the old cabinet totals only until the agent has written impact
     const imp = roomImpact(A);
     const money = imp ? imp.money : roomMoney(A), items = imp ? imp.items : roomBoard(A), grew = roomSeen(items);
@@ -3692,6 +3696,28 @@ dash.loader('sales', {
       const sp = T.el('span'); sp.append(T.el('b', null, a.name), document.createTextNode(' · ' + a.role + ' — ' + (st.on ? 'работает: ' : '') + st.lines[0] + (st.err ? ' (последний запуск с ошибкой)' : '')));
       li.append(T.el('i'), sp); RM.list.append(li);
     });
+    // what each agent learned and proposed, hour by hour (ads-agent.json → crew[*].journal)
+    RM.crew.replaceChildren();
+    const CW = A.crew || {}, ckeys = Object.keys(CW).filter((k) => (CW[k].journal || []).length);
+    if (ckeys.length) {
+      if (!ckeys.includes(RM.crewWho)) RM.crewWho = ckeys[0];
+      RM.crew.append(T.el('h4', null, 'Учёба и идеи агентов'), T.el('p', 'ts-muted', 'Каждый час каждый агент либо чему-то учится на свежих цифрах (📚), либо предлагает новое действие для развития (💡). Идеи — это предложения: кампании агенты по-прежнему не останавливают.'));
+      const chips = T.el('div', 'rm-dev-chips');
+      ckeys.forEach((k, i) => {
+        const m = team.find((a) => crewKey(a) === k), b = T.el('button', 'rm-dev-chip' + (k === RM.crewWho ? ' on' : ''), CW[k].name + ' (' + CW[k].journal.length + ')');
+        b.type = 'button'; b.style.setProperty('--c', m ? m.c : RM_COLORS[i % 8]);
+        b.addEventListener('click', () => { RM.crewWho = k; dash.draw('room'); });
+        chips.append(b);
+      });
+      RM.crew.append(chips);
+      const ul = T.el('ol', 'rm-dev-list');
+      CW[RM.crewWho].journal.slice().reverse().forEach((e) => {
+        const li = T.el('li');
+        li.append(T.el('small', null, new Date(e.t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }) + ' · ' + (e.kind === 'idea' ? '💡 предлагает' : '📚 учится')), T.el('span', null, e.text));
+        ul.append(li);
+      });
+      RM.crew.append(ul);
+    }
     // development log under the room: one agent at a time, newest first
     RM.dev.replaceChildren();
     const DL = (RL.devlog && RL.devlog.entries) || [];

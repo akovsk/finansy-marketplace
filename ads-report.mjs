@@ -178,7 +178,7 @@ export function messageText(R, p = 'wb') {
   const h = new Date(now + 3 * 3600e3).getUTCHours();
   L.push('', '<b>🗓 Что планирую</b>');
   next.slice(0, 5).forEach((x) => L.push('▫️ ' + esc(x)));
-  L.push('⏰ Смена агентов — с 12:00 до 20:00, проверка кабинета каждый час' + (h >= 12 && h < 20 ? ', следующая в ' + String(h + 1).padStart(2, '0') + ':17' : ', первая — в 12:17'));
+  L.push('⏰ Смена агентов — с 04:00 до 00:00, проверка кабинета каждый час' + (h >= 4 && h < 23 ? ', следующая в ' + String(h + 1).padStart(2, '0') + ':17' : ', первая — в 04:17'));
 
   // 3. Learned today
   const T = (A.learned || {}).today || {}, learned = [];
