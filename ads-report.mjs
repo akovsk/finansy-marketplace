@@ -165,19 +165,16 @@ export function messageText(R, p = 'wb') {
   if (fix) next.push('Продолжаю чинить ' + fix + ' ' + plural(fix, 'кампанию', 'кампании', 'кампаний') + ': следующий шаг ставки — когда накопится статистика.');
   const wait = C.filter((c) => c.blocked && /жду статистику|жду неделю/.test(c.blocked)).length;
   if (wait) next.push('Проверю ещё ' + wait + ' ' + plural(wait, 'кампанию', 'кампании', 'кампаний') + ' после прошлых изменений ставки.');
-  const camp = A.camp || {}, DAY = 864e5, now = Date.parse(A.generated);
-  const retest = C.filter((c) => c.status === 11 && (camp[p === 'ozon' ? c.store + ':' + c.id : c.id] || {}).pausedFor === 'loss');
-  if (retest.length) {
-    const soon = retest.map((c) => (camp[p === 'ozon' ? c.store + ':' + c.id : c.id] || {}).pausedAt).filter(Boolean).map((t) => Math.max(0, Math.ceil((t + 7 * DAY - now) / DAY)));
-    next.push('На паузе из-за минуса ' + retest.length + ': пробный перезапуск с чистыми запросами' + (soon.length ? ' через ' + Math.min(...soon) + ' дн.' : ' по графику.'));
-  }
+  const now = Date.parse(A.generated);
+  // Losing campaigns whose bid is already at the minimum: the agents do not pause or finish them, the owner decides
+  const att = (A.attention || []).filter((x) => platOf(x) === p);
+  if (att.length) next.push('Ставка уже минимальная, а реклама в минусе: ' + att.slice(0, 3).map((x) => cleanName(x.name).slice(0, 25)).join(', ') + ' — остановить или оставить решаете вы.');
   if (p === 'wb') {
-    (A.plan && A.plan.next || []).filter((x) => /спорн|Закрытые кампании/.test(x)).slice(0, 2).forEach((x) => next.push(x));
-    const asks = A.closeAsk || [];
-    if (asks.length) next.push('Жду вашего решения о закрытии: ' + asks.map((a) => a.n + '. ' + cleanName(a.name).slice(0, 25)).join(', ') + ' — ответ «закрыть N» или «оставить N».');
-    const nv = ((A.plan || {}).variants || []).length;
-    next.push(nv ? 'Варианты запуска в плюс: ' + nv + ' — список в сообщении с планом.' : 'Ищу товары, где реклама окупится: пока таких нет.');
-  } else next.push('Слежу за ставками и целевым ДРР; убыточные товары убираю из кампаний. Запросы в Ozon через API не исключаются.');
+    (A.plan && A.plan.next || []).filter((x) => /спорн/.test(x)).slice(0, 2).forEach((x) => next.push(x));
+    const adv = A.queryAdvice || [];
+    if (adv.length) next.push('В кампаниях с оплатой за клик WB не даёт исключать запросы через API — там работаю ставкой. Запросы без продаж: ' + adv.slice(0, 2).map((x) => '«' + x.queries[0].q + '»').join(', ') + '.');
+    next.push('Кампании не включаю, не ставлю на паузу и не завершаю — только ставки, статистика и запросы.');
+  } else next.push('Слежу за ставками и целевым ДРР. Кампании и товары в них не трогаю; запросы в Ozon через API не исключаются.');
   const h = new Date(now + 3 * 3600e3).getUTCHours();
   L.push('', '<b>🗓 Что планирую</b>');
   next.slice(0, 5).forEach((x) => L.push('▫️ ' + esc(x)));

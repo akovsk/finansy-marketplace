@@ -15,9 +15,7 @@
   "minClicks": 150,
   "stop": {
     "noOrdersSpend": 3000,
-    "overMarginFactor": 1.4,
-    "maxPerRun": 5,
-    "hardClose": false
+    "overMarginFactor": 1.4
   },
   "bid": {
     "maxStepPct": 25,
@@ -27,29 +25,6 @@
     "maxCpcKop": 5000,
     "minOrdersToRaise": 5,
     "minStockDaysToRaise": 14
-  },
-  "stock": {
-    "pauseWhenOut": true,
-    "resumeDays": 5
-  },
-  "budget": {
-    "autoTopUp": false,
-    "topUpSum": 1000,
-    "dailyCap": 5000,
-    "source": 1
-  },
-  "launch": {
-    "enabled": true,
-    "maxPerRun": 5,
-    "budget": 1000,
-    "minStock": 30,
-    "minMargin": 0.25,
-    "minSales30": 10,
-    "minRating": 4.5,
-    "paymentType": "cpm",
-    "maxTotal": 5,
-    "minStockDays": 45,
-    "minHeadroom": 1.3
   },
   "llm": {
     "enabled": true,
@@ -78,19 +53,9 @@
   },
   "ozon": {
     "mode": "dry-run",
-    "maxCpcRub": 60,
-    "maxDropsPerRun": 5,
-    "launch": {
-      "enabled": false,
-      "maxPerRun": 1,
-      "maxTotal": 3,
-      "weeklyBudget": 3500
-    }
+    "maxCpcRub": 60
   },
   "plan": {
-    "enabled": true,
-    "maxVariants": 5,
-    "budget": 1000,
-    "maxPerRun": 3
+    "enabled": true
   }
 }

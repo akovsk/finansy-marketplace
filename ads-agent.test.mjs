@@ -1,7 +1,7 @@
 // Checks of the agent's decision logic and hard limits on small made-up data: node ads-agent.test.mjs
 import assert from 'node:assert/strict';
-import { mergeConfig, run, guard, newBids, stopReason, normCampaign, judgeCluster, launchCandidates, skuEconomics } from './ads-agent.mjs';
-import { parseApprovals, planText, askText, buildVariants, activeSkus } from './ads-plan.mjs';
+import { mergeConfig, run, guard, newBids, stopReason, normCampaign, judgeCluster, launchCandidates, skuEconomics, bidsOnly, CAMPAIGN_CONTROL } from './ads-agent.mjs';
+import { parseApprovals, planText, buildVariants, activeSkus } from './ads-plan.mjs';
 import { normOzonCampaign, ozonStats, ozonBids, num } from './ozon-ads.mjs';
 import { emptyMemory, applyTuning, tune, evaluateOutcomes, autoTune, TUNE_BOUNDS } from './ads-brain.mjs';
 
@@ -18,50 +18,51 @@ const market = { generated: '2026-11-16T08:00:00Z',
   stocks: { 'Магазин|1': { q: 500 }, 'Магазин|2': { q: 500 }, 'Магазин|3': { q: 500 }, 'Магазин|4': { q: 500 }, 'Магазин|5': { q: 0 }, 'Магазин|6': { q: 500 } },
   funnel: Object.fromEntries([1, 2, 3, 4, 5, 6].map((n) => ['Магазин|' + n, n === 6 ? { bp: 100, v: 1000, o: 100 } : { bp: 100 }])), reviews: {} };
 
+// A WB client that records every call, including the campaign-control ones the agent must never make
 function mockApi(calls) {
   const camp = (id, nm) => ({ id, status: 9, bid_type: 'unified', settings: { name: 'РК ' + id, payment_type: 'cpm', placements: { search: true, recommendations: true } }, nm_settings: [{ nm_id: nm, bids_kopecks: { search: 30000, recommendations: 30000 } }] });
   const rec = (name) => async (...a) => { calls.push([name, ...a]); return name === 'create' ? 999 : null; };
   return { list: async () => [camp(101, 1), camp(102, 2), camp(103, 3), camp(104, 4), camp(105, 5), camp(106, 1), camp(107, 5)].map(normCampaign),
     minBids: async (c) => Object.fromEntries(c.nms.map((n) => [n.nm, { combined: 25000 }])),
-    setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create') };
+    setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create'), drop: rec('drop') };
 }
-const go = async (over = {}, extra = {}) => { const calls = []; const out = await run({ cfg: mergeConfig({ repair: { enabled: false }, ...over }), data, market, state: extra.state || {}, memory: extra.memory, apis: { wb1: { ...mockApi(calls), ...(extra.api || {}) } }, now: extra.now || NOW, brain: extra.brain }); return { out, calls, by: Object.fromEntries(out.campaigns.map((c) => [c.id, c])) }; };
+const go = async (over = {}, extra = {}) => { const calls = []; const out = await run({ cfg: mergeConfig(over), data, market, state: extra.state || {}, memory: extra.memory, apis: { wb1: { ...mockApi(calls), ...(extra.api || {}) } }, now: extra.now || NOW, brain: extra.brain }); return { out, calls, by: Object.fromEntries(out.campaigns.map((c) => [c.id, c])) }; };
+const control = (calls) => calls.filter((c) => CAMPAIGN_CONTROL.includes(c[0]));
 
-// 1. Rules on their own
+// 1. Rules on their own: bids only — a loss-maker gets the largest bid cut, never a pause or a close
 {
   const { by, calls, out } = await go({ stores: ['wb1'] });
   assert.equal(by[101].action, 'keep', 'ДРР 15% при цели 18% (маржа 30%) — в норме');
-  assert.equal(by[102].action, 'lower', 'ДРР 30% при марже 30%: выше цели, но не убыток x1.4 — снижать');
+  assert.equal(by[102].action, 'lower', 'ДРР 30% при марже 30%: выше цели — снижать');
   assert.equal(by[102].bidPct, -25);
-  assert.equal(by[103].action, 'pause', 'товар убыточен до рекламы — пауза, а не закрытие (запросы сохраняются)');
-  assert.match(by[103].reason, /а не закрываю/);
+  assert.equal(by[103].action, 'lower', 'товар убыточен до рекламы — снижение ставки, не пауза');
+  assert.equal(by[103].bidPct, -25); assert.match(by[103].reason, /убыточен ещё до рекламы.*Снижаю ставку на 25%/);
   assert.equal(by[104].action, 'raise', 'ДРР 3.75% при цели 24% — масштабировать');
-  assert.equal(by[105].action, 'pause', '4000 ₽ без заказов — на паузу');
+  assert.equal(by[105].action, 'keep', 'товара нет на складе — ставку не трогаем и не ставим на паузу'); assert.match(by[105].reason, /нет на складе/);
   assert.equal(by[106].action, 'keep', 'мало данных — ждать');
-  assert.equal(by[107].action, 'pause', 'нет остатка — пауза');
+  assert.equal(by[107].action, 'keep', 'нет остатка — не пауза');
   assert.equal(calls.length, 0, 'dry-run ничего не отправляет в WB');
   assert.equal(out.history.length, 0, 'dry-run не пишет историю');
   assert.ok(out.actions.every((a) => a.result === 'planned'));
+  assert.ok(out.actions.every((a) => ['lower', 'raise', 'minus', 'boost'].includes(a.action)), 'только ставки и запросы');
   const low = out.actions.find((a) => a.id === 102);
   assert.deepEqual(low.bids, [{ nm: 2, placement: 'combined', wasRub: 300, rub: 250 }], '−25% от 300 ₽ = 225 ₽, но минимум WB 250 ₽');
 }
-// 2. Live mode sends exactly the planned calls and remembers them
+// 2. Live mode sends only bid changes and remembers them
 {
   const { calls, out } = await go({ stores: ['wb1'], mode: 'live' });
-  const names = calls.map((c) => c[0] + ':' + c[1]).sort();
-  assert.deepEqual(names, ['pause:103', 'pause:105', 'pause:107', 'setBids:102', 'setBids:104'], 'в WB ничего не закрывается насовсем');
+  assert.deepEqual(calls.map((c) => c[0] + ':' + c[1]).sort(), ['setBids:102', 'setBids:103', 'setBids:104'], 'в WB уходят только ставки');
   assert.deepEqual(calls.find((c) => c[0] === 'setBids' && c[1] === 104)[2], [{ nm: 4, placement: 'combined', kop: 34500, was: 30000 }]);
-  assert.equal(out.history.length, 5);
-  assert.ok(out.camp[102].lastBidAt && out.camp[107].pausedByAgent);
-  assert.equal(out.camp[103].pausedFor, 'loss'); assert.equal(out.camp[107].pausedFor, 'stock');
+  assert.equal(out.history.length, 3);
+  assert.ok(out.camp[102].lastBidAt && out.camp[103].lastBidAt);
   // next run 2 hours later: cooldown blocks a second bid change
-  const calls2 = []; const again = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live', repair: { enabled: false } }), data, market, state: out, apis: { wb1: mockApi(calls2) }, now: NOW + 2 * 3600e3 });
+  const calls2 = []; const again = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market, state: out, apis: { wb1: mockApi(calls2) }, now: NOW + 2 * 3600e3 });
   assert.ok(!calls2.some((c) => c[0] === 'setBids'), 'повторно ставку в течение суток не меняет');
   assert.match(again.campaigns.find((c) => c.id === 102).blocked, /жду статистику/);
 }
-// 3. Claude's proposals cannot get past the hard limits
+// 3. Claude's proposals cannot get past the hard limits; pause / stop / resume from Claude are refused
 {
-  const pickAct = (uid) => ({ 'wb1:101': 'stop', 'wb1:102': 'raise', 'wb1:104': 'raise', 'wb1:106': 'lower' }[uid] || 'keep');
+  const pickAct = (uid) => ({ 'wb1:101': 'stop', 'wb1:102': 'raise', 'wb1:103': 'pause', 'wb1:104': 'raise', 'wb1:106': 'lower' }[uid] || 'keep');
   const brain = async ({ rows }) => ({ summary: 'Тест.', decisions: rows.map((r) => ({ uid: r.uid, action: pickAct(r.uid), bidPct: 80, reason: 'Проверка.' })).concat([{ uid: 'wb1:555', action: 'stop', bidPct: 0, reason: 'чужая' }]),
     lessons: ['Урок 1'], tune: [{ key: 'bid.maxStepPct', value: 5, why: 'тест' }, { key: 'budget.dailyCap', value: 999999, why: 'нельзя' }], helpers: [{ role: 'Новый помощник', task: 'Задача' }], helpersUsed: [{ role: 'Новый помощник', report: 'Отчёт' }] });
   const { by, out, calls } = await go({ stores: ['wb1'], mode: 'live' }, { brain });
@@ -70,56 +71,55 @@ const go = async (over = {}, extra = {}) => { const calls = []; const out = awai
   assert.ok(!('budget.dailyCap' in out.memory.tuned), 'денежные лимиты агент менять не может');
   assert.equal(out.memory.helpers[0].role, 'Новый помощник'); assert.equal(out.learned.helpers[0].report, 'Отчёт');
   assert.equal(out.engine, 'claude');
-  assert.equal(by[101].action, 'keep', 'прибыльную кампанию закрыть нельзя'); assert.ok(by[101].blocked);
+  assert.equal(by[101].action, 'keep', 'закрыть кампанию агент не может'); assert.match(by[101].blocked, /не ставят на паузу и не завершают/);
+  assert.equal(by[103].action, 'keep', 'поставить на паузу агент не может'); assert.match(by[103].blocked, /не ставят на паузу/);
   assert.equal(by[102].action, 'keep', 'повышать ставку при ДРР выше цели нельзя');
   assert.equal(by[104].bidPct, 15, 'шаг повышения урезан с 80% до 15%');
   assert.equal(by[106].action, 'keep', 'мало данных — ставку не трогаем');
   assert.ok(!by[555] && !calls.some((c) => c[1] === 555), 'неизвестная кампания игнорируется');
-  assert.equal(by[103].action, 'keep', 'Claude решил не останавливать — его право');
+  assert.equal(control(calls).length, 0, 'ни паузы, ни закрытия, ни запуска');
 }
 // 4. If Claude fails, the rules take over
 {
   const { out, by } = await go({ stores: ['wb1'] }, { brain: async () => { throw new Error('boom'); } });
-  assert.equal(out.engine, 'rules'); assert.equal(by[103].action, 'pause'); assert.match(out.errors[0], /Claude недоступен/);
+  assert.equal(out.engine, 'rules'); assert.equal(by[103].action, 'lower'); assert.match(out.errors[0], /Claude недоступен/);
 }
-// 5. Limits: stops per run, protect list, bid cap, launch and top-up are off unless enabled
+// 5. Owner's rule: no start / pause / stop / create / top-up / drop, whatever an old config asks for
 {
-  const a = await go({ stores: ['wb1'], stop: { maxPerRun: 1 } });
-  assert.equal(a.out.actions.filter((x) => x.loss).length, 1, 'лимит пауз из-за убытка за запуск');
+  const stripped = bidsOnly(mockApi([]));
+  CAMPAIGN_CONTROL.forEach((k) => assert.ok(!(k in stripped), 'у агента нет метода ' + k));
+  assert.ok(stripped.setBids && stripped.minBids && stripped.list, 'ставки и чтение остаются');
+  const old = { stores: ['wb1'], mode: 'live', launch: { enabled: true, maxPerRun: 5, maxTotal: 5 }, budget: { autoTopUp: true }, stock: { pauseWhenOut: true }, plan: { auto: true }, stop: { hardClose: true, maxPerRun: 5 }, repair: { enabled: true } };
+  const c = await go(old);
+  assert.equal(control(c.calls).length, 0, 'старые настройки запуска, пополнения и пауз ничего не включают');
+  assert.ok(c.out.actions.every((a) => ['lower', 'raise', 'minus', 'boost'].includes(a.action)));
+  assert.deepEqual([c.out.closeAsk, c.out.approved, c.out.autoLaunched, c.out.candidates, c.out.plan.variants], [[], [], [], [], []]);
   const b = await go({ stores: ['wb1'], protect: [103] });
   assert.equal(b.by[103].action, 'keep');
   const m = { payType: 'cpm', bidType: 'manual', nms: [{ nm: 1, search: 99000, recom: 0 }] };
   assert.deepEqual(newBids(m, 15, mergeConfig({}), {}).map((x) => x.kop), [100000], 'потолок ставки 1000 ₽');
-  assert.equal(a.out.actions.filter((x) => x.action === 'launch' || x.action === 'topup').length, 0);
-  const c = await go({ stores: ['wb1'], mode: 'live', launch: { enabled: true }, budget: { autoTopUp: true } });
-  const l = c.out.actions.find((x) => x.action === 'launch');
-  assert.equal(l.sku, '6', 'запуск для прибыльного товара без рекламы'); assert.equal(l.id, 999);
-  assert.deepEqual(c.calls.filter((x) => ['create', 'start'].includes(x[0])).map((x) => x[0]), ['create', 'start']);
-  assert.ok(c.calls.some((x) => x[0] === 'deposit' && x[1] === 999 && x[2] === 1000));
 }
-// 6. stopReason never fires on thin data
+// 6. stopReason never fires on thin data; guard refuses any campaign-control action
 assert.equal(stopReason({ status: 9, w30: { spend: 1000, orders: 0, ordSum: 0 }, w14: { spend: 500 }, margin: 0.3, drr30: Infinity, drr14: Infinity }, mergeConfig({})), null);
-assert.equal(guard({ action: 'stop', reason: '' }, { id: 1, status: 9, w30: { spend: 1000, orders: 0, ordSum: 0 }, w14: { spend: 500 }, margin: 0.3 }, mergeConfig({}), {}, NOW).action, 'keep');
+['stop', 'pause', 'resume', 'launch', 'topup', 'drop'].forEach((action) => assert.equal(guard({ action, reason: '' }, { id: 1, status: 9, w30: { spend: 9000, orders: 0, ordSum: 0 }, w14: { spend: 5000 }, margin: 0.3 }, mergeConfig({}), {}, NOW).action, 'keep', action));
 console.log('ads-agent: all checks passed');
-// 7. New campaigns: total cap over all runs, enough stock in days, no relaunch of a closed SKU
-{
-  const launchCfg = { stores: ['wb1'], mode: 'live', launch: { enabled: true, maxPerRun: 5, maxTotal: 1 } };
-  const first = await go(launchCfg);
-  assert.equal(first.out.actions.filter((x) => x.action === 'launch').length, 1);
-  const hist = first.out.history;
-  const again = await go(launchCfg, { state: { history: hist } });
-  assert.equal(again.out.actions.filter((x) => x.action === 'launch').length, 0, 'лимит maxTotal на все запуски');
-  const closed = [...hist, { t: 'x', action: 'stop', result: 'ok', id: 999 }];
-  const relaunch = await go({ ...launchCfg, launch: { ...launchCfg.launch, maxTotal: 5 } }, { state: { history: closed } });
-  assert.ok(!relaunch.out.actions.some((x) => x.action === 'launch' && x.sku === '6'), 'закрытый товар не перезапускается');
-  const thin = await go({ ...launchCfg, launch: { ...launchCfg.launch, minStockDays: 1000 } });
-  assert.equal(thin.out.actions.filter((x) => x.action === 'launch').length, 0, 'мало запаса в днях — не запускать');
-}
-console.log('ads-agent: launch checks passed');
 
-// 8. Launch estimate: a product whose expected return per click does not beat the click price is not launched
+// 7. Losing campaign whose bid is already at WB's minimum: no pause — the owner is told
 {
-  const econ = skuEconomics(data), cfg = mergeConfig({ launch: { enabled: true } });
+  const m2 = { ...market, ads: [ad(301, 3, 9000, 30, 30000)] };
+  const camp = { id: 301, status: 9, bid_type: 'unified', settings: { name: 'Убыточная', payment_type: 'cpm', placements: { search: true, recommendations: true } }, nm_settings: [{ nm_id: 3, bids_kopecks: { search: 25000, recommendations: 25000 } }] };
+  const calls = [], rec = (name) => async (...a) => { calls.push([name, ...a]); };
+  const api = { list: async () => [normCampaign(camp)], minBids: async () => ({ 3: { combined: 25000 } }), setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop') };
+  const r = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: {}, apis: { wb1: api }, now: NOW });
+  assert.equal(calls.length, 0, 'ставка уже минимальная — ни ставки, ни паузы');
+  assert.equal(r.campaigns[0].action, 'keep'); assert.equal(r.campaigns[0].blocked, 'ставка уже минимальная'); assert.ok(r.campaigns[0].attention);
+  assert.deepEqual(r.attention.map((x) => x.id), [301]);
+  assert.ok(r.notes.some((n) => /Ставка уже минимальная, а реклама в минусе.*решаете вы/.test(n)));
+  assert.match(planText(r), /Нужно ваше решение.*РК 301/);
+}
+// 8. Launch estimate (used by the one-off launch script): a product whose return per click does not beat the click price
+{
+  const econ = skuEconomics(data), cfg = mergeConfig({});
   const avg = { cpc: 7, cr: 0.04 };
   const ok = launchCandidates('Магазин', 'wb1', [], econ, market, cfg, new Set(['1', '2', '3', '4', '5']), avg);
   assert.equal(ok.length, 1); assert.equal(ok[0].crFrom, 'card'); assert.equal(ok[0].per1000, 500, '143 клика × 7% × 150 ₽ − 1000 ₽');
@@ -147,7 +147,7 @@ console.log('ads-agent: launch checks passed');
     { norm_query: 'сомнительный', views: 300, clicks: 6, atbs: 0, orders: 0, spend: 90 }, { norm_query: 'хороший', views: 9000, clicks: 300, atbs: 60, orders: 20, spend: 900 }, { norm_query: 'уже убран', views: 1, clicks: 50, atbs: 0, orders: 0, spend: 900 }];
   const sets = [];
   const api = { clusters: async (items) => items.map((i) => ({ ...i, stats: i.advert_id === 101 ? stats : [] })), getMinus: async (items) => items.map((i) => ({ ...i, norm_queries: ['уже убран'] })), setMinus: async (...a) => { sets.push(a); } };
-  const brain = async ({ rows, clusters }) => { assert.ok(clusters.find((c) => c.uid === 'wb1:101').items[0].good.some((c) => c.q === 'хороший')); return { summary: 'ок', decisions: rows.map((r) => ({ uid: r.uid, action: 'keep', bidPct: 0, reason: '' })), minus: [{ uid: 'wb1:101', nm: '1', queries: ['чужой бренд', 'хороший', 'нет такого'], reason: '' }], launches: [], lessons: [], tune: [], helpers: [] }; };
+  const brain = async ({ rows, clusters }) => { assert.ok(clusters.find((c) => c.uid === 'wb1:101').items[0].good.some((c) => c.q === 'хороший')); return { summary: 'ок', decisions: rows.map((r) => ({ uid: r.uid, action: 'keep', bidPct: 0, reason: '' })), minus: [{ uid: 'wb1:101', nm: '1', queries: ['чужой бренд', 'хороший', 'нет такого'], reason: '' }], lessons: [], tune: [], helpers: [] }; };
   const { out } = await go({ stores: ['wb1'], mode: 'live' }, { api, brain });
   assert.deepEqual(sets[0], [101, 1, ['уже убран', 'мусор', 'чужой бренд']], 'старые минус-фразы сохранены, запрос с заказами и выдуманный — отброшены');
   assert.deepEqual(sets[1], [106, 1, ['уже убран', 'мусор', 'чужой бренд']], 'исключения перенесены во вторую кампанию того же товара');
@@ -159,8 +159,17 @@ console.log('ads-agent: launch checks passed');
   const rulesOnly = await go({ stores: ['wb1'] }, { api });
   assert.deepEqual(rulesOnly.out.actions.find((a) => a.action === 'minus').queries, ['мусор'], 'без Claude убирается только доказанный слив');
   assert.equal(sets.length, 2, 'dry-run минус-фразы не отправляет');
+
+  // Cost-per-click campaigns: WB answers set-minus with 404 there, so the agent does not send it and reports the queries instead
+  const cpcSets = [];
+  const cpcApi = { ...api, list: async () => (await mockApi([]).list()).map((c) => ({ ...c, payType: 'cpc' })), setMinus: async (...a) => { cpcSets.push(a); } };
+  const cpc = await go({ stores: ['wb1'], mode: 'live' }, { api: cpcApi });
+  assert.equal(cpcSets.length, 0, 'в CPC-кампании минус-фразы не отправляются');
+  assert.ok(!cpc.out.actions.some((a) => a.action === 'minus'));
+  assert.deepEqual(cpc.out.queryAdvice.map((x) => [x.id, x.queries.map((y) => y.q)]), [[101, ['мусор']]], 'плохие запросы показаны владельцу');
+  assert.ok(cpc.out.notes.some((n) => /Оплата за клик: WB не принимает исключение запросов/.test(n)));
 }
-// 13. Campaigns the agent closed earlier: their excluded queries are read once and carried to the live campaigns
+// 13. Campaigns closed earlier: their excluded queries are read once and carried to the live campaigns
 {
   const reads = [], sets = [];
   const api = { clusters: async (items) => items.map((i) => ({ ...i, stats: [] })), getMinus: async (items) => { reads.push(...items.map((i) => i.advert_id)); return items.map((i) => ({ ...i, norm_queries: i.advert_id === 555 ? ['исключил сотрудник', 'ещё одно'] : [] })); }, setMinus: async (...a) => { sets.push(a); } };
@@ -169,75 +178,31 @@ console.log('ads-agent: launch checks passed');
   assert.ok(reads.includes(555), 'минус-фразы закрытой кампании прочитаны');
   assert.ok(first.out.camp[555].harvested);
   assert.deepEqual(sets.find((x) => x[0] === 101), [101, 1, ['исключил сотрудник', 'ещё одно']], 'перенесены в живую кампанию того же товара');
-  assert.match(first.out.plan.next.join(' '), /Закрытые кампании \(1\): их 2 минус-фразы сохранены/, 'в плане видно, что запросы закрытой РК сохранены');
   reads.length = 0;
   await go({ stores: ['wb1'] }, { api, state: first.out, memory: first.out.memory, now: NOW + 31 * 864e5 });
   assert.ok(!reads.includes(555), 'через 30 дней статистики нет — закрытую кампанию больше не читает');
 }
-// 14. Paused for loss: never switched back on by itself; a restart variant appears when cleaning makes it pay; the owner approves it in Telegram
+// 14. A campaign on pause is never switched back on by the agent, even if it had paused it itself before the rule
 {
   const m2 = { ...market, ads: [ad(201, 4, 15000, 30, 30000)] };
   const camp = (id) => ({ id, status: 11, bid_type: 'unified', settings: { name: 'РК ' + id, payment_type: 'cpm', placements: { search: true, recommendations: true } }, nm_settings: [{ nm_id: 4, bids_kopecks: { search: 30000, recommendations: 30000 } }] });
   const calls = [], rec = (name) => async (...a) => { calls.push([name, ...a]); };
-  const stats = [{ norm_query: 'чужое', clicks: 400, orders: 0, spend: 8000 }, { norm_query: 'товар 4', clicks: 600, orders: 30, spend: 7000 }];
-  const api = { list: async () => [normCampaign(camp(201))], minBids: async () => ({}), clusters: async (items) => items.map((i) => ({ ...i, stats })), getMinus: async (items) => items.map((i) => ({ ...i, norm_queries: ['старое'] })),
+  const api = { list: async () => [normCampaign(camp(201))], minBids: async () => ({}), clusters: async (items) => items.map((i) => ({ ...i, stats: [] })), getMinus: async (items) => items.map((i) => ({ ...i, norm_queries: [] })),
     setMinus: rec('setMinus'), setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create') };
-  const state = { camp: { 201: { pausedByAgent: true, pausedFor: 'loss' } } };
-  const manual = { stores: ['wb1'], mode: 'live', plan: { auto: false } };
-  const r1 = await run({ cfg: mergeConfig(manual), data, market: m2, state, apis: { wb1: api }, now: NOW });
-  assert.equal(r1.campaigns[0].action, 'keep'); assert.match(r1.campaigns[0].reason, /перезапуск — в плане/);
-  assert.ok(!calls.some((c) => c[0] === 'start'), 'сам не включает');
-  const v = r1.plan.variants[0];
-  assert.equal(v.kind, 'restart'); assert.equal(v.n, 1); assert.equal(v.minus, 1); assert.equal(v.profitMonth, 5000, 'без «чужое»: 30 000 × 40% − 7 000');
-  assert.match(planText(r1), /Ответьте <b>запуск 1<\/b>/); assert.equal(v.transfer, 0, 'свои минус-фразы кампании не считаются переносом');
-  const ap = parseApprovals([{ update_id: 7, message: { chat: { id: 42 }, date: NOW / 1000 + 60, text: 'Запуск 1' } }, { update_id: 8, message: { chat: { id: 99 }, date: NOW / 1000 + 60, text: 'запуск 2' } }], '42', r1.plan.generated);
-  assert.deepEqual(ap.nums, [1], 'только из своего чата'); assert.equal(ap.last, 8);
-  const r2 = await run({ cfg: mergeConfig(manual), data, market: m2, state: r1, memory: r1.memory, apis: { wb1: api }, now: NOW + 3600e3, approvals: ap });
-  assert.deepEqual(calls.filter((c) => c[0] === 'setMinus').map((c) => c.slice(1)), [[201, 4, ['старое', 'чужое']]], 'перед запуском убраны плохие запросы, старые сохранены');
-  assert.ok(calls.some((c) => c[0] === 'start' && c[1] === 201)); assert.deepEqual(r2.approved, [{ n: 1, action: 'restart', name: 'РК 201', id: 201, result: 'ok', error: null }]);
-  assert.equal(r2.camp[201].pausedFor, null); assert.ok(r2.camp[201].restartedAt);
-  // plan.auto (default): the agent restarts it itself — starting and pausing are its own call; the plan no longer lists it
-  calls.length = 0;
-  const r3 = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live', repair: { enabled: false } }), data, market: m2, state: { camp: { 201: { pausedByAgent: true, pausedFor: 'loss' } } }, apis: { wb1: api }, now: NOW });
-  assert.ok(calls.some((c) => c[0] === 'start' && c[1] === 201), 'перезапуск сам, без ответа');
-  assert.equal(r3.autoLaunched[0].action, 'restart'); assert.equal(r3.plan.variants.filter((x) => x.kind === 'restart').length, 0);
-  assert.match(r3.actions.find((a) => a.action === 'restart').reason, /^Сам перезапускаю/);
+  const r1 = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: { camp: { 201: { pausedByAgent: true, pausedFor: 'stock', pausedAt: NOW - 30 * 864e5 } } }, apis: { wb1: api }, now: NOW });
+  assert.equal(r1.campaigns[0].action, 'keep'); assert.match(r1.campaigns[0].reason, /включать и выключать кампании агент не может/);
+  assert.equal(calls.length, 0, 'сам не включает и ставку на паузе не меняет');
+  assert.deepEqual(r1.plan.variants, []);
+  // «запуск 1» / «закрыть 1» from Telegram are still recognised (the CLI answers that agents no longer do this)
+  const ap = parseApprovals([{ update_id: 7, message: { chat: { id: 42 }, date: NOW / 1000 + 60, text: 'Закрыть 1' } }, { update_id: 8, message: { chat: { id: 99 }, date: NOW / 1000 + 60, text: 'запуск 2' } }], '42', r1.plan.generated);
+  assert.ok(ap.seen); assert.deepEqual(ap.close, [1]); assert.equal(ap.last, 8);
 }
-// 16. Closing for good only with the owner's permission: ask in Telegram, close on «закрыть N», «оставить N» silences for a month
+// 15. Plan: what was done and what is next; no launch variants and no close questions
 {
-  const m2 = { ...market, ads: [ad(301, 5, 9000, 0, 0)] };
-  const camp = { id: 301, status: 11, bid_type: 'unified', settings: { name: 'Убыточная', payment_type: 'cpm', placements: { search: true, recommendations: true } }, nm_settings: [{ nm_id: 5, bids_kopecks: { search: 30000, recommendations: 30000 } }] };
-  const calls = [], rec = (name) => async (...a) => { calls.push([name, ...a]); };
-  const api = { list: async () => [normCampaign(camp)], minBids: async () => ({}), clusters: async (items) => items.map((i) => ({ ...i, stats: [] })), getMinus: async (items) => items.map((i) => ({ ...i, norm_queries: ['плохое 1', 'плохое 2'] })),
-    setMinus: rec('setMinus'), setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create') };
-  const cfg = mergeConfig({ stores: ['wb1'], mode: 'live', repair: { enabled: false } });
-  const early = await run({ cfg, data, market: m2, state: { camp: { 301: { pausedByAgent: true, pausedFor: 'loss', pausedAt: NOW - 2 * 864e5 } } }, apis: { wb1: api }, now: NOW });
-  assert.equal(early.closeAsk.length, 0, 'на паузе меньше 5 дней — не спрашивает');
-  const r1 = await run({ cfg, data, market: m2, state: { camp: { 301: { pausedByAgent: true, pausedFor: 'loss', pausedAt: NOW - 6 * 864e5 } } }, apis: { wb1: api }, now: NOW });
-  assert.equal(r1.closeAsk.length, 1); assert.equal(r1.closeAsk[0].n, 1); assert.equal(r1.closeAsk[0].kept, 2, 'минус-фразы уже в базе');
-  assert.ok(!calls.some((c) => c[0] === 'stop'), 'без ответа не закрывает');
-  assert.match(askText(r1.closeAsk), /закрыть 1/); assert.match(planText(r1), /Ждут вашего решения/);
-  const ap = parseApprovals([{ update_id: 3, message: { chat: { id: 42 }, date: NOW / 1000 + 60, text: 'Закрыть 1' } }], '42', r1.generated);
-  assert.deepEqual([ap.close, ap.nums], [[1], []], '«закрыть» — не запуск');
-  const r2 = await run({ cfg, data, market: m2, state: r1, memory: r1.memory, apis: { wb1: api }, now: NOW + 3600e3, approvals: ap });
-  assert.deepEqual(calls.filter((c) => c[0] === 'stop').map((c) => c[1]), [301]); assert.equal(r2.closeAsk.length, 0);
-  assert.deepEqual(r2.approved, [{ n: 1, action: 'stop', name: 'Убыточная', id: 301, result: 'ok', error: null }]);
-  assert.ok(r2.history.some((h) => h.action === 'stop' && h.approved === 1));
-  const keep = parseApprovals([{ update_id: 4, message: { chat: { id: 42 }, date: NOW / 1000 + 60, text: 'оставить 1' } }], '42', r1.generated);
-  const r3 = await run({ cfg, data, market: m2, state: r1, memory: r1.memory, apis: { wb1: api }, now: NOW + 3600e3, approvals: keep });
-  assert.equal(r3.closeAsk.length, 0); assert.ok(r3.camp[301].closeDeclinedAt);
-  // the rules never close on their own: an active loss-maker is paused
   const { out } = await go({ stores: ['wb1'], mode: 'live' });
-  assert.ok(!out.actions.some((a) => a.action === 'stop'));
-}
-// 15. Plan: what was done, what is next, variants for new products; nothing in the plan without numbers behind it
-{
-  const { out } = await go({ stores: ['wb1'], mode: 'live', launch: { enabled: true, maxTotal: 0 } });
-  assert.equal(out.plan.done.paused, 2); assert.equal(out.plan.done.lower, 1);
-  const nv = out.plan.variants.find((x) => x.kind === 'new');
-  assert.equal(nv.sku, '6'); assert.ok(nv.profitMonth > 0);
+  assert.equal(out.plan.done.paused, 0); assert.equal(out.plan.done.lower, 2); assert.equal(out.plan.done.raise, 1);
   const t = planText(out);
-  assert.match(t, /Сделано за сутки/); assert.match(t, /Варианты запуска/); assert.ok(t.length < 4000);
+  assert.match(t, /Сделано за сутки/); assert.ok(!/Варианты запуска|запуск \d|закрыть \d/.test(t)); assert.ok(t.length < 4000);
 }
 // 10. Learning: a week later the agent measures what its action did and adjusts its own step
 {
@@ -247,21 +212,21 @@ console.log('ads-agent: launch checks passed');
   const shift = (x) => ({ ...x, days: x.days.map((d) => [new Date(Date.parse(d[0]) + 8 * 864e5).toISOString().slice(0, 10), d[1], d[2], d[3]]) });
   const better = { ...market, ads: market.ads.map((a) => shift(a.id === 102 ? ad(102, 2, 3000, 30, 30000) : a)) };
   const calls = [];
-  const later = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live', repair: { enabled: false } }), data, market: better, state: first.out, memory: first.out.memory, apis: { wb1: mockApi(calls) }, now: NOW + 8 * 864e5 });
+  const later = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: better, state: first.out, memory: first.out.memory, apis: { wb1: mockApi(calls) }, now: NOW + 8 * 864e5 });
   const o = later.memory.outcomes.find((x) => x.id === 102);
   assert.equal(o.verdict, 'helped'); assert.equal(o.effect, 1400, 'прибыль выросла на 200 ₽ в день');
-  assert.equal(later.memory.outcomes.find((x) => x.id === 103).verdict, 'helped', 'закрытие убыточной кампании');
   assert.equal(later.learned.stats.lower.helped, 1); assert.equal(later.memory.runs, 2);
+  assert.equal(control(calls).length, 0);
   const mem = emptyMemory(); mem.outcomes = [1, 2, 3, 4].map((i) => ({ t: 't' + i, action: 'lower', verdict: i < 4 ? 'hurt' : 'neutral' }));
   const cfg = mergeConfig({});
   assert.equal(autoTune(mem, cfg, NOW)[0].to, 20, 'три из четырёх снижений навредили — шаг меньше');
   assert.equal(autoTune(mem, cfg, NOW).length, 0, 'те же данные второй раз не учитываются');
   assert.equal(applyTuning(mergeConfig({}), { tuned: { targetShare: 5, mode: 'live', 'budget.dailyCap': 1e9 } }).targetShare, TUNE_BOUNDS.targetShare[1], 'значение из памяти зажато в границы');
-  assert.equal(tune(mem, cfg, 'stop.maxPerRun', 50, '', 'claude', NOW), null, 'лимит закрытий — не настраиваемый');
+  assert.equal(tune(mem, cfg, 'stop.maxPerRun', 50, '', 'claude', NOW), null, 'чужой ключ не настраивается');
   const m2 = emptyMemory(); evaluateOutcomes(m2, [{ t: new Date(NOW).toISOString(), action: 'lower', result: 'ok', id: 1, store: 'wb1', snap: { profitDay: 1 } }], () => null, NOW + 864e5);
   assert.equal(m2.outcomes.length, 0, 'раньше недели результат не оценивается');
 }
-// 11. Ozon: same decisions and limits through the Performance API adapter; its own dry-run switch
+// 11. Ozon: same decisions and limits through the Performance API adapter; its own dry-run switch; products are never taken out
 {
   assert.equal(num('1 234,56'), 1234.56);
   const c = normOzonCampaign({ id: '77', title: 'Озон РК', state: 'CAMPAIGN_STATE_RUNNING', productAutopilotStrategy: 'TARGET_BIDS' }, [{ sku: '900', bid: '35000000' }, { sku: '901', bid: '20000000' }]);
@@ -287,7 +252,7 @@ console.log('ads-agent: launch checks passed');
   assert.equal(by[77].action, 'lower'); assert.deepEqual(calls.find((x) => x[0] === 'setBids').slice(1), [77, [{ nm: '900', was: 35, rub: 26, raw: '26000000' }]]);
   assert.equal(by[78].action, 'raise'); assert.deepEqual(calls.find((x) => x[0] === 'setCir').slice(1), [78, ['901'], 12], 'целевой ДРР 10% → 12% (шаг 15%, цель 18%)');
   assert.equal(by[79].action, 'keep'); assert.match(by[79].blocked, /автостратегия Ozon/);
-  assert.deepEqual(calls.find((x) => x[0] === 'drop').slice(1), [79, ['902']], 'товар без заказов убран из кампании');
+  assert.equal(control(calls).length, 0, 'товары из кампаний Ozon не убираются, кампании не выключаются');
   assert.ok(out.camp['oz1:77'].lastBidAt, 'состояние Ozon хранится отдельно от номеров WB');
   const none = await run({ cfg: mergeConfig({ stores: ['oz1'] }), data: d2, market: mk, state: {}, apis: {}, now: NOW });
   assert.match(none.notes[0], /нет ключа Performance API/);
@@ -298,36 +263,12 @@ console.log('ads-agent: launch checks passed');
   assert.equal(c.bidType, 'unified'); assert.deepEqual(newBids(c, -10, mergeConfig({}), {}), [{ nm: 7, placement: 'combined', kop: 27000, was: 30000 }]);
   const m = normCampaign({ advertId: 6, status: 9, settings: { name: 'N', paymentType: 'cpm', placements: ['search', 'recommendations'] }, nms: [{ nmId: 8, bids: [{ type: 'search', value: 20000 }, { type: 'recommendations', value: 15000 }] }] });
   assert.deepEqual(newBids(m, 10, mergeConfig({}), {}).map((x) => [x.placement, x.kop]), [['search', 22000], ['recommendations', 16500]]);
+  assert.equal(normCampaign({ advertId: 9, status: 9, settings: { name: 'N', paymentType: 'cpc', placements: ['search'] }, nms: [] }).payType, 'cpc');
 }
 {
   const { sumClusterDays } = await import('./ads-agent.mjs');
   const r = sumClusterDays({ advertId: 1, nmId: 2, dailyStats: [{ date: 'a', stat: { normQuery: 'q', views: 10, clicks: 3, atbs: 1, orders: 0, spend: 12.5 } }, { date: 'b', stat: { normQuery: 'q', views: 5, clicks: 2, atbs: 0, orders: 1, spend: 7.5 } }, { date: 'b', stat: { normQuery: 'w', clicks: 1, spend: 1 } }] });
   assert.deepEqual(r, { advert_id: 1, nm_id: 2, stats: [{ norm_query: 'q', views: 15, clicks: 5, atbs: 1, orders: 1, spend: 20 }, { norm_query: 'w', views: 0, clicks: 1, atbs: 0, orders: 0, spend: 1 }] }, 'дневная статистика v1 суммируется за период');
-}
-// 17. Repair before pause: a loser whose goods earn before ads is fixed from inside first; a loss pause gets trial restarts
-{
-  const r = await go({ stores: ['wb1'], mode: 'live', repair: { enabled: true } });
-  assert.equal(r.by[105].action, 'lower', 'расход без заказов — сначала снижение ставки и чистка, не пауза');
-  assert.ok(r.by[105].reason.startsWith('Не ставлю на паузу — сначала улучшаю кампанию (шаг 1 из 3)'));
-  assert.equal(r.out.camp[105].repairSteps, 1);
-  assert.equal(r.by[103].action, 'pause', 'товар в минусе ещё до рекламы — ставками не починить');
-  const used = await go({ stores: ['wb1'], mode: 'live', repair: { enabled: true } }, { state: { camp: { 105: { repairSteps: 3 } } } });
-  assert.equal(used.by[105].action, 'pause', 'три шага не помогли — пауза');
-  // a week on a loss pause: trial restart with lower bid; no question about closing while retests remain
-  const m2 = { ...market };
-  const calls = [];
-  const paused = { 105: { pausedByAgent: true, pausedFor: 'loss', pausedAt: NOW - 8 * 864e5 } };
-  // 105 and 107 advertise the same product (SKU 5): while 107 runs, 105 must not come back — that is a campaign conflict on WB
-  const callsBusy = [];
-  const apiBusy = { ...mockApi(callsBusy), list: async () => (await mockApi([]).list()).map((c) => (c.id === 105 ? { ...c, status: 11 } : c)) };
-  const rb = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: { camp: paused }, apis: { wb1: apiBusy }, now: NOW });
-  assert.ok(!callsBusy.some((c) => c[0] === 'start' && c[1] === 105), 'товар уже в активной 107 — 105 не включаем');
-  assert.ok(rb.notes.some((n) => /уже рекламируется в кампании 107/.test(n)));
-  const api = { ...mockApi(calls), list: async () => (await mockApi([]).list()).map((c) => (c.id === 105 || c.id === 107 ? { ...c, status: 11 } : c)) };
-  const rr = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: { camp: paused }, apis: { wb1: api }, now: NOW });
-  assert.ok(calls.some((c) => c[0] === 'start' && c[1] === 105), 'пробный перезапуск');
-  assert.ok(rr.actions.find((a) => a.action === 'restart').reason.startsWith('Пробный перезапуск после 8 дн. паузы (попытка 1 из 2)'));
-  assert.equal(rr.camp[105].retests, 1); assert.equal(rr.closeAsk.length, 0);
 }
 console.log('ads-agent: ozon, queries and learning checks passed');
 
@@ -339,11 +280,12 @@ console.log('ads-agent: ozon, queries and learning checks passed');
   assert.equal(busy.get('wb1|196519290').id, 41989944); assert.ok(!busy.has('wb1|777'), 'кампания на паузе товар не занимает');
   const skipped = [];
   const views = [{ kind: 'archive', uid: 'wb1:34433534', m: { id: 34433534, store: 'wb1' }, name: 'TANTI', items: [{ key: 'ВБ Саковский|196519290', nm: 196519290, existing: [], good: [], clusters: [] }] }];
-  const vs = buildVariants({ views, pool: [], metrics, memory: emptyMemory(), cfg: mergeConfig({}), archiveInfo: { 34433534: { spend: 20000, orders: 60, ordSum: 100000, buyout: 0.9, margin: 0.15 } }, skipped });
+  const vs = buildVariants({ views, pool: [], metrics, memory: emptyMemory(), cfg: mergeConfig({ plan: { maxVariants: 5, budget: 1000 } }), archiveInfo: { 34433534: { spend: 20000, orders: 60, ordSum: 100000, buyout: 0.9, margin: 0.15 } }, skipped });
   assert.equal(vs.length, 0, 'замену закрытой кампании не предлагает: товар уже в 41989944');
   assert.match(skipped[0].why, /уже рекламируется в кампании 41989944/);
 }
 console.log('ads-agent: duplicate-campaign checks passed');
+
 // Top queries watch: week windows from daily cluster stats, alerts on a slipping top query, snapshots in memory
 {
   const { sumClusterDays } = await import('./ads-agent.mjs');
@@ -382,4 +324,3 @@ console.log('ads-agent: duplicate-campaign checks passed');
   const txt = messageText(dayReport(A, Date.parse('2026-11-18T12:00:00Z')), 'wb');
   assert.match(txt, /🔝 Топ-запросы/); assert.match(txt, /«тушенка говяжья» — позиция 6 → 18/);
 }
-console.log('ads-agent: top queries checks passed');

@@ -2765,30 +2765,13 @@ dash.loader('sales', {
     });
     box.append(list);
   });
-  // Development plan: next steps and numbered launch variants (approved in Telegram: «запуск 1 3»)
-  const PV_KIND = { restart: 'Перезапуск', recreate: 'Новая РК вместо закрытой', new: 'Новая РК' };
+  // Plan: next steps with bids and queries. The agents no longer launch, restart, pause or close campaigns.
   function planBox(A, box) {
     const P = A.plan; if (!P) return;
     const sec = T.el('div', 'ts-bot-learn');
     sec.append(T.el('h4', null, 'План по кабинету'));
     if ((P.next || []).length) { const ul = T.el('ul'); P.next.forEach((x) => ul.append(T.el('li', null, x))); sec.append(ul); }
-    const V = P.variants || [];
-    if (!V.length) sec.append(T.el('p', 'ts-muted', 'Вариантов запуска в плюс сейчас нет.'));
-    else {
-      const list = T.el('div', 'ts-xlist');
-      V.forEach((v) => {
-        const row = T.el('div', 'ts-xrow'), b = T.el('div', 'ts-xrow-b');
-        row.append(v.key ? T.photo(v.key, true) : T.el('div', 'ts-ph ts-ph-s'));
-        b.append(T.el('div', 'ts-xrow-t', v.n + '. ' + PV_KIND[v.kind] + ': ' + (v.name || 'арт. ' + v.sku)));
-        b.append(T.el('div', 'ts-xrow-n', v.why));
-        const extra = [v.transfer ? 'перенос ' + v.transfer + ' исключённых запросов' : '', v.good && v.good.length ? 'продают: ' + v.good.slice(0, 2).map((q) => '«' + q + '»').join(', ') : '', v.note || ''].filter(Boolean);
-        if (extra.length) b.append(T.el('div', 'ts-xrow-n', extra.join(' · ')));
-        row.append(b);
-        const r = T.el('div', 'ts-xrow-r'); r.append(T.el('b', 'ts-good', '+' + T.rub(v.profitMonth)), T.el('small', null, 'в месяц · бюджет ' + T.rub(v.budget)));
-        row.append(r); list.append(row);
-      });
-      sec.append(list, T.el('p', 'ts-muted', 'Чтобы запустить, ответьте боту в Telegram: «запуск» и номера вариантов, например «запуск 1 3». Агент сделает это при следующей проверке.'));
-    }
+    sec.append(T.el('p', 'ts-muted', 'Агенты меняют только ставки и работают с запросами. Включить, поставить на паузу или завершить кампанию можно только вручную в кабинете.'));
     box.append(sec);
   }
   dash.draw('rk-plan', (box) => {
@@ -2969,8 +2952,8 @@ dash.loader('sales', {
     const prep = on && RL.step && !/решени/i.test(RL.step);
     let lines;
     if (prep) lines = ['Самопроверка перед работой: ' + RL.step.toLowerCase()];
-    else if (on) lines = ag.p === 'wb' ? ['Пересчитываю ДРР и ставки по ' + nWB + ' кампаниям WB', 'Сверяю ставки с маржой товаров до рекламы', 'Читаю поисковые кластеры и отсеиваю плохие запросы', 'Слежу за топ-запросами и их позициями', 'Проверяю остатки: без товара реклама встаёт на паузу']
-      : ag.p === 'ozon' ? ['Проверяю ' + nOz + ' кампаний Ozon', 'Сверяю целевой ДРР с маржой товаров', 'Ищу убыточные товары внутри кампаний']
+    else if (on) lines = ag.p === 'wb' ? ['Пересчитываю ДРР и ставки по ' + nWB + ' кампаниям WB', 'Сверяю ставки с маржой товаров до рекламы', 'Читаю поисковые кластеры и отсеиваю плохие запросы', 'Слежу за топ-запросами и их позициями', 'Сверяю статистику кампаний: показы, клики, заказы']
+      : ag.p === 'ozon' ? ['Проверяю ' + nOz + ' кампаний Ozon', 'Сверяю целевой ДРР с маржой товаров', 'Считаю ставки по статистике кампаний']
       : /запрос|кластер/i.test(ag.role) ? ['Просматриваю поисковые кластеры кампаний', 'Ищу запросы, которые тратят бюджет без заказов', 'Докладываю ведущему о находках']
       : /товар|запуск|подбор/i.test(ag.role) ? ['Проверяю кандидатов на запуск рекламы', 'Смотрю, где расчёт прибыли надёжен, а где случайность', 'Докладываю ведущему о находках']
       : /ревиз|решени|итог|провер/i.test(ag.role) ? ['Сверяю прошлые решения с их результатом', 'Ищу повторяющиеся ошибки', 'Докладываю ведущему о находках']
@@ -3337,13 +3320,22 @@ dash.loader('sales', {
     if (sids.length) box.append(cab);
     const noKey = (A.notes || []).filter((n) => /нет ключа|нет токена/.test(n)).concat((A.errors || []).filter((n) => /нет токена/.test(n)));
     noKey.forEach((n) => box.append(T.el('p', 'ts-muted', n)));
-    // Questions for the owner: closing only with his «закрыть N» in Telegram
-    const asks = (A.closeAsk || []).filter((a) => T.sidPass(a.store, p));
-    if (asks.length) {
+    // For the owner: losing campaigns whose bid is already at WB's minimum (the agents do not pause or finish them)
+    const att = (A.attention || []).filter((a) => T.sidPass(a.store, p));
+    if (att.length) {
       const q = T.el('div', 'ts-ask');
-      q.append(T.el('b', null, '🔒 Ждут вашего решения: закрыть ' + asks.length + ' ' + (asks.length === 1 ? 'кампанию' : asks.length < 5 ? 'кампании' : 'кампаний') + '?'));
-      const ul = T.el('ul'); asks.forEach((a) => ul.append(T.el('li', null, a.n + '. ' + a.name + ' (РК № ' + a.id + ') — ' + a.why))); q.append(ul);
-      q.append(T.el('p', 'ts-muted', 'Ответьте боту в Telegram: «закрыть ' + asks[0].n + '» или «оставить ' + asks[0].n + '». Без ответа агент ничего не закрывает — кампании стоят на паузе, их минус-фразы сохранены.'));
+      q.append(T.el('b', null, '⚠️ Ставка уже минимальная, а реклама в минусе: ' + att.length + ' ' + (att.length === 1 ? 'кампания' : att.length < 5 ? 'кампании' : 'кампаний')));
+      const ul = T.el('ul'); att.forEach((a) => ul.append(T.el('li', null, a.name + ' (РК № ' + a.id + ') — ' + a.why))); q.append(ul);
+      q.append(T.el('p', 'ts-muted', 'Агенты кампании не останавливают. Оставить или остановить — решаете вы в кабинете.'));
+      box.append(q);
+    }
+    // Cost-per-click campaigns: WB takes no minus phrases there through the API, so the queries that do not sell are only shown
+    const adv = (A.queryAdvice || []).filter((a) => T.sidPass(a.store, p));
+    if (adv.length) {
+      const q = T.el('div', 'ts-ask');
+      q.append(T.el('b', null, 'Запросы без продаж в кампаниях с оплатой за клик'));
+      const ul = T.el('ul'); adv.slice(0, 6).forEach((a) => ul.append(T.el('li', null, a.name + ' (РК № ' + a.id + '): ' + a.queries.slice(0, 4).map((x) => '«' + x.q + '» ' + T.rub(x.spend)).join(', ')))); q.append(ul);
+      q.append(T.el('p', 'ts-muted', 'WB не принимает исключение запросов через API для кампаний с оплатой за клик, поэтому агент снижает там ставку, а запросы показывает здесь.'));
       box.append(q);
     }
     // Totals over the whole history
