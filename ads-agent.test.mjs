@@ -26,7 +26,9 @@ function mockApi(calls) {
     minBids: async (c) => Object.fromEntries(c.nms.map((n) => [n.nm, { combined: 25000 }])),
     setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create'), drop: rec('drop') };
 }
-const go = async (over = {}, extra = {}) => { const calls = []; const out = await run({ cfg: mergeConfig(over), data, market, state: extra.state || {}, memory: extra.memory, apis: { wb1: { ...mockApi(calls), ...(extra.api || {}) } }, now: extra.now || NOW, brain: extra.brain }); return { out, calls, by: Object.fromEntries(out.campaigns.map((c) => [c.id, c])) }; };
+const noLaunch = (o) => mergeConfig({ ...o, launch: { enabled: false } });
+// launches are switched off here unless a test turns them on, so the bid checks stay about bids
+const go = async (over = {}, extra = {}) => { const calls = []; const out = await run({ cfg: mergeConfig({ ...over, launch: { enabled: false, ...(over.launch || {}) } }), data, market, state: extra.state || {}, memory: extra.memory, apis: { wb1: { ...mockApi(calls), ...(extra.api || {}) } }, now: extra.now || NOW, brain: extra.brain }); return { out, calls, by: Object.fromEntries(out.campaigns.map((c) => [c.id, c])) }; };
 const control = (calls) => calls.filter((c) => CAMPAIGN_CONTROL.includes(c[0]));
 
 // 1. Rules on their own: bids only — a loss-maker gets the largest bid cut, never a pause or a close
@@ -56,7 +58,7 @@ const control = (calls) => calls.filter((c) => CAMPAIGN_CONTROL.includes(c[0]));
   assert.equal(out.history.length, 3);
   assert.ok(out.camp[102].lastBidAt && out.camp[103].lastBidAt);
   // next run 2 hours later: cooldown blocks a second bid change
-  const calls2 = []; const again = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market, state: out, apis: { wb1: mockApi(calls2) }, now: NOW + 2 * 3600e3 });
+  const calls2 = []; const again = await run({ cfg: noLaunch({ stores: ['wb1'], mode: 'live' }), data, market, state: out, apis: { wb1: mockApi(calls2) }, now: NOW + 2 * 3600e3 });
   assert.ok(!calls2.some((c) => c[0] === 'setBids'), 'повторно ставку в течение суток не меняет');
   assert.match(again.campaigns.find((c) => c.id === 102).blocked, /жду статистику/);
 }
@@ -71,8 +73,8 @@ const control = (calls) => calls.filter((c) => CAMPAIGN_CONTROL.includes(c[0]));
   assert.ok(!('budget.dailyCap' in out.memory.tuned), 'денежные лимиты агент менять не может');
   assert.equal(out.memory.helpers[0].role, 'Новый помощник'); assert.equal(out.learned.helpers[0].report, 'Отчёт');
   assert.equal(out.engine, 'claude');
-  assert.equal(by[101].action, 'keep', 'закрыть кампанию агент не может'); assert.match(by[101].blocked, /не ставят на паузу и не завершают/);
-  assert.equal(by[103].action, 'keep', 'поставить на паузу агент не может'); assert.match(by[103].blocked, /не ставят на паузу/);
+  assert.equal(by[101].action, 'keep', 'закрыть кампанию агент не может'); assert.match(by[101].blocked, /не ставят кампании на паузу, не завершают/);
+  assert.equal(by[103].action, 'keep', 'поставить на паузу агент не может'); assert.match(by[103].blocked, /не ставят кампании на паузу/);
   assert.equal(by[102].action, 'keep', 'повышать ставку при ДРР выше цели нельзя');
   assert.equal(by[104].bidPct, 15, 'шаг повышения урезан с 80% до 15%');
   assert.equal(by[106].action, 'keep', 'мало данных — ставку не трогаем');
@@ -89,11 +91,13 @@ const control = (calls) => calls.filter((c) => CAMPAIGN_CONTROL.includes(c[0]));
   const stripped = bidsOnly(mockApi([]));
   CAMPAIGN_CONTROL.forEach((k) => assert.ok(!(k in stripped), 'у агента нет метода ' + k));
   assert.ok(stripped.setBids && stripped.minBids && stripped.list, 'ставки и чтение остаются');
+  // old settings for top-ups, pauses and closing switch nothing on; the only launch is the one new campaign of the day
   const old = { stores: ['wb1'], mode: 'live', launch: { enabled: true, maxPerRun: 5, maxTotal: 5 }, budget: { autoTopUp: true }, stock: { pauseWhenOut: true }, plan: { auto: true }, stop: { hardClose: true, maxPerRun: 5 }, repair: { enabled: true } };
   const c = await go(old);
-  assert.equal(control(c.calls).length, 0, 'старые настройки запуска, пополнения и пауз ничего не включают');
-  assert.ok(c.out.actions.every((a) => ['lower', 'raise', 'minus', 'boost'].includes(a.action)));
-  assert.deepEqual([c.out.closeAsk, c.out.approved, c.out.autoLaunched, c.out.candidates, c.out.plan.variants], [[], [], [], [], []]);
+  assert.ok(!c.calls.some((x) => ['pause', 'stop', 'drop'].includes(x[0])), 'ни паузы, ни закрытия');
+  assert.deepEqual(c.calls.filter((x) => ['create', 'deposit', 'start'].includes(x[0])).map((x) => x[0] + ':' + (x[0] === 'create' ? '' : x[1])), ['create:', 'deposit:999', 'start:999'], 'одна новая кампания: создана, пополнена и запущена — только она');
+  assert.ok(c.out.actions.every((a) => ['lower', 'raise', 'minus', 'boost', 'launch'].includes(a.action)));
+  assert.deepEqual([c.out.closeAsk, c.out.approved, c.out.autoLaunched, c.out.plan.variants], [[], [], [], []]);
   const b = await go({ stores: ['wb1'], protect: [103] });
   assert.equal(b.by[103].action, 'keep');
   const m = { payType: 'cpm', bidType: 'manual', nms: [{ nm: 1, search: 99000, recom: 0 }] };
@@ -110,7 +114,7 @@ console.log('ads-agent: all checks passed');
   const camp = { id: 301, status: 9, bid_type: 'unified', settings: { name: 'Убыточная', payment_type: 'cpm', placements: { search: true, recommendations: true } }, nm_settings: [{ nm_id: 3, bids_kopecks: { search: 25000, recommendations: 25000 } }] };
   const calls = [], rec = (name) => async (...a) => { calls.push([name, ...a]); };
   const api = { list: async () => [normCampaign(camp)], minBids: async () => ({ 3: { combined: 25000 } }), setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop') };
-  const r = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: {}, apis: { wb1: api }, now: NOW });
+  const r = await run({ cfg: noLaunch({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: {}, apis: { wb1: api }, now: NOW });
   assert.equal(calls.length, 0, 'ставка уже минимальная — ни ставки, ни паузы');
   assert.equal(r.campaigns[0].action, 'keep'); assert.equal(r.campaigns[0].blocked, 'ставка уже минимальная'); assert.ok(r.campaigns[0].attention);
   assert.deepEqual(r.attention.map((x) => x.id), [301]);
@@ -189,7 +193,7 @@ console.log('ads-agent: all checks passed');
   const calls = [], rec = (name) => async (...a) => { calls.push([name, ...a]); };
   const api = { list: async () => [normCampaign(camp(201))], minBids: async () => ({}), clusters: async (items) => items.map((i) => ({ ...i, stats: [] })), getMinus: async (items) => items.map((i) => ({ ...i, norm_queries: [] })),
     setMinus: rec('setMinus'), setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create') };
-  const r1 = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: { camp: { 201: { pausedByAgent: true, pausedFor: 'stock', pausedAt: NOW - 30 * 864e5 } } }, apis: { wb1: api }, now: NOW });
+  const r1 = await run({ cfg: noLaunch({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: { camp: { 201: { pausedByAgent: true, pausedFor: 'stock', pausedAt: NOW - 30 * 864e5 } } }, apis: { wb1: api }, now: NOW });
   assert.equal(r1.campaigns[0].action, 'keep'); assert.match(r1.campaigns[0].reason, /включать и выключать кампании агент не может/);
   assert.equal(calls.length, 0, 'сам не включает и ставку на паузе не меняет');
   assert.deepEqual(r1.plan.variants, []);
@@ -212,7 +216,7 @@ console.log('ads-agent: all checks passed');
   const shift = (x) => ({ ...x, days: x.days.map((d) => [new Date(Date.parse(d[0]) + 8 * 864e5).toISOString().slice(0, 10), d[1], d[2], d[3]]) });
   const better = { ...market, ads: market.ads.map((a) => shift(a.id === 102 ? ad(102, 2, 3000, 30, 30000) : a)) };
   const calls = [];
-  const later = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: better, state: first.out, memory: first.out.memory, apis: { wb1: mockApi(calls) }, now: NOW + 8 * 864e5 });
+  const later = await run({ cfg: noLaunch({ stores: ['wb1'], mode: 'live' }), data, market: better, state: first.out, memory: first.out.memory, apis: { wb1: mockApi(calls) }, now: NOW + 8 * 864e5 });
   const o = later.memory.outcomes.find((x) => x.id === 102);
   assert.equal(o.verdict, 'helped'); assert.equal(o.effect, 1400, 'прибыль выросла на 200 ₽ в день');
   assert.equal(later.learned.stats.lower.helped, 1); assert.equal(later.memory.runs, 2);
@@ -243,7 +247,7 @@ console.log('ads-agent: all checks passed');
   const stats = new Map([[77, oad(9000, 30, 30000, {})], [78, oad(1500, 40, 40000, {})], [79, oad(9000, 30, 30000, { 902: { spend: 5000, clicks: 300, orders: 0, sales: 0 }, 903: { spend: 4000, clicks: 300, orders: 30, sales: 30000 } })]]);
   const calls = [], rec = (n) => async (...a) => { calls.push([n, ...a]); };
   const api = { platform: 'ozon', list: async () => camps, stats: async () => stats, minBid: async () => 10, setBids: rec('setBids'), setCir: rec('setCir'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), drop: rec('drop') };
-  const goOz = (ozon) => run({ cfg: mergeConfig({ stores: ['wb1', 'oz1'], mode: 'live', ozon }), data: d2, market: mk, state: {}, apis: { oz1: api }, now: NOW });
+  const goOz = (ozon) => run({ cfg: noLaunch({ stores: ['wb1', 'oz1'], mode: 'live', ozon }), data: d2, market: mk, state: {}, apis: { oz1: api }, now: NOW });
   const dry = await goOz({});
   assert.equal(calls.length, 0, 'Ozon в режиме проверки, даже когда WB в боевом');
   assert.match(dry.summary, /Режим проверки \(Ozon\)/); assert.ok(dry.actions.every((a) => a.result === 'planned'));
@@ -254,7 +258,20 @@ console.log('ads-agent: all checks passed');
   assert.equal(by[79].action, 'keep'); assert.match(by[79].blocked, /автостратегия Ozon/);
   assert.equal(control(calls).length, 0, 'товары из кампаний Ozon не убираются, кампании не выключаются');
   assert.ok(out.camp['oz1:77'].lastBidAt, 'состояние Ozon хранится отдельно от номеров WB');
-  const none = await run({ cfg: mergeConfig({ stores: ['oz1'] }), data: d2, market: mk, state: {}, apis: {}, now: NOW });
+  // Ozon bids in dry-run, but the campaign of the day is created for real (ozon.launchLive); never in a manual dry-run
+  {
+    const d3 = { ...d2, products: d2.products.concat([sku(904, 3000, 1500, 0)]) };
+    const mk3 = { ...mk, stocks: { ...mk.stocks, 'Озон|904': { q: 500 } } };
+    const oc = [], orec = (n) => async (...a) => { oc.push([n, ...a]); return n === 'create' ? 555 : null; };
+    const api3 = { ...api, setBids: orec('setBids'), setCir: orec('setCir'), create: orec('create'), start: orec('start'), pause: orec('pause'), stop: orec('stop'), drop: orec('drop') };
+    const r = await run({ cfg: mergeConfig({ stores: ['oz1'], mode: 'live' }), data: d3, market: mk3, state: {}, apis: { oz1: api3 }, now: NOW });
+    const la = r.actions.find((a) => a.action === 'launch');
+    assert.equal(la.sku, '904'); assert.equal(la.result, 'ok'); assert.equal(la.id, 555);
+    assert.deepEqual(oc.map((x) => x[0]), ['create'], 'создана одна кампания Ozon; ставки Ozon не тронуты (режим проверки)');
+    const manual = await run({ cfg: mergeConfig({ stores: ['oz1'], mode: 'dry-run' }), data: d3, market: mk3, state: {}, apis: { oz1: api3 }, now: NOW });
+    assert.equal(manual.actions.find((a) => a.action === 'launch').result, 'planned', 'ручной режим проверки ничего не создаёт');
+  }
+  const none = await run({ cfg: noLaunch({ stores: ['oz1'] }), data: d2, market: mk, state: {}, apis: {}, now: NOW });
   assert.match(none.notes[0], /нет ключа Performance API/);
 }
 // 12. WB campaign info, current v3 shape
@@ -271,6 +288,33 @@ console.log('ads-agent: all checks passed');
   assert.deepEqual(r, { advert_id: 1, nm_id: 2, stats: [{ norm_query: 'q', views: 15, clicks: 5, atbs: 1, orders: 1, spend: 20 }, { norm_query: 'w', views: 0, clicks: 1, atbs: 0, orders: 0, spend: 1 }] }, 'дневная статистика v1 суммируется за период');
 }
 console.log('ads-agent: ozon, queries and learning checks passed');
+
+// One new campaign a day: created, funded and started through launchOnly; the next run the same day creates nothing;
+// the next day another one; launchOnly cannot start or fund any campaign it did not create itself
+{
+  const { launchOnly } = await import('./ads-agent.mjs');
+  const calls = [], L = launchOnly(mockApi(calls));
+  await assert.rejects(() => L.start(105), /только что созданную/, 'старую кампанию не включить');
+  await assert.rejects(() => L.deposit(103, 1000, 1), /только что созданную/, 'чужой бюджет не пополнить');
+  assert.ok(!('pause' in L) && !('stop' in L) && !('drop' in L));
+  const day1 = await go({ stores: ['wb1'], mode: 'live', launch: { enabled: true } });
+  const l1 = day1.out.actions.filter((a) => a.action === 'launch');
+  assert.equal(l1.length, 1); assert.equal(l1[0].sku, '6', 'прибыльный товар без рекламы'); assert.equal(l1[0].id, 999); assert.equal(l1[0].result, 'ok');
+  assert.match(l1[0].reason, /Через две недели проверю/);
+  const again = await go({ stores: ['wb1'], mode: 'live', launch: { enabled: true } }, { state: day1.out, memory: day1.out.memory, now: NOW + 3600e3 });
+  assert.equal(again.out.actions.filter((a) => a.action === 'launch').length, 0, 'вторая проверка в тот же день кампанию не создаёт');
+  const day2 = await go({ stores: ['wb1'], mode: 'live', launch: { enabled: true } }, { state: day1.out, memory: day1.out.memory, now: NOW + 864e5 });
+  assert.equal(day2.out.actions.filter((a) => a.action === 'launch').length, 1, 'на следующий день — снова одна');
+  assert.ok(!day2.calls.some((x) => ['pause', 'stop'].includes(x[0])));
+  const dry = await go({ stores: ['wb1'], launch: { enabled: true } });
+  assert.equal(dry.calls.filter((x) => x[0] === 'create').length, 0, 'в режиме проверки только план');
+  assert.equal(dry.out.actions.find((a) => a.action === 'launch').result, 'planned');
+  // learning from launches: most new campaigns lost money → a bigger margin of safety for the next picks
+  const mem = emptyMemory(); mem.outcomes = [1, 2, 3].map((i) => ({ t: 't' + i, action: 'launch', verdict: i < 3 ? 'hurt' : 'helped' }));
+  const cfg = mergeConfig({});
+  const tuned = autoTune(mem, cfg, NOW).find((x) => x.key === 'launch.minHeadroom');
+  assert.ok(tuned && tuned.to > tuned.from, 'запуски в минусе — порог окупаемости выше');
+}
 
 // Daily skills: exactly one new skill per Moscow day, learned skills report every run; impact before → now
 {
@@ -293,7 +337,7 @@ console.log('ads-agent: ozon, queries and learning checks passed');
   // impact: campaign 102 before the cut spent 300 ₽ a day; a week later it spends 100 ₽ with the same orders
   const shift = (x) => ({ ...x, days: x.days.map((d) => [new Date(Date.parse(d[0]) + 8 * 864e5).toISOString().slice(0, 10), d[1], d[2], d[3]]) });
   const better = { ...market, ads: market.ads.map((a) => shift(a.id === 102 ? ad(102, 2, 3000, 30, 30000) : a)) };
-  const later = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: better, state: first.out, memory: first.out.memory, apis: { wb1: mockApi([]) }, now: NOW + 8 * 864e5 });
+  const later = await run({ cfg: noLaunch({ stores: ['wb1'], mode: 'live' }), data, market: better, state: first.out, memory: first.out.memory, apis: { wb1: mockApi([]) }, now: NOW + 8 * 864e5 });
   assert.equal(later.memory.curriculum.length, 2, 'через неделю — второй навык (запусков в эти дни не было)');
   const I = later.impact;
   assert.equal(I.camps, 3, 'кампании, где агент что-то делал: 102, 103, 104');

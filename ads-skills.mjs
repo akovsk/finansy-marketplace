@@ -159,6 +159,7 @@ export function impactView({ hist, metrics, memory }) {
     drrBefore: drr(sum('drrB'), sum('drrW')), drrNow: drr(sum('drrN'), sum('drrWN')),
     wasteMonth: R(minus.reduce((s, a) => s + spendOf(a), 0)), queriesOut: minus.reduce((s, a) => s + (a.n || 0) + (a.moved || 0), 0),
     bids: ok.filter((a) => ['lower', 'raise', 'boost'].includes(a.action)).length,
+    launched: hist.filter((a) => a.action === 'launch' && a.result === 'ok').length,
     checked: outc.length, helped: outc.filter((o) => o.verdict === 'helped').length, checkedEffect: R(outc.reduce((s, o) => s + (o.effect || 0), 0)),
     byPlat: Object.fromEntries(Object.entries(plat).filter(([, x]) => x.camps).map(([k, x]) => [k, { camps: x.camps, spendSavedDay: R(x.spendBefore - x.spendNow), profitGainDay: R(x.profitNow - x.profitBefore) }])),
   };

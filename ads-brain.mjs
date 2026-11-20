@@ -15,7 +15,7 @@ export const TUNE_BOUNDS = {
   'bid.maxStepPct': [10, 35], 'bid.upStepPct': [5, 25], 'bid.cooldownHours': [24, 96],
   'stop.overMarginFactor': [1.2, 2], 'stop.noOrdersSpend': [1500, 6000],
   'queries.minClicks': [10, 60], 'queries.minSpend': [100, 1000],
-  'launch.minMargin': [0.15, 0.4], 'launch.minHeadroom': [1.1, 2.5],
+  'launch.minMargin': [0.12, 0.4], 'launch.minHeadroom': [1.0, 2.5],
   'queries.minExpected': [1.5, 4], 'queries.lowCrShare': [0.25, 0.6], 'queries.cpcFactor': [1.5, 3],
 };
 const DEFAULT_HELPERS = [
@@ -100,6 +100,18 @@ export function autoTune(memory, cfg, now) {
     memory.autoTuned = { ...(memory.autoTuned || {}), [key]: mark };
     if (rec) done.push(rec);
   });
+  // New campaigns, two weeks after the launch: mostly losing → pick products only with a bigger margin of safety; mostly paying → a bit bolder
+  const ln = last('launch');
+  if (ln.length >= 3) {
+    const key = 'launch.minHeadroom', mark = ln[ln.length - 1].t + '|' + ln.length;
+    if ((memory.autoTuned || {})[key] !== mark) {
+      const hurt = ln.filter((x) => x.verdict === 'hurt').length / ln.length, helped = ln.filter((x) => x.verdict === 'helped').length / ln.length, cur = getPath(cfg, key);
+      const rec = cur == null ? null : hurt > 0.5 ? tune(memory, cfg, key, cur + 0.2, 'Из последних ' + ln.length + ' созданных кампаний больше половины ушли в минус — отбираю товары с большим запасом окупаемости.', 'auto', now)
+        : helped >= 0.6 ? tune(memory, cfg, key, cur - 0.1, 'Из последних ' + ln.length + ' созданных кампаний большинство окупились — можно брать товары с запасом чуть меньше.', 'auto', now) : null;
+      memory.autoTuned = { ...(memory.autoTuned || {}), [key]: mark };
+      if (rec) done.push(rec);
+    }
+  }
   return done;
 }
 // What the dashboard shows under «Чему научился»
@@ -121,7 +133,7 @@ Reading a campaign row:
 - target: the ДРР the seller wants (a share of margin, capped). drr30 / drr14 / drr7: ad spend divided by bought-out order revenue in that window; "inf" is spend with no orders. Seven days is noisy, and orders are attributed a day or two late.
 - stockDays: days of stock at the current pace. Advertising something about to sell out wastes money; scaling needs stock.
 - lastActions: what you did to this campaign before. rule: what the seller's fixed rule set would do — a baseline to depart from when trend, stock, rating or your own history gives a reason.
-- platform and strategy. The seller's rule: you work only with bids, campaign statistics, metrics and search queries. Starting, pausing, finishing, creating and topping up campaigns, and taking products out of them, are the seller's own decisions; code has no way to do them for you. losing true means the numbers show the campaign loses money: your tools there are a bid cut and excluding the queries that do not sell. When the bid is already at WB's minimum and the campaign still loses, code tells the seller; say in the reason what you see. WB: payType "cpc" (cost per click) campaigns do not accept minus phrases through the API (queryExclusionPossible false), so for them the bid is the only lever. Ozon: with strategy TARGET_BIDS a bid change moves the cost-per-click bid, with TARGET_CIR it moves the ДРР Ozon itself aims at, and with any other strategy Ozon sets bids itself, so keep it.
+- platform and strategy. The seller's rules: you work with bids, campaign statistics, metrics and search queries, and code creates one new campaign a day on the product without ads expected to pay best (it is checked two weeks later and the selection threshold is tuned from that). Pausing, finishing or restarting existing campaigns, topping up their budgets and taking products out of them are the seller's own decisions; code has no way to do them for you. losing true means the numbers show the campaign loses money: your tools there are a bid cut and excluding the queries that do not sell. When the bid is already at WB's minimum and the campaign still loses, code tells the seller; say in the reason what you see. WB: payType "cpc" (cost per click) campaigns do not accept minus phrases through the API (queryExclusionPossible false), so for them the bid is the only lever. Ozon: with strategy TARGET_BIDS a bid change moves the cost-per-click bid, with TARGET_CIR it moves the ДРР Ozon itself aims at, and with any other strategy Ozon sets bids itself, so keep it.
 
 Actions per campaign: "keep"; "lower" / "raise" with bidPct as a positive percentage. Code enforces limits after you answer — step size, bid floor and ceiling, a cooldown between bid changes, raises only while ДРР is under target — and silently drops anything outside them. Do not keep a clear loss-maker at its current bid out of caution: lower it.
 
