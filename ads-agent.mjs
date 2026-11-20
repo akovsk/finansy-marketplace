@@ -20,6 +20,7 @@ import { ozonApi, ozonBids } from './ozon-ads.mjs';
 import { loadMemory, applyTuning, tune, snapshot, evaluateOutcomes, autoTune, learnedView, makeBrain } from './ads-brain.mjs';
 import { readQueries, planMinus, planClusterBids, kbBad, kbAddBad, kbPrune } from './ads-queries.mjs';
 import { trackTop } from './ads-top.mjs';
+import { CURRICULUM, learnSkills, nextSkill, runSkills, impactView } from './ads-skills.mjs';
 import { parseApprovals, tg } from './ads-plan.mjs';
 export { judgeCluster, relatedQuery, planMinus } from './ads-queries.mjs';
 
@@ -518,7 +519,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
       const parts = [];
       if (add.length) parts.push('Исключаю ' + add.length + ' ' + plural(add.length, 'запрос', 'запроса', 'запросов') + ' (' + rub(spend) + ' за 30 дней): ' + add.slice(0, 3).map((c) => '«' + c.q + '» — ' + c.why).join('; ') + '.');
       if (p.transfer.length) parts.push('Переношу ' + p.transfer.length + ' ' + plural(p.transfer.length, 'исключённый запрос', 'исключённых запроса', 'исключённых запросов') + ' этого товара из других кампаний.');
-      const act = { t: out.generated, store: v.m.store, platform: 'wb', id: v.m.id, name: v.m.name, key: p.key, action: 'minus', nm: p.nm, n: add.length, moved: p.transfer.length, queries: add.slice(0, 12).map((c) => c.q), snap: snapshot(v.m), reason: parts.join(' ') };
+      const act = { t: out.generated, store: v.m.store, platform: 'wb', id: v.m.id, name: v.m.name, key: p.key, action: 'minus', nm: p.nm, n: add.length, moved: p.transfer.length, spend: R(spend), queries: add.slice(0, 12).map((c) => c.q), snap: snapshot(v.m), reason: parts.join(' ') };
       await done(act, v.m.store, () => apis[v.m.store].setMinus(v.m.id, +p.nm, [...new Set([...p.existing, ...add.map((c) => c.q), ...p.transfer])].slice(0, 1000)));
       if (act.result === 'ok') { if (add.length) mark(v.m, { lastMinusAt: now }); kbAddBad(memory, p.key, add, 'агент', now); }
       out.actions.push(act);
@@ -532,6 +533,10 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     }
   }
 
+  // 5d. Skills: one new skill a day (ads-skills.mjs), then every learned skill reports what it sees in the numbers
+  learnSkills(memory, today);
+  out.insights = runSkills(memory, { metrics, views, market, econ, memory, hist, cfg });
+
   // CPC campaigns: queries that do not sell, shown to the owner (WB does not take minus phrases there through the API)
   if (out.queryAdvice.length) {
     const n = new Set(out.queryAdvice.map((x) => x.id)).size, sp = out.queryAdvice.reduce((t, x) => t + x.spend, 0);
@@ -542,6 +547,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   // 8. Remember: history, lessons, thresholds, the helper team for next time
   out.actions.filter((a) => a.result === 'ok' || a.result === 'error').forEach((a) => hist.push(a));
   memory.runs++;
+  // What the agents changed in money (the achievements board shows only this)
+  out.impact = impactView({ hist, metrics, memory });
   if (plan) {
     if (Array.isArray(plan.lessons)) memory.lessons = plan.lessons.map((x) => String(x).slice(0, 400)).filter(Boolean).slice(0, 12);
     (plan.tune || []).forEach((x) => { const rec = tune(memory, cfg, x.key, x.value, x.why, 'claude', now); if (rec) tuned.push(rec); });
@@ -603,8 +610,12 @@ export function skillsView({ memory, hist, camp, views, metrics, noOzonKey = [],
   ];
   memory.skillsAt = memory.skillsAt || {};
   S.forEach(([id, , at]) => { if (at && !memory.skillsAt[id]) memory.skillsAt[id] = at; });
-  const has = S.filter((s) => s[2]).map(([id, text]) => ({ id, text, since: new Date(memory.skillsAt[id]).toISOString().slice(0, 10) })).sort((a, b) => (a.since < b.since ? 1 : -1));
+  const has = S.filter((s) => s[2]).map(([id, text]) => ({ id, text, since: new Date(memory.skillsAt[id]).toISOString().slice(0, 10) }))
+    .concat((memory.curriculum || []).map((x) => ({ id: x.id, text: (CURRICULUM.find((c) => c.id === x.id) || {}).text || x.id, since: x.since, daily: true })))
+    .sort((a, b) => (a.since < b.since ? 1 : -1));
   const next = [];
+  const tomorrow = nextSkill(memory);
+  next.push(tomorrow ? 'Завтра освою: ' + tomorrow.text.charAt(0).toLowerCase() + tomorrow.text.slice(1) + '.' : 'Ежедневные навыки из плана освоены — для новых нужна следующая партия.');
   if (pending) next.push('Оценить ' + pending + ' ' + (pending === 1 ? 'своё решение' : 'своих решений') + ' через неделю после них и по итогам подстроить шаг ставок и пороги.');
   if (check) next.push('Научиться различать спорные запросы: ' + check + ' похожи на сам товар, но не продают — ' + (brain ? 'разбирает помощник.' : 'жду больше кликов; с ключом Claude их разберёт помощник.'));
   if (!brain) next.push('Подключить команду Claude (ключ ANTHROPIC_API_KEY): тогда агент будет сам писать уроки, звать помощников и разбирать спорные запросы.');

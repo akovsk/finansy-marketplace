@@ -289,6 +289,7 @@ img { max-width:100%; }
 .rm-bub.idle .rm-tx { color:#4a4f60; }
 .rm-load { position:absolute; inset:0; display:grid; place-items:center; color:#9aa0b4; font-size:13px; }
 .rm-hint { position:absolute; right:12px; bottom:10px; font-size:11px; color:rgba(220,226,255,.55); pointer-events:none; }
+.rm-upd { margin:0 0 8px; font-size:12.5px; line-height:1.45; }
 @media (hover:none) { .rm-hint { display:none; } }
 /* the board as HTML: under the scene on phones, instead of the scene without WebGL */
 .rm-board-h { display:none; flex-direction:column; gap:10px; padding:14px 16px; border-radius:14px; color:#eef5ee;
@@ -2932,6 +2933,46 @@ dash.loader('sales', {
   const RM_HAIR = ['#2b1d14', '#4a3426', '#8a4a22', '#1c1c1c', '#c9a15a', '#5a2a1a', '#3b2a20', '#9a6a3b'];
   const RM_NAMES = [[/запрос|кластер/i, 'Вера'], [/товар|запуск|подбор/i, 'Пётр'], [/ревиз|решени|итог|провер/i, 'Соня']];
   const RM_SPARE = ['Ника', 'Лев', 'Ира', 'Гоша', 'Тая', 'Рома'];
+  // The room and the agents get better every day: step 1 on 20.11.2026, one step a day (Moscow), up to the last step written.
+  // [what the agents get, what the room gets]
+  const ROOM_START = '2026-11-20';
+  const ROOM_STEPS = [
+    ['новые модели: лица с носом и ушами, шея, кисти рук, у каждого своя причёска; одежда из ткани — рубашки с воротником и пуговицами, поло, свитера, худи, джинсы и кеды', 'книжный стеллаж, настенные светильники, шторы на окне, график в рамке'],
+    ['очки и наручные часы', 'кофейный уголок с кофемашиной и кулер с водой'],
+    ['бейджи с именами на шнурках', 'второй монитор и настольная лампа на каждом столе'],
+    ['наушники: на шее в перерыве, на ушах за работой', 'пробковая доска со стикерами задач'],
+    ['пиджаки и кардиганы поверх рубашек', 'серверная стойка с мигающими огнями'],
+    ['живая кожа: румянец и мягкие тени на лицах', 'полка с кубками — по одному за каждый освоенный навык'],
+    ['зимние шарфы', 'гирлянда под потолком'],
+    ['кожаные ботинки и носки', 'паркет ёлочкой и панели на стенах'],
+    ['пряди в причёсках', 'кресла-мешки в зоне отдыха'],
+    ['праздничные свитера', 'новогодняя ёлка с огоньками'],
+  ];
+  // ?roomday=N in the address shows the room of day N (to look ahead); otherwise today's day
+  const roomDay = () => +(new URLSearchParams(location.search).get('roomday') || 0) || Math.floor((Date.parse(mskDay(new Date().toISOString()) + 'T00:00:00Z') - Date.parse(ROOM_START + 'T00:00:00Z')) / 864e5) + 1;
+  const roomLevel = () => Math.max(1, Math.min(ROOM_STEPS.length, roomDay()));
+  // Achievements board from the agents' own impact (ads-agent.json → impact): before their first action on a campaign → now
+  function roomImpact(A) {
+    const I = A.impact; if (!I || !I.camps) return null;
+    const sign = (x) => (x > 0 ? '+' : x < 0 ? '−' : '') + T.rub(Math.abs(x));
+    const since = I.since ? new Date(I.since + 'T12:00:00Z').toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '';
+    const money = [
+      ['Экономия бюджета · в месяц', sign(I.spendSavedDay * 30), 'расход ' + T.rub(I.spendBeforeDay) + ' → ' + T.rub(I.spendNowDay) + ' в день'],
+      ['Прибыль с рекламы · прирост в месяц', sign(I.profitGainDay * 30), sign(I.profitBeforeDay) + ' → ' + sign(I.profitNowDay) + ' в день'],
+      ['ДРР их кампаний: до → сейчас', I.drrBefore != null && I.drrNow != null ? T.pct(I.drrBefore, 0) + ' → ' + T.pct(I.drrNow, 0) : '—', I.camps + ' кампаний · с ' + since],
+    ];
+    const items = [
+      ['Слив на плохие запросы убран, ₽ за 30 дн.', I.wasteMonth],
+      ['Плохих запросов исключено', I.queriesOut],
+      ['Ставок изменено', I.bids],
+      ['Решений проверено через неделю', I.checked],
+      ['Из них прибавили прибыль', I.helped],
+      ['Прибыль по проверкам, ₽ за неделю', I.checkedEffect],
+      ['Навыков освоено', (((A.learned || {}).skills || {}).has || []).length],
+      ['Находок навыков в последней проверке', (A.insights || []).reduce((s, x) => s + x.items.length, 0)],
+    ];
+    return { money, items };
+  }
   function roomTeam(A) {
     const helpers = (A.team && A.team.length ? A.team : (RL.mem && RL.mem.helpers)) || [];
     const out = [{ id: 'wb', name: 'Марк', role: 'агент WB', p: 'wb' }];
@@ -2983,6 +3024,7 @@ dash.loader('sales', {
     const scene = new THREE.Scene(); scene.background = new THREE.Color('#1a1d2b');
     const cam = new THREE.PerspectiveCamera(34, 2, 0.1, 100);
     const W = 16, D = 10, H = 5;
+    const LV = roomLevel(), BL = [], trophies = [];   // today's step of the room; blinking lights; trophies shown by skills count
     const M = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.78, metalness: 0 }, o || {}));
     const add = (geo, mat, x, y, z, parent, shadow = true) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (shadow) { m.castShadow = true; m.receiveShadow = true; } (parent || scene).add(m); return m; };
     const B = (w, h, d) => new THREE.BoxGeometry(w, h, d);
@@ -2994,7 +3036,13 @@ dash.loader('sales', {
     key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -10, right: 10, top: 8, bottom: -6, near: 1, far: 30 }); key.shadow.bias = -0.0008; scene.add(key);
 
     // room
-    const wood = canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#6a4d37'; g.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 64) { g.fillStyle = y / 64 % 2 ? '#644732' : '#6f523b'; g.fillRect(0, y, w, 62); g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, y + 62, w, 2); for (let x = (y / 64 % 2) * 160; x < w; x += 320) g.fillRect(x, y, 2, 62); } });
+    const wood = canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#6a4d37'; g.fillRect(0, 0, w, h);
+      if (LV >= 8) {   // herringbone parquet
+        const cols = ['#6f523b', '#644732', '#74563d', '#5e432f'];
+        for (let y = -64; y < h + 64; y += 32) for (let x = -64; x < w + 64; x += 64) [0, 1].forEach((s) => { g.save(); g.translate(x + s * 32, y + s * 16); g.rotate(s ? -Math.PI / 4 : Math.PI / 4); g.fillStyle = cols[(Math.abs(x + y) / 32 + s) % 4 | 0]; g.fillRect(0, 0, 60, 18); g.strokeStyle = 'rgba(0,0,0,.22)'; g.lineWidth = 1.5; g.strokeRect(0, 0, 60, 18); g.restore(); });
+        return;
+      }
+      for (let y = 0; y < h; y += 64) { g.fillStyle = y / 64 % 2 ? '#644732' : '#6f523b'; g.fillRect(0, y, w, 62); g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, y + 62, w, 2); for (let x = (y / 64 % 2) * 160; x < w; x += 320) g.fillRect(x, y, 2, 62); } });
     wood.redraw(); wood.t.wrapS = wood.t.wrapT = THREE.RepeatWrapping; wood.t.repeat.set(4, 3);
     const floor = add(new THREE.PlaneGeometry(W, D), M('#ffffff', { map: wood.t, roughness: 0.65 }), 0, 0, 0); floor.rotation.x = -Math.PI / 2; floor.castShadow = false;
     const wallM = M('#3d4566'), sideM = M('#363d5b');
@@ -3045,6 +3093,108 @@ dash.loader('sales', {
     add(B(0.7, 0.16, 0.7), cushM, 4.9, 0.08, -0.35); add(B(0.7, 0.16, 0.7), cushM, 6.0, 0.08, -0.15);
     // seats: [x, z, facing, lift] (lift moves a person up or down to sit on lower furniture)
     const SEATS = [[SX - 1.05, SZ + 0.12, 0], [SX, SZ + 0.12, 0], [SX + 1.05, SZ + 0.12, 0], [AX - 0.05, AZ + 0.05, -0.7], [3.45, -1.95, 0.9, -0.08], [3.6, -0.7, 0.7, -0.08], [4.9, -0.4, 0.2, -0.38], [6.0, -0.2, -0.2, -0.38]];
+    const glowM = (c, k) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: k == null ? 1.2 : k, roughness: 0.4 });
+    const blink = (mesh, base, speed) => { BL.push({ mat: mesh.material, base, speed, phase: Math.random() * 6 }); return mesh; };
+
+    /* ---- what the room gains day by day (ROOM_STEPS) ---- */
+    if (LV >= 1) {
+      // bookshelf between the board and the clock
+      const shM = M('#5b4331', { roughness: 0.6 }), BX = 2.95, BZ = -D / 2 + 0.24;
+      add(B(1.3, 2.1, 0.04), shM, BX, 1.05, BZ - 0.17);
+      [-0.63, 0.63].forEach((dx) => add(B(0.05, 2.1, 0.38), shM, BX + dx, 1.05, BZ));
+      [0.03, 0.55, 1.07, 1.59, 2.08].forEach((y) => add(B(1.3, 0.04, 0.38), shM, BX, y, BZ));
+      const bookC = ['#b5392f', '#2e6fbf', '#e0a43a', '#2f8f8a', '#7d4a9e', '#d07a2a', '#3e5aa8', '#8fbf6a', '#c94c3c', '#5fa86f', '#e8e0cf'];
+      [0.05, 0.57, 1.09, 1.61].forEach((y, r) => {
+        let x = BX - 0.58, k = 0;
+        while (x < BX + 0.5) {
+          const bw = 0.05 + ((r * 7 + k * 3) % 5) * 0.012, bh = 0.3 + ((r + k * 5) % 4) * 0.045;
+          const bk = add(B(bw, bh, 0.27), M(bookC[(r * 3 + k) % bookC.length], { roughness: 0.75 }), x + bw / 2, y + 0.02 + bh / 2, BZ + 0.02);
+          if ((r + k) % 11 === 5) { bk.rotation.z = 0.25; x += 0.06; }
+          x += bw + 0.008; k++; if ((r * 2 + k) % 9 === 0) x += 0.14;
+        }
+      });
+      // wall lamps: on the back wall beside the board and on the left wall (nothing hangs between the camera and the board)
+      const scM = M('#2c3046', { metalness: 0.4, roughness: 0.45 });
+      [[-6.75, -D / 2 + 0.1, 0], [2.95, -D / 2 + 0.1, 0], [-W / 2 + 0.1, 3.4, Math.PI / 2]].forEach(([x, z, r], k) => {
+        const s = new THREE.Group(); s.position.set(x, k === 2 ? 3.9 : 3.95, k === 2 ? 3.4 : z); s.rotation.y = r; scene.add(s);
+        add(B(0.16, 0.24, 0.04), scM, 0, 0, 0, s); add(new THREE.CylinderGeometry(0.015, 0.015, 0.22, 8), scM, 0, 0.02, 0.11, s).rotation.x = Math.PI / 2;
+        add(new THREE.CylinderGeometry(0.16, 0.1, 0.22, 24, 1, true), M('#f3e7cf', { side: THREE.DoubleSide, roughness: 0.8, emissive: '#ffcf8a', emissiveIntensity: 0.55 }), 0, 0.05, 0.24, s);
+        const l = new THREE.PointLight(0xffd59a, 0.45, 5, 1.8); l.position.set(0, -0.1, 0.4); s.add(l);
+      });
+      // curtains on both sides of the window, on a rod
+      const curtain = canvasTex(128, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, w, 0); for (let k = 0; k <= 8; k++) gr.addColorStop(k / 8, k % 2 ? '#7a8fb8' : '#5d6f96'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+      curtain.redraw();
+      [-2.85, 0.45].forEach((z) => { const c = add(B(0.07, 2.55, 0.6), M('#ffffff', { map: curtain.t, roughness: 0.95 }), -W / 2 + 0.13, 2.55, z); c.castShadow = false; });
+      const rod = add(new THREE.CylinderGeometry(0.025, 0.025, 3.9, 10), M('#20253a', { metalness: 0.6, roughness: 0.4 }), -W / 2 + 0.13, 3.88, -1.2); rod.rotation.x = Math.PI / 2;
+      // framed chart on the left wall: profit going up
+      const chart = canvasTex(512, 360, (g, w, h) => {
+        g.fillStyle = '#f6f3ea'; g.fillRect(0, 0, w, h); g.strokeStyle = '#d9d2c2'; g.lineWidth = 2; for (let y = 60; y < h - 30; y += 50) { g.beginPath(); g.moveTo(40, y); g.lineTo(w - 30, y); g.stroke(); }
+        g.fillStyle = '#7c5cff'; [0.3, 0.42, 0.38, 0.55, 0.63, 0.74, 0.86].forEach((v, k) => g.fillRect(60 + k * 62, h - 40 - v * 240, 34, v * 240));
+        g.strokeStyle = '#22b07d'; g.lineWidth = 6; g.beginPath(); [0.2, 0.3, 0.28, 0.45, 0.5, 0.66, 0.8].forEach((v, k) => { const x = 77 + k * 62, y = h - 40 - v * 240; if (k) g.lineTo(x, y); else g.moveTo(x, y); }); g.stroke();
+        g.fillStyle = '#2b2f42'; g.font = '700 30px "Inter", system-ui, sans-serif'; g.fillText('Прибыль с рекламы', 40, 40);
+      });
+      chart.redraw();
+      add(B(0.05, 1.12, 1.52), M('#2a2f45'), -W / 2 + 0.04, 2.55, 2.3);
+      const ch = add(new THREE.PlaneGeometry(1.4, 1.0), new THREE.MeshBasicMaterial({ map: chart.t, toneMapped: false }), -W / 2 + 0.075, 2.55, 2.3, null, false); ch.rotation.y = Math.PI / 2;
+    }
+    if (LV >= 2) {
+      // coffee corner by the back wall: counter, coffee machine, cups; a water cooler by the left wall
+      const ctrM = M('#3a2c22', { roughness: 0.5 });
+      add(B(1.0, 0.9, 0.5), M('#e8e2d6', { roughness: 0.7 }), -6.3, 0.45, -4.7); add(B(1.06, 0.05, 0.56), ctrM, -6.3, 0.92, -4.7);
+      add(B(0.3, 0.42, 0.3), M('#1d2030', { metalness: 0.5, roughness: 0.35 }), -6.55, 1.16, -4.72);
+      add(B(0.18, 0.04, 0.12), M('#9aa0b5', { metalness: 0.8, roughness: 0.2 }), -6.55, 1.0, -4.6);
+      blink(add(new THREE.SphereGeometry(0.018, 8, 6), glowM('#ff5a4f'), -6.45, 1.3, -4.565, null, false), 1.4, 1.3);
+      [[-6.15, -4.65], [-6.0, -4.75]].forEach(([x, z]) => add(new THREE.CylinderGeometry(0.05, 0.04, 0.1, 14), cupM, x, 1.0, z));
+      add(new THREE.CylinderGeometry(0.18, 0.2, 1.0, 18), M('#e9edf2', { roughness: 0.5 }), -7.55, 0.5, 1.5);
+      add(new THREE.CylinderGeometry(0.15, 0.15, 0.42, 18), new THREE.MeshStandardMaterial({ color: '#6fb6ff', transparent: true, opacity: 0.55, roughness: 0.1 }), -7.55, 1.22, 1.5);
+    }
+    if (LV >= 4) {
+      // cork board with sticky notes
+      add(B(1.12, 0.86, 0.04), M('#b58a5a', { roughness: 0.95 }), -6.75, 2.75, -D / 2 + 0.03);
+      const noteC = ['#ffe37a', '#9fe0a0', '#ff9fb2', '#9fd0ff', '#ffc27a'];
+      for (let k = 0; k < 9; k++) { const n = add(B(0.2, 0.2, 0.01), M(noteC[k % 5], { roughness: 0.9 }), -7.1 + (k % 3) * 0.33, 3.0 - Math.floor(k / 3) * 0.26, -D / 2 + 0.06, null, false); n.rotation.z = ((k * 37) % 7 - 3) * 0.03; }
+    }
+    if (LV >= 5) {
+      // server rack by the right wall, front facing the room, lights blinking
+      add(B(0.7, 2.0, 0.66), M('#14161f', { metalness: 0.4, roughness: 0.45 }), W / 2 - 0.4, 1.0, 1.2);
+      for (let r = 0; r < 9; r++) {
+        add(B(0.02, 0.15, 0.56), M('#252a3a', { metalness: 0.5, roughness: 0.4 }), W / 2 - 0.76, 0.25 + r * 0.19, 1.2, null, false);
+        [-0.18, -0.08, 0.02].forEach((dz, k) => blink(add(new THREE.SphereGeometry(0.014, 6, 5), glowM(k === 2 && r % 3 === 0 ? '#ffb347' : r % 2 ? '#4ade80' : '#60a5fa'), W / 2 - 0.775, 0.25 + r * 0.19, 1.2 + dz, null, false), 1.6, 2 + ((r * 3 + k) % 5)));
+      }
+    }
+    if (LV >= 6) {
+      // trophy shelf above the bookshelf: one trophy per learned skill (shown by sync)
+      add(B(1.3, 0.04, 0.26), M('#5b4331'), 2.95, 2.5, -D / 2 + 0.16);
+      const gold = M('#e7b53c', { metalness: 0.85, roughness: 0.25 });
+      for (let k = 0; k < 8; k++) {
+        const tr = new THREE.Group(); tr.position.set(2.95 - 0.53 + k * 0.152, 2.52, -D / 2 + 0.16); scene.add(tr);
+        add(B(0.07, 0.03, 0.07), M('#3a2c22'), 0, 0.015, 0, tr); add(new THREE.CylinderGeometry(0.008, 0.012, 0.06, 8), gold, 0, 0.06, 0, tr);
+        add(new THREE.CylinderGeometry(0.045, 0.02, 0.07, 14), gold, 0, 0.12, 0, tr); tr.visible = false; trophies.push(tr);
+      }
+    }
+    if (LV >= 7) {
+      // garland along the top of the back wall
+      const gc = ['#ff5a5a', '#ffd166', '#4ade80', '#60a5fa', '#f472b6'];
+      for (let k = 0; k <= 48; k++) { const x = -7.8 + k * (15.6 / 48), y = 4.72 - Math.sin(((k % 12) / 12) * Math.PI) * 0.28; blink(add(new THREE.SphereGeometry(0.045, 10, 8), glowM(gc[k % 5], 1.5), x, y, -D / 2 + 0.12, null, false), 1.5, 1.5 + (k % 4) * 0.6); }
+    }
+    if (LV >= 8) {
+      // wall panels with a chair rail
+      const pM = M('#46507a', { roughness: 0.8 });
+      add(B(W, 1.05, 0.03), pM, 0, 0.6, -D / 2 + 0.015, null, false); add(B(W, 0.05, 0.06), M('#2a3049'), 0, 1.14, -D / 2 + 0.03, null, false);
+      for (let x = -7.4; x < 8; x += 1.2) add(B(0.03, 0.8, 0.02), M('#3a4368'), x, 0.6, -D / 2 + 0.035, null, false);
+    }
+    if (LV >= 9) {
+      // bean bags in the lounge
+      [['#e0559a', 2.55, -4.0], ['#22b07d', 2.15, -3.05]].forEach(([c, x, z]) => { const b = add(new THREE.SphereGeometry(0.45, 24, 16), M(c, { roughness: 0.95 }), x, 0.25, z); b.scale.set(1, 0.58, 1); });
+    }
+    if (LV >= 10) {
+      // New Year tree with lights and a star
+      const tg = new THREE.Group(); tg.position.set(-6.7, 0, -3.15); scene.add(tg);
+      add(new THREE.CylinderGeometry(0.1, 0.12, 0.35, 10), M('#5b3a22'), 0, 0.17, 0, tg);
+      [[0.95, 0.9, 0.75], [0.75, 0.8, 1.35], [0.5, 0.7, 1.9]].forEach(([r, h, y]) => add(new THREE.ConeGeometry(r, h, 24), M('#1f6b3a', { roughness: 0.85 }), 0, y, 0, tg));
+      add(new THREE.OctahedronGeometry(0.13), glowM('#ffd166', 2), 0, 2.35, 0, tg, false);
+      for (let k = 0; k < 30; k++) { const a2 = k * 2.4, y = 0.5 + (k / 30) * 1.7, r = 0.85 * (1 - (y - 0.4) / 2.0); blink(add(new THREE.SphereGeometry(0.04, 8, 6), glowM(['#ff5a5a', '#ffd166', '#60a5fa', '#f472b6'][k % 4], 1.6), Math.cos(a2) * r, y, Math.sin(a2) * r, tg, false), 1.6, 1 + (k % 3)); }
+    }
 
     // desks: one per agent, in a row (two rows when there are more than five)
     const deskM = M('#8b6a4c', { roughness: 0.55 }), legM = M('#2b2f42', { metalness: 0.4, roughness: 0.5 }), chairM = M('#2c3046'), lapM = M('#c9ccd6', { metalness: 0.6, roughness: 0.35 });
@@ -3069,29 +3219,173 @@ dash.loader('sales', {
       const glow = new THREE.PointLight(0xffffff, 0, 2.6, 2); glow.position.set(0, 1.12, -0.42); g.add(glow);
       // a mug and a notebook to make it lived-in
       add(new THREE.CylinderGeometry(0.06, 0.05, 0.12, 14), cupM, 0.6, 0.86, 0.1, g); add(B(0.3, 0.02, 0.22), M('#d9d2c2'), -0.55, 0.81, 0.05, g);
-      return { g, hinge, screenM, logo, glow, lidOpen: 0, seat: new THREE.Vector3(x, 0, z - 0.78) };
+      let mon = null;
+      if (LV >= 3) {
+        // second monitor (screen toward the agent) and a desk lamp
+        add(new THREE.CylinderGeometry(0.1, 0.11, 0.015, 18), legM, -0.58, 0.805, 0.24, g); add(B(0.04, 0.24, 0.03), legM, -0.58, 0.93, 0.25, g);
+        add(B(0.62, 0.38, 0.03), M('#14161f', { roughness: 0.4 }), -0.58, 1.16, 0.25, g);
+        mon = new THREE.MeshStandardMaterial({ color: '#0d1020', emissive: '#000000', roughness: 0.3 });
+        const ms = new THREE.Mesh(new THREE.PlaneGeometry(0.57, 0.33), mon); ms.position.set(-0.58, 1.16, 0.233); ms.rotation.y = Math.PI; g.add(ms);
+        add(new THREE.CylinderGeometry(0.07, 0.08, 0.02, 16), legM, 0.68, 0.81, 0.28, g);
+        const arm2 = add(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 8), legM, 0.64, 1.0, 0.24, g); arm2.rotation.x = -0.35;
+        add(new THREE.ConeGeometry(0.09, 0.12, 18, 1, true), M('#2c3046', { side: THREE.DoubleSide }), 0.6, 1.2, 0.13, g);
+        add(new THREE.SphereGeometry(0.035, 10, 8), glowM('#ffe2b0', 1.2), 0.6, 1.16, 0.13, g, false);
+      }
+      return { g, hinge, screenM, logo, glow, mon, lidOpen: 0, seat: new THREE.Vector3(x, 0, z - 0.78) };
     }
 
-    // a person, seated pose; origin on the floor under the hips, facing +z
-    const skinM = M('#f2c8a4', { roughness: 0.6 }), pantsM = M('#2d3246'), shoeM = M('#1b1d29'), whiteM = M('#ffffff', { roughness: 0.3 }), blackM = M('#141522', { roughness: 0.3 }), mouthM = M('#7a3b3b');
-    function person(color, hair) {
-      const g = new THREE.Group(), shirt = M(color, { roughness: 0.7 }), hairM = M(hair, { roughness: 0.85 });
-      const body = new THREE.Group(); g.add(body);
-      add(new THREE.CapsuleGeometry(0.27, 0.38, 6, 16), shirt, 0, 1.0, 0, body);
-      // legs: thighs forward, shins down
-      [-0.14, 0.14].forEach((x) => { const t = add(new THREE.CapsuleGeometry(0.1, 0.34, 4, 10), pantsM, x, 0.56, 0.2, body); t.rotation.x = Math.PI / 2; add(new THREE.CapsuleGeometry(0.09, 0.34, 4, 10), pantsM, x, 0.32, 0.42, body); add(B(0.16, 0.08, 0.26), shoeM, x, 0.05, 0.5, body); });
-      // head with hair, eyes that blink, a smile
-      const head = new THREE.Group(); head.position.set(0, 1.57, 0); body.add(head);
-      add(new THREE.SphereGeometry(0.235, 28, 20), skinM, 0, 0, 0, head);
-      const hairMesh = add(new THREE.SphereGeometry(0.25, 28, 14, 0, Math.PI * 2, 0, Math.PI * 0.52), hairM, 0, 0.02, -0.02, head); hairMesh.rotation.x = -0.35;
+    // A person, seated pose; origin on the floor under the hips, facing +z. Each agent has its own outfit and hair;
+    // the detail grows with the day's step of the room (ROOM_STEPS): glasses, badges, headphones, jackets, scarves…
+    const whiteM = M('#ffffff', { roughness: 0.3 }), blackM = M('#141522', { roughness: 0.3 });
+    const STYLE = { 'Марк': ['shirt', 'short', 0], 'Оскар': ['polo', 'side', 2], 'Вера': ['sweater', 'bob', 1], 'Пётр': ['hoodie', 'curly', 3], 'Соня': ['shirt', 'ponytail', 4], 'Ника': ['sweater', 'bun', 0], 'Лев': ['hoodie', 'short', 3], 'Ира': ['polo', 'bob', 2], 'Гоша': ['shirt', 'side', 1], 'Тая': ['hoodie', 'ponytail', 4], 'Рома': ['sweater', 'curly', 0] };
+    const GLASSES = new Set(['Оскар', 'Вера', 'Пётр', 'Гоша', 'Ира']);
+    const SKIN = ['#f2c8a4', '#eab892', '#f6d3b5', '#d9a27c', '#efc19c'], IRIS = ['#5a3a22', '#3d6f9e', '#4f7a43', '#6b4a2e', '#2f4f7a'];
+    const texCache = {};
+    // Fabric textures drawn on a canvas: plaid shirt, piqué polo, ribbed knit, fleece, denim twill, chino, festive knit
+    function fabric(kind, color) {
+      const key = kind + color; if (texCache[key]) return texCache[key];
+      const base = new THREE.Color(color), hex = (c) => '#' + c.getHexString();
+      const dark = hex(base.clone().multiplyScalar(0.7)), light = hex(base.clone().lerp(new THREE.Color('#ffffff'), 0.3));
+      const tx = canvasTex(256, 256, (g, w, h) => {
+        g.fillStyle = kind === 'denim' ? '#3a5683' : kind === 'chino' ? '#3b3f52' : hex(base); g.fillRect(0, 0, w, h);
+        if (kind === 'shirt') { g.globalAlpha = 0.22; g.fillStyle = dark; for (let x = 0; x < w; x += 32) { g.fillRect(x, 0, 6, h); g.fillRect(0, x, w, 6); } g.globalAlpha = 0.2; g.fillStyle = light; for (let x = 16; x < w; x += 32) { g.fillRect(x, 0, 2, h); g.fillRect(0, x, w, 2); } }
+        else if (kind === 'polo') { g.globalAlpha = 0.2; g.fillStyle = dark; for (let y = 0; y < h; y += 4) for (let x = (y / 4 % 2) * 2; x < w; x += 4) g.fillRect(x, y, 1.5, 1.5); }
+        else if (kind === 'sweater' || kind === 'knit') { g.globalAlpha = 0.22; g.fillStyle = dark; for (let x = 0; x < w; x += 8) g.fillRect(x, 0, 3, h); g.globalAlpha = 0.14; g.fillStyle = light; for (let y = 0; y < h; y += 6) g.fillRect(0, y, w, 1); }
+        else if (kind === 'hoodie') { g.globalAlpha = 0.13; for (let k = 0; k < 2200; k++) { g.fillStyle = k % 2 ? dark : light; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); } }
+        else if (kind === 'denim') { g.globalAlpha = 0.28; g.strokeStyle = '#7f9bc4'; g.lineWidth = 1; for (let x = -h; x < w; x += 5) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + h, h); g.stroke(); } g.globalAlpha = 0.14; for (let k = 0; k < 1000; k++) { g.fillStyle = k % 2 ? '#20304d' : '#a9bfe0'; g.fillRect(Math.random() * w, Math.random() * h, 2, 1); } }
+        else if (kind === 'chino') { g.globalAlpha = 0.12; g.fillStyle = '#000'; for (let y = 0; y < h; y += 3) g.fillRect(0, y, w, 1); }
+        else if (kind === 'jacket') { g.globalAlpha = 0.12; g.fillStyle = light; for (let x = 0; x < w; x += 12) g.fillRect(x, 0, 1, h); }
+        else if (kind === 'festive') { g.globalAlpha = 1; g.fillStyle = '#f4efe6'; [70, 170].forEach((y) => { g.fillRect(0, y, w, 26); g.fillStyle = dark; for (let x = 0; x < w; x += 24) { g.beginPath(); g.moveTo(x, y + 13); g.lineTo(x + 12, y + 2); g.lineTo(x + 24, y + 13); g.lineTo(x + 12, y + 24); g.fill(); } g.fillStyle = '#f4efe6'; }); g.fillStyle = '#f4efe6'; for (let k = 0; k < 40; k++) g.fillRect(Math.random() * w, Math.random() * 60, 3, 3); }
+        g.globalAlpha = 1;
+      });
+      tx.redraw(); tx.t.wrapS = tx.t.wrapT = THREE.RepeatWrapping; tx.t.repeat.set(2, 2);
+      return (texCache[key] = tx.t);
+    }
+    function person(a) {
+      const [outfit0, hairStyle, tone] = STYLE[a.name] || ['shirt', 'short', 0];
+      const outfit = LV >= 10 ? 'festive' : outfit0;
+      const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+      const skin = M(SKIN[tone], { roughness: LV >= 6 ? 0.48 : 0.6 });
+      const cloth = M('#ffffff', { map: fabric(outfit, a.c), roughness: 0.9 });
+      const trim = M(new THREE.Color(a.c).multiplyScalar(0.72), { roughness: 0.85 });
+      const hairM = M(a.hair, { roughness: 0.6 });
+      const pants = M('#ffffff', { map: fabric(outfit0 === 'shirt' ? 'chino' : 'denim', '#000'), roughness: 0.92 });
+      // jacket or cardigan over shirts, polos and sweaters from step 5
+      const outer = LV >= 5 && outfit0 !== 'hoodie' ? M('#ffffff', { map: fabric(outfit0 === 'sweater' ? 'knit' : 'jacket', outfit0 === 'sweater' ? '#6b5a4a' : '#2f3446'), roughness: 0.85 }) : null;
+      const torsoM = outer || cloth;
+      // torso, a little flatter front to back, with a belt
+      const torso = add(new THREE.CapsuleGeometry(0.26, 0.36, 8, 20), torsoM, 0, 1.0, 0, body); torso.scale.set(1, 1, 0.84);
+      const belt = add(new THREE.TorusGeometry(0.262, 0.02, 8, 30), M('#2b2018', { roughness: 0.45 }), 0, 0.8, 0, body); belt.rotation.x = Math.PI / 2; belt.scale.set(1, 0.84, 1);
+      add(B(0.05, 0.035, 0.02), M('#c9b27a', { metalness: 0.8, roughness: 0.3 }), 0, 0.8, 0.222, body, false);
+      if (outer) {
+        // the shirt shows in the open front; lapels
+        add(B(0.13, 0.44, 0.02), cloth, 0, 1.02, 0.214, body, false);
+        [-1, 1].forEach((s) => { const lp = add(B(0.06, 0.26, 0.018), torsoM, 0.075 * s, 1.15, 0.212, body, false); lp.rotation.z = 0.32 * s; });
+      }
+      // collars and details by outfit
+      if (outfit0 === 'shirt' || outfit0 === 'polo') {
+        [-1, 1].forEach((s) => { const c = add(B(0.12, 0.018, 0.1), outfit0 === 'polo' ? trim : cloth, 0.065 * s, 1.36, 0.135, body); c.rotation.set(-0.5, 0, 0.55 * s); });
+        const nb = outfit0 === 'shirt' ? 5 : 2;
+        for (let k = 0; k < nb; k++) add(new THREE.SphereGeometry(0.012, 8, 6), M('#f4f1ea', { roughness: 0.3 }), 0, 1.16 - k * 0.085, outer ? 0.226 : 0.222, body, false);
+      } else if (outfit0 === 'hoodie') {
+        const hood = add(new THREE.TorusGeometry(0.15, 0.06, 10, 24), cloth, 0, 1.36, -0.07, body); hood.rotation.x = Math.PI / 2.3;
+        [-0.045, 0.045].forEach((x) => add(new THREE.CylinderGeometry(0.007, 0.007, 0.17, 6), whiteM, x, 1.24, 0.2, body, false));
+        add(B(0.3, 0.13, 0.025), trim, 0, 0.88, 0.214, body, false);
+      } else {
+        const col = add(new THREE.TorusGeometry(0.1, 0.03, 8, 24), trim, 0, 1.4, 0.0, body); col.rotation.x = Math.PI / 2;
+      }
+      add(new THREE.CylinderGeometry(0.07, 0.075, 0.16, 16), skin, 0, 1.43, 0, body);   // neck
+
+      // legs: thighs forward, knees, shins down, shoes with soles
+      const leather = LV >= 8 && (outfit0 === 'shirt' || outfit0 === 'polo');
+      const shoeTop = leather ? M('#4a2e1e', { roughness: 0.32 }) : M(outfit0 === 'hoodie' ? a.c : '#2c3046', { roughness: 0.6 }), sole = leather ? M('#1d1410', { roughness: 0.5 }) : whiteM;
+      [-0.13, 0.13].forEach((x) => {
+        const t = add(new THREE.CapsuleGeometry(0.105, 0.34, 6, 12), pants, x, 0.56, 0.2, body); t.rotation.x = Math.PI / 2;
+        add(new THREE.SphereGeometry(0.1, 12, 10), pants, x, 0.56, 0.4, body);
+        add(new THREE.CapsuleGeometry(0.09, 0.3, 6, 12), pants, x, 0.33, 0.42, body);
+        if (LV >= 8) add(new THREE.CylinderGeometry(0.072, 0.072, 0.05, 12), M(a.c, { roughness: 0.9 }), x, 0.14, 0.43, body);
+        add(B(0.15, 0.07, 0.25), shoeTop, x, 0.075, 0.49, body);
+        const toe = add(new THREE.SphereGeometry(0.075, 14, 10), shoeTop, x, 0.07, 0.6, body); toe.scale.set(1, 0.6, 0.9);
+        add(B(0.16, 0.03, 0.31), sole, x, 0.02, 0.52, body);
+      });
+
+      // head: face, ears, nose, eyes with irises, brows, lips
+      const head = new THREE.Group(); head.position.set(0, 1.62, 0); body.add(head);
+      const skull = add(new THREE.SphereGeometry(0.225, 32, 24), skin, 0, 0, 0, head); skull.scale.set(1, 1.08, 1);
+      [-1, 1].forEach((s) => { const e = add(new THREE.SphereGeometry(0.048, 12, 10), skin, 0.222 * s, -0.01, 0, head); e.scale.set(0.45, 1, 0.75); });
+      const nose = add(new THREE.SphereGeometry(0.032, 12, 10), skin, 0, -0.03, 0.225, head, false); nose.scale.set(0.85, 1, 1.25);
       const eyes = [];
-      [-0.085, 0.085].forEach((x) => { const e = new THREE.Group(); e.position.set(x, 0.03, 0.2); head.add(e); add(new THREE.SphereGeometry(0.052, 16, 12), whiteM, 0, 0, 0, e, false); add(new THREE.SphereGeometry(0.03, 12, 10), blackM, 0, 0, 0.032, e, false); eyes.push(e); });
-      [-0.085, 0.085].forEach((x) => { const br = add(B(0.08, 0.016, 0.02), hairM, x, 0.105, 0.215, head, false); br.rotation.z = x > 0 ? -0.12 : 0.12; });
-      const mouth = add(new THREE.TorusGeometry(0.055, 0.012, 6, 16, Math.PI), mouthM, 0, -0.085, 0.215, head, false); mouth.rotation.z = Math.PI;
-      // arms on shoulder pivots; a cup in the right hand for tea time
-      const arms = [-1, 1].map((s) => { const p = new THREE.Group(); p.position.set(0.33 * s, 1.24, 0); body.add(p); add(new THREE.CapsuleGeometry(0.075, 0.36, 4, 10), shirt, 0, -0.24, 0, p); const hand = add(new THREE.SphereGeometry(0.075, 12, 10), skinM, 0, -0.5, 0, p); return { p, hand }; });
+      [-0.08, 0.08].forEach((x) => {
+        const e = new THREE.Group(); e.position.set(x, 0.03, 0.19); head.add(e);
+        add(new THREE.SphereGeometry(0.047, 16, 12), whiteM, 0, 0, 0, e, false);
+        add(new THREE.SphereGeometry(0.028, 14, 10), M(IRIS[tone], { roughness: 0.3 }), 0, 0, 0.03, e, false);
+        add(new THREE.SphereGeometry(0.015, 10, 8), blackM, 0, 0, 0.042, e, false);
+        add(new THREE.SphereGeometry(0.006, 6, 5), new THREE.MeshBasicMaterial({ color: '#ffffff' }), 0.008, 0.01, 0.05, e, false);
+        eyes.push(e);
+      });
+      [-0.08, 0.08].forEach((x) => { const br = add(B(0.085, 0.018, 0.02), hairM, x, 0.105, 0.208, head, false); br.rotation.z = x > 0 ? -0.12 : 0.12; });
+      const mouth = add(new THREE.TorusGeometry(0.045, 0.011, 6, 16, Math.PI), M('#b85a55', { roughness: 0.5 }), 0, -0.1, 0.205, head, false); mouth.rotation.z = Math.PI;
+      if (LV >= 6) [-1, 1].forEach((s) => add(new THREE.SphereGeometry(0.042, 10, 8), new THREE.MeshStandardMaterial({ color: '#f08a8a', transparent: true, opacity: 0.28, roughness: 0.6 }), 0.12 * s, -0.05, 0.175, head, false));
+      // hair by style
+      const cap = add(new THREE.SphereGeometry(0.238, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.5), hairM, 0, 0.02, -0.015, head); cap.rotation.x = -0.35;
+      if (hairStyle === 'short') { const f = add(new THREE.CapsuleGeometry(0.035, 0.2, 4, 10), hairM, 0, 0.165, 0.165, head); f.rotation.z = Math.PI / 2; }
+      else if (hairStyle === 'side') { const f = add(new THREE.CapsuleGeometry(0.045, 0.17, 4, 10), hairM, 0.05, 0.17, 0.16, head); f.rotation.z = 1.15; }
+      else if (hairStyle === 'bob') {
+        const b = add(new THREE.SphereGeometry(0.252, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.58), hairM, 0, 0.02, -0.035, head); b.rotation.x = -0.5;
+        const bk = add(new THREE.SphereGeometry(0.2, 16, 12), hairM, 0, -0.07, -0.11, head); bk.scale.set(1.15, 1, 0.85);
+        [-1, 1].forEach((s) => add(new THREE.CapsuleGeometry(0.06, 0.15, 4, 10), hairM, 0.205 * s, -0.08, -0.02, head));
+      }
+      else if (hairStyle === 'ponytail') { add(new THREE.SphereGeometry(0.035, 10, 8), M(a.c), 0, 0.04, -0.235, head); const t = add(new THREE.CapsuleGeometry(0.055, 0.22, 4, 10), hairM, 0, -0.12, -0.27, head); t.rotation.x = 0.35; }
+      else if (hairStyle === 'bun') add(new THREE.SphereGeometry(0.095, 16, 12), hairM, 0, 0.2, -0.16, head);
+      else if (hairStyle === 'curly') { for (let r = 0; r < 3; r++) for (let k = 0; k < 6 + r * 3; k++) { const th = 0.25 + r * 0.42, ph = (k / (6 + r * 3)) * Math.PI * 2; const y = Math.cos(th) * 0.22 + 0.03, rr = Math.sin(th) * 0.22; const z = Math.sin(ph) * rr; if (z > 0.12 && y < 0.17) continue; add(new THREE.SphereGeometry(0.068, 10, 8), hairM, Math.cos(ph) * rr, y, z - 0.01, head); } }
+      if (LV >= 9) for (let k = 0; k < 7; k++) { const s2 = add(new THREE.CapsuleGeometry(0.012, 0.16, 3, 6), M(new THREE.Color(a.hair).multiplyScalar(1.25), { roughness: 0.6 }), -0.12 + k * 0.04, 0.2, 0.02 - Math.abs(k - 3) * 0.02, head, false); s2.rotation.x = -0.9; }
+      if (LV >= 2 && GLASSES.has(a.name)) {
+        const fr = M('#1b1d29', { metalness: 0.6, roughness: 0.3 });
+        [-0.08, 0.08].forEach((x) => add(new THREE.TorusGeometry(0.052, 0.008, 8, 24), fr, x, 0.03, 0.238, head, false));
+        add(B(0.05, 0.008, 0.008), fr, 0, 0.04, 0.238, head, false);
+        [-1, 1].forEach((s) => add(B(0.008, 0.008, 0.2), fr, 0.205 * s, 0.035, 0.13, head, false));
+      }
+
+      // arms on shoulder pivots: sleeve, forearm (bare for a polo), cuff, hand with a thumb; a cup in the right hand for tea
+      const sleeveM = outer || cloth;
+      const arms = [-1, 1].map((s) => {
+        const p = new THREE.Group(); p.position.set(0.31 * s, 1.27, 0); body.add(p);
+        add(new THREE.SphereGeometry(0.085, 14, 10), sleeveM, 0, 0, 0, p);
+        add(new THREE.CapsuleGeometry(0.072, 0.2, 4, 12), sleeveM, 0, -0.15, 0, p);
+        const bare = outfit0 === 'polo' && !outer;
+        add(new THREE.CapsuleGeometry(0.062, 0.18, 4, 12), bare ? skin : sleeveM, 0, -0.36, 0, p);
+        if (bare) { const hem = add(new THREE.TorusGeometry(0.072, 0.012, 6, 18), trim, 0, -0.25, 0, p, false); hem.rotation.x = Math.PI / 2; }
+        else if (outfit0 !== 'shirt' || outer) { const cuff = add(new THREE.TorusGeometry(0.062, 0.016, 6, 18), outer ? M('#f4f1ea') : trim, 0, -0.45, 0, p, false); cuff.rotation.x = Math.PI / 2; }
+        const hand = add(new THREE.SphereGeometry(0.062, 14, 10), skin, 0, -0.52, 0.01, p); hand.scale.set(0.85, 1.1, 0.7);
+        const th = add(new THREE.CapsuleGeometry(0.018, 0.04, 4, 8), skin, -0.045 * s, -0.5, 0.04, p, false); th.rotation.z = 0.6 * s;
+        return { p, hand };
+      });
+      if (LV >= 2) { const w = add(new THREE.TorusGeometry(0.066, 0.013, 6, 18), blackM, 0, -0.44, 0, arms[0].p, false); w.rotation.x = Math.PI / 2; add(new THREE.CylinderGeometry(0.026, 0.026, 0.01, 14), M('#d9dde8', { metalness: 0.7, roughness: 0.2 }), 0, -0.44, 0.07, arms[0].p, false).rotation.x = Math.PI / 2; }
       const cup = add(new THREE.CylinderGeometry(0.06, 0.05, 0.12, 14), cupM, 0, -0.5, 0.09, arms[1].p); cup.visible = false;
-      return { g, body, head, eyes, arms, cup, blinkAt: 2 + Math.random() * 4 };
+
+      // badge on a lanyard (step 3), scarf (step 7)
+      if (LV >= 3) {
+        const ly = add(new THREE.TorusGeometry(0.14, 0.008, 6, 24, Math.PI), M(a.c), 0, 1.33, 0.12, body, false); ly.rotation.set(-0.35, 0, Math.PI);
+        add(B(0.075, 0.1, 0.01), whiteM, 0, 1.13, 0.228, body, false); add(B(0.075, 0.022, 0.012), M(a.c), 0, 1.17, 0.229, body, false);
+      }
+      if (LV >= 7) {
+        const sc = M('#ffffff', { map: fabric('knit', new THREE.Color(a.c).lerp(new THREE.Color('#c0392b'), 0.5).getStyle()), roughness: 0.95 });
+        const ring = add(new THREE.TorusGeometry(0.12, 0.05, 10, 24), sc, 0, 1.4, 0.01, body); ring.rotation.x = Math.PI / 2;
+        add(B(0.08, 0.24, 0.035), sc, 0.06, 1.2, 0.2, body);
+      }
+      // headphones: on the ears at work, round the neck at rest (step 4)
+      let hp = null;
+      if (LV >= 4) {
+        const hpM = M('#1f2233', { roughness: 0.4 }), padM = M('#3a3f55', { roughness: 0.8 });
+        const onHead = new THREE.Group(); head.add(onHead);
+        add(new THREE.TorusGeometry(0.245, 0.018, 8, 28, Math.PI), hpM, 0, 0.02, 0, onHead, false);
+        [-1, 1].forEach((s) => { const c = add(new THREE.CylinderGeometry(0.065, 0.065, 0.05, 18), padM, 0.24 * s, 0, 0, onHead, false); c.rotation.z = Math.PI / 2; });
+        const onNeck = new THREE.Group(); onNeck.position.set(0, 1.37, 0.03); body.add(onNeck);
+        const band = add(new THREE.TorusGeometry(0.15, 0.016, 8, 24, Math.PI), hpM, 0, 0, 0, onNeck, false); band.rotation.set(Math.PI / 2, 0, Math.PI);
+        [-1, 1].forEach((s) => { const c = add(new THREE.CylinderGeometry(0.06, 0.06, 0.045, 18), padM, 0.15 * s, 0, 0.02, onNeck, false); c.rotation.x = Math.PI / 2; });
+        hp = { head: onHead, neck: onNeck };
+      }
+      return { g, body, head, eyes, arms, cup, hp, blinkAt: 2 + Math.random() * 4 };
     }
 
     const team = new Map();   // id → { person, desk, label, target, state }
@@ -3107,15 +3401,16 @@ dash.loader('sales', {
         const row = i < perRow ? 0 : 1, k = row ? i - perRow : i, cnt = row ? n - perRow : perRow;
         const x = -2.4 + (k - (cnt - 1) / 2) * gap, z = row ? -1.4 : 0.9;
         const d = makeDesk(x, z); desks.push(d);
-        const p = person(a.c, a.hair); scene.add(p.g);
+        const p = person(a); scene.add(p.g);
         const label = document.createElement('div'); label.className = 'rm-bub'; label.style.setProperty('--c', a.c);
         const who = document.createElement('div'); who.className = 'rm-who'; const dot = document.createElement('i'); const nm = document.createElement('span'); nm.textContent = a.name; const rl = document.createElement('small'), cup = document.createElement('span'); cup.className = 'rm-cup'; cup.textContent = '☕'; who.append(dot, nm, rl, cup);
         const tx = document.createElement('span'); tx.className = 'rm-tx'; label.append(who, tx); labels.append(label);
         team.set(a.id, { a, k: i, p, desk: d, label, rl, tx, on: null, seatIdx: 0, lines: [], li: 0, shown: '', typed: 0, nextLine: 0, seat: null, pos: null, blend: 0 });
       });
     }
-    function sync(list, states, boardArgs) {
+    function sync(list, states, boardArgs, extra) {
       layout(list);
+      trophies.forEach((tr, k) => { tr.visible = k < Math.min(trophies.length, (extra && extra.skills) || 0); });
       let s = 0;
       list.forEach((a) => {
         const t = team.get(a.id), st = states[a.id];
@@ -3158,6 +3453,8 @@ dash.loader('sales', {
       yaw += (yawT - yaw) * Math.min(dt * 3, 1); place();
       if (t - clockT.at > 20 || !clockT.at) { clockT.at = t || 0.01; clock.redraw(); }
       const W2 = wrap.clientWidth, H2 = wrap.clientHeight;
+      // garland, server lights, the coffee machine: twinkle
+      if (!still) BL.forEach((b) => { b.mat.emissiveIntensity = b.base * (0.3 + 0.7 * Math.abs(Math.sin(t * b.speed + b.phase))); });
       let i = 0;
       team.forEach((m) => {
         i++;
@@ -3182,6 +3479,7 @@ dash.loader('sales', {
         // blink
         if (t > m.p.blinkAt) { m.p.blinkAt = t + 2.5 + Math.random() * 4; m.p.blinkEnd = t + 0.12; }
         const sy = t < (m.p.blinkEnd || 0) ? 0.12 : 1; m.p.eyes.forEach((e) => { e.scale.y = sy; });
+        if (m.p.hp) { const work = m.on && !walking; m.p.hp.head.visible = work; m.p.hp.neck.visible = !work; }
         // the laptop opens for its owner at work
         const d = m.desk, want = m.on && !walking && dist < 0.4 ? 1 : 0;
         d.lidOpen += (want - d.lidOpen) * Math.min(dt * 3, 1);
@@ -3189,6 +3487,7 @@ dash.loader('sales', {
         const col = new THREE.Color(m.a.c);
         d.screenM.emissive.copy(col).multiplyScalar(d.lidOpen * (0.75 + (still ? 0 : Math.sin(t * 6 + i) * 0.08)));
         d.glow.color.copy(col); d.glow.intensity = d.lidOpen * 1.1; d.logo.material.opacity = 0.15 + d.lidOpen * 0.6;
+        if (d.mon) d.mon.emissive.copy(col).multiplyScalar(0.12 + d.lidOpen * 0.5);
         // typing the speech bubble
         if (m.lines.length) {
           const line = m.lines[m.li % m.lines.length];
@@ -3275,7 +3574,10 @@ dash.loader('sales', {
       RM.wrap = T.el('div', 'rm3'); RM.labels = T.el('div', 'rm-labels'); RM.load = T.el('div', 'rm-load', 'Загружаю комнату…');
       RM.wrap.append(RM.labels, RM.load, T.el('div', 'rm-hint', 'наведите, чтобы осмотреться'));
       RM.board = T.el('div', 'rm-board-h'); RM.list = T.el('ul', 'rm-list');
-      box.append(RM.head, RM.wrap, RM.board, RM.list);
+      // what changed in the room today (one step a day, ROOM_STEPS)
+      const lv = roomLevel(), st = ROOM_STEPS[lv - 1];
+      RM.upd = T.el('p', 'ts-muted rm-upd', 'Обновление комнаты · день ' + lv + ' из ' + ROOM_STEPS.length + '. Агенты: ' + st[0] + '. Комната: ' + st[1] + '.' + (roomDay() > ROOM_STEPS.length ? ' Новые обновления ещё не подготовлены.' : ''));
+      box.append(RM.head, RM.upd, RM.wrap, RM.board, RM.list);
       loadThree().then(() => { try { RM.api = room3d(RM.wrap, RM.labels); RM.load.remove(); dash.draw('room'); } catch (e) { console.warn('room 3D', e); flat(); } }).catch(flat);
       function flat() { RM.wrap.style.display = 'none'; box.classList.add('rm-flat'); }
     }
@@ -3283,10 +3585,12 @@ dash.loader('sales', {
     team.forEach((a) => { states[a.id] = roomState(a, A); });
     const working = team.filter((a) => states[a.id].on);
     RM.status.textContent = RL.err ? RL.err : !RL.runs ? 'узнаю, кто сейчас работает…' : working.length ? 'сейчас работают: ' + working.map((a) => a.name).join(', ') : 'агентов: ' + team.length + ' · все отдыхают до запуска в ' + NEXT_ADS();
-    const money = roomMoney(A), items = roomBoard(A), grew = roomSeen(items);
+    // the board shows what the agents changed (impact); the old cabinet totals only until the agent has written impact
+    const imp = roomImpact(A);
+    const money = imp ? imp.money : roomMoney(A), items = imp ? imp.items : roomBoard(A), grew = roomSeen(items);
     const updated = new Date(A.generated).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     roomBoardHtml(RM.board, money, items, grew, updated);
-    if (RM.api) RM.api.sync(team, states, [money, items, grew, updated]);
+    if (RM.api) RM.api.sync(team, states, [money, items, grew, updated], { skills: (((A.learned || {}).skills || {}).has || []).length });
     RM.list.replaceChildren();
     team.forEach((a) => {
       const st = states[a.id], li = T.el('li', st.on ? 'on' : null); li.style.setProperty('--c', a.c);
@@ -3357,7 +3661,16 @@ dash.loader('sales', {
       const u2 = T.el('ul');
       (SK.next || []).forEach((x) => { const li = T.el('li'); li.append(T.el('span', null, '📚'), T.el('span', null, x)); u2.append(li); });
       a2.append(u2);
-      g.append(a1, a2); box.append(g);
+      g.append(a1, a2);
+      // findings of the daily skills in the last check
+      const ins = A.insights || [];
+      if (ins.length) {
+        const a3 = T.el('div'); a3.append(T.el('h4', null, 'Что увидели навыки'));
+        const u3 = T.el('ul');
+        ins.forEach((x) => x.items.slice(0, 4).forEach((t) => { const li = T.el('li'); li.append(T.el('span', null, '🔎'), T.el('span', null, t)); u3.append(li); }));
+        a3.append(u3); g.append(a3);
+      }
+      box.append(g);
     }
     // Plan of the next run when nothing changed in the cabinet (check mode)
     const planned = (A.actions || []).filter((a) => a.result === 'planned' && T.sidPass(a.store, p));
