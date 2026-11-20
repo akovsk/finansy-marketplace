@@ -102,6 +102,13 @@ img { max-width:100%; }
     refresh() {},
     setLink(id) { try { history.replaceState(null, '', '#' + id); } catch (e) {} }
   };
+  // Link to a campaign's statistics in its cabinet. WB: the campaign statistics page. Ozon: the campaign page with
+  // stats per product in seller.ozon.ru (opens when the store the campaign belongs to is selected in the cabinet).
+  window.rkUrl = (a) => {
+    if (!a || !a.id) return null;
+    const oz = a.platform === 'ozon' || String(a.store || '').startsWith('oz');
+    return oz ? 'https://seller.ozon.ru/app/advertisement/product/cpc/' + a.id : 'https://cmp.wildberries.ru/campaigns/statistics/details/' + a.id;
+  };
   window.__dashStart = function () {
     render();
     let lastW = window.innerWidth;
@@ -308,6 +315,9 @@ img { max-width:100%; }
 .rm-made-num { color:var(--color-fg-muted); font-size:13px; }
 .rm-made-link { font-weight:650; white-space:nowrap; text-decoration:none; color:var(--c1, #7c5cff); }
 .rm-made-link:hover { text-decoration:underline; }
+.ts-rk-a { color:inherit; text-decoration:underline; text-decoration-color:color-mix(in srgb, currentColor 35%, transparent); text-underline-offset:3px; }
+.ts-rk-a:hover { text-decoration-color:currentColor; }
+.ts-log-b .ts-rk-a { color:var(--c1, #7c5cff); font-weight:600; text-decoration:none; }
 @media (max-width:640px) { .rm-sum-row { grid-template-columns:1fr; } .rm-made-row { grid-template-columns:1fr; } }
 .rm-dev { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
 .rm-dev h4 { margin:0; font-size:14px; }
@@ -2788,7 +2798,7 @@ dash.loader('sales', {
       let k = AG_ACT[a.action] || [a.action, null];
       const row = T.el('div', 'ts-xrow'), b = T.el('div', 'ts-xrow-b');
       row.append(a.key ? T.photo(a.key, true) : T.el('div', 'ts-ph ts-ph-s'));
-      b.append(T.el('div', 'ts-xrow-t', a.name || ('Кампания ' + (a.id || a.sku))));
+      { const tt = T.el('div', 'ts-xrow-t'), u = rkUrl(a); if (u) { const lk = T.el('a', 'ts-rk-a', a.name || ('Кампания ' + a.id)); lk.href = u; lk.target = '_blank'; lk.rel = 'noopener'; tt.append(lk); } else tt.textContent = a.name || ('Кампания ' + (a.id || a.sku)); b.append(tt); }
       b.append(T.el('div', 'ts-xrow-n', a.reason || ''));
       if (a.moved) b.append(T.el('div', 'ts-xrow-n', 'Перенесено исключений из других кампаний товара: ' + a.moved));
       if (a.queries && a.queries.length) b.append(T.el('div', 'ts-xrow-n', 'Запросы: ' + a.queries.slice(0, 6).map((q) => '«' + q + '»').join(', ') + (a.n > 6 ? ' и ещё ' + (a.n - 6) : '')));
@@ -3861,7 +3871,7 @@ dash.loader('sales', {
         const left = T.el('div'); left.append(T.mpChip(oz ? 'Ozon' : 'WB'), T.el('b', null, ' ' + String(h.name || '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ')), T.el('small', null, 'РК № ' + h.id + ' · создана ' + new Date(h.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })));
         const mid = T.el('div', 'rm-made-num', c ? (ST[c.status] || 'статус ' + c.status) + ' · ' + T.rub(c.spend30 || 0) + ' за 30 дн. · заказов ' + (c.orders30 || 0) + (c.drr30 != null && c.drr30 !== 'inf' ? ' · ДРР ' + T.pct(c.drr30, 0) : '') : 'завершена или нет в кабинете');
         const lk = T.el('a', 'rm-made-link', 'Статистика →'); lk.target = '_blank'; lk.rel = 'noopener';
-        lk.href = oz ? 'https://seller.ozon.ru/app/advertisement/product/cpc/' + h.id : 'https://cmp.wildberries.ru/campaigns/statistics/details/' + h.id;
+        lk.href = rkUrl(h);
         row.append(left, mid, lk); RM.made.append(row);
       });
     }
@@ -4010,14 +4020,14 @@ dash.loader('sales', {
       const label = a.action === 'pause' && a.loss ? 'Пауза: минус' : a.action === 'stop' && a.approved ? 'Закрыта по вашему ответу' : (a.action === 'restart' || a.action === 'launch') && a.auto ? k[0] + ' (сам)' : k[0];
       const what = a.action === 'minus' ? (a.n ? '−' + a.n + ' запр.' : '') + (a.moved ? (a.n ? ', ' : '') + '+' + a.moved + ' перенос' : '') : a.bids && a.bids.length ? a.bids[0].wasRub + ' → ' + a.bids[0].rub + ' ₽' : '';
       const fixed = fixedOf(a);
-      sm.append(T.el('span', 'ts-log-i', LOG_ICON[a.action] || '•'), T.el('span', 'ts-log-t', label + ' · ' + (a.name || 'РК ' + (a.id || a.sku))), T.el('span', a.result === 'error' && !fixed ? 'ts-log-r ts-neg' : 'ts-log-r', a.result === 'error' ? (fixed ? 'исправлено' : 'ошибка') : what || new Date(a.t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })));
+      sm.append(T.el('span', 'ts-log-i', LOG_ICON[a.action] || '•'), (() => { const tt = T.el('span', 'ts-log-t', label + ' · '), u = rkUrl(a); if (u) { const lk = T.el('a', 'ts-rk-a', a.name || 'РК ' + a.id); lk.href = u; lk.target = '_blank'; lk.rel = 'noopener'; lk.addEventListener('click', (e) => e.stopPropagation()); tt.append(lk); } else tt.append(document.createTextNode(a.name || 'РК ' + (a.id || a.sku))); return tt; })(), T.el('span', a.result === 'error' && !fixed ? 'ts-log-r ts-neg' : 'ts-log-r', a.result === 'error' ? (fixed ? 'исправлено' : 'ошибка') : what || new Date(a.t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })));
       it.append(sm);
       const body = T.el('div', 'ts-log-b');
       body.append(T.el('p', null, a.reason || ''));
       if (a.queries && a.queries.length) body.append(T.el('p', 'ts-muted', 'Запросы: ' + a.queries.slice(0, 8).map((q) => '«' + q + '»').join(', ')));
       if (fixed) body.append(T.el('p', 'ts-good', '✅ ' + fixed));
       if (a.error) body.append(T.el('p', fixed ? 'ts-muted' : 'ts-neg', 'Площадка ответила: ' + a.error));
-      if (a.id && a.platform !== 'ozon' && !String(a.store).startsWith('oz')) { const lk = T.el('a', null, 'Открыть РК № ' + a.id + ' в кабинете WB'); lk.href = 'https://cmp.wildberries.ru/campaigns/edit/' + a.id; lk.target = '_blank'; lk.rel = 'noopener'; body.append(lk); }
+      if (rkUrl(a)) { const oz = a.platform === 'ozon' || String(a.store).startsWith('oz'); const lk = T.el('a', 'ts-rk-a', 'Статистика РК № ' + a.id + ' в кабинете ' + (oz ? 'Ozon' : 'WB') + ' →'); lk.href = rkUrl(a); lk.target = '_blank'; lk.rel = 'noopener'; body.append(lk); if (oz) body.append(T.el('p', 'ts-muted', 'В кабинете Ozon должен быть выбран магазин ' + ((T.SID[a.store] || {}).name || a.store) + '.')); }
       it.append(body); list.append(it);
     });
     box.append(list);
