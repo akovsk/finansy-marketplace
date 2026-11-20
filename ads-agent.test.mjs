@@ -272,6 +272,36 @@ console.log('ads-agent: all checks passed');
 }
 console.log('ads-agent: ozon, queries and learning checks passed');
 
+// Daily skills: exactly one new skill per Moscow day, learned skills report every run; impact before → now
+{
+  const { CURRICULUM, learnSkills } = await import('./ads-skills.mjs');
+  const mem = emptyMemory();
+  learnSkills(mem, '2026-11-20'); learnSkills(mem, '2026-11-20');
+  assert.deepEqual(mem.curriculum, [{ id: CURRICULUM[0].id, since: '2026-11-20' }], 'в один день — один навык');
+  learnSkills(mem, '2026-11-21');
+  assert.deepEqual(mem.curriculum.map((x) => x.id), [CURRICULUM[0].id, CURRICULUM[1].id], 'на следующий день — следующий');
+  for (let d = 22; d < 22 + CURRICULUM.length + 3; d++) learnSkills(mem, '2026-11-' + String(d).padStart(2, '0'));
+  assert.equal(mem.curriculum.length, CURRICULUM.length, 'список кончился — новых не выдумывает');
+  assert.equal(new Set(mem.curriculum.map((x) => x.since)).size, CURRICULUM.length);
+
+  const first = await go({ stores: ['wb1'], mode: 'live' });
+  assert.equal(first.out.memory.curriculum.length, 1);
+  const prof = first.out.insights.find((x) => x.skill === 'profit');
+  assert.ok(prof && /прибыли после расходов/.test(prof.items[0]), 'первый навык уже работает');
+  assert.ok(first.out.learned.skills.has.some((x) => x.daily && x.since === '2026-11-16'), 'навык виден в списке освоенных с датой');
+  assert.match(first.out.learned.skills.next[0], /^Завтра освою: /);
+  // impact: campaign 102 before the cut spent 300 ₽ a day; a week later it spends 100 ₽ with the same orders
+  const shift = (x) => ({ ...x, days: x.days.map((d) => [new Date(Date.parse(d[0]) + 8 * 864e5).toISOString().slice(0, 10), d[1], d[2], d[3]]) });
+  const better = { ...market, ads: market.ads.map((a) => shift(a.id === 102 ? ad(102, 2, 3000, 30, 30000) : a)) };
+  const later = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live' }), data, market: better, state: first.out, memory: first.out.memory, apis: { wb1: mockApi([]) }, now: NOW + 8 * 864e5 });
+  assert.equal(later.memory.curriculum.length, 2, 'через неделю — второй навык (запусков в эти дни не было)');
+  const I = later.impact;
+  assert.equal(I.camps, 3, 'кампании, где агент что-то делал: 102, 103, 104');
+  assert.ok(I.spendSavedDay >= 200, 'расход 102 упал с 300 до 100 ₽ в день');
+  assert.ok(I.profitGainDay > 0); assert.ok(I.drrBefore > I.drrNow, 'ДРР этих кампаний снизился');
+  assert.equal(I.checked, 3); assert.ok(I.helped >= 1);
+}
+
 // One product — one running campaign: no replacement for a closed campaign while another one already shows the product
 {
   const metrics = [{ uid: 'wb1:41989944', id: 41989944, store: 'wb1', name: 'AI 196519290', status: 9, nms: [{ nm: 196519290 }] },

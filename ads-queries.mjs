@@ -100,7 +100,11 @@ export async function readQueries(api, ms, ctx, camp, now, memory, archive = [])
       const judged = rows.filter((c) => !gone.has(c.q)).map((c) => { const j = judgeCluster(c, base, q, relatedQuery(c.q, own)); return j ? { ...c, ...j } : c; });
       const good = judged.filter((c) => c.flag === 'good').sort((a, b) => b.orders - a.orders);
       kbAddGood(memory, k, good, now);
-      return { nm: n.nm, key: k, product: (e && e.name) || '', orderProfit: R(orderProfit), base: { cr: base.cr, cpc: base.cpc && Math.round(base.cpc * 10) / 10 }, total: tot, existing,
+      // Week to week totals of all clusters (daily stats only) and queries that started selling this week — for the skills
+      const zw = () => ({ views: 0, clicks: 0, orders: 0, spend: 0 }), week = { w7: zw(), p7: zw() };
+      rows.forEach((c) => { if (c.wk) ['w7', 'p7'].forEach((b) => Object.keys(week[b]).forEach((f) => { week[b][f] += c.wk[b][f] || 0; })); });
+      const fresh = rows.filter((c) => c.wk && !c.wk.p7.clicks && !c.wk.p7.views && c.wk.w7.orders > 0).sort((a, b) => b.wk.w7.orders - a.wk.w7.orders).slice(0, 5).map((c) => ({ q: c.q, orders: c.wk.w7.orders, spend: R(c.wk.w7.spend) }));
+      return { nm: n.nm, key: k, product: (e && e.name) || '', orderProfit: R(orderProfit), base: { cr: base.cr, cpc: base.cpc && Math.round(base.cpc * 10) / 10 }, total: tot, existing, week, fresh,
         clusters: judged.filter((c) => c.flag && c.flag !== 'good').sort((a, b) => b.spend - a.spend).slice(0, 60), good: good.slice(0, 10),
         // Top queries by views (last week when daily stats are there, else the 30 days): what the product is actually found by
         // (some campaigns get no views per cluster from WB — then clicks, orders and spend decide the order)
