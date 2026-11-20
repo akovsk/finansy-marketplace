@@ -332,11 +332,12 @@ img { max-width:100%; }
 .rm-dev-list span { color:var(--color-fg-muted); }
 @media (hover:none) { .rm-hint { display:none; } }
 /* the board as HTML: under the scene on phones, instead of the scene without WebGL */
-.rm-board-h { display:none; flex-direction:column; gap:12px; padding:14px 16px; border-radius:14px; color:#1d2740; background:#fbfbf8; border:5px solid #c9cdd3; font-family:"Segoe UI", Roboto, Arial, sans-serif; }
+.rm-board-h { display:flex; margin-top:12px; flex-direction:column; gap:12px; padding:14px 16px; border-radius:14px; color:#1d2740; background:#fbfbf8; border:5px solid #c9cdd3; font-family:"Segoe UI", Roboto, Arial, sans-serif; }
 .rm-flat .rm-board-h { display:flex; }
 .rm-board-h h4 { margin:0; font-size:16px; font-weight:800; display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap; }
 .rm-board-h h4 small { font-size:12px; font-weight:500; color:#6b7385; }
-.rm-wb-kpis { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 14px; }
+.rm-wb-kpis { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px 18px; }
+@media (max-width: 900px) { .rm-wb-kpis { grid-template-columns:repeat(2, minmax(0,1fr)); } }
 .rm-wb-kpis div { display:flex; flex-direction:column; gap:2px; min-width:0; }
 .rm-wb-kpis small { font-size:12px; color:#6b7385; font-weight:600; }
 .rm-wb-kpis b { font-size:21px; font-weight:800; font-variant-numeric:tabular-nums; }
@@ -344,6 +345,7 @@ img { max-width:100%; }
 .rm-wb-kpis i.up { color:#1a9b5b; } .rm-wb-kpis i.down { color:#d9363e; }
 .rm-wb-bars { display:flex; align-items:flex-end; gap:3px; height:70px; }
 .rm-wb-bars span { flex:1; background:#3b6fe0; border-radius:3px 3px 0 0; opacity:.85; }
+.rm-wb-bars span.today { background:#9db8f3; }
 .rm-wb-cap { font-size:11.5px; color:#6b7385; }
 .rm-wb-foot { margin:0; font-size:12.5px; font-weight:600; }
 .rm-list { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:8px 16px; margin:0; padding:0; list-style:none; font-size:13px; line-height:1.45; }
@@ -3017,16 +3019,22 @@ dash.loader('sales', {
     ((MK && MK.ads) || []).forEach((a) => (a.days || []).forEach(([d, sp, o, os]) => { const x = by.get(d) || { spend: 0, orders: 0, sum: 0 }; x.spend += +sp || 0; x.orders += +o || 0; x.sum += +os || 0; by.set(d, x); }));
     const today = mskDay(new Date().toISOString());
     const L = [...by.entries()].filter(([d]) => d < today).sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(-14).map(([d, x]) => ({ d, ...x, drr: x.sum ? x.spend / x.sum : null }));
+    const T0 = by.get(today) || { spend: 0, orders: 0, sum: 0 };
+    const days = L.concat(by.has(today) ? [{ d: today, ...T0, drr: T0.sum ? T0.spend / T0.sum : null, partial: true }] : []);
+    const at = MK && MK.generated ? new Date(MK.generated).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }) : '';
+    // campaigns the agents created: what they brought over the last 30 days (WB and Ozon rows of the last check)
+    const mine = new Set((A.history || []).filter((h) => h.action === 'launch' && h.result === 'ok' && h.id).map((h) => h.store + ':' + h.id));
+    const own = (A.campaigns || []).filter((c) => mine.has(c.store + ':' + c.id)).reduce((t, c) => ({ n: t.n + 1, orders: t.orders + (c.orders30 || 0), sum: t.sum + (c.ordSum30 || 0), spend: t.spend + (c.spend30 || 0) }), { n: 0, orders: 0, sum: 0, spend: 0 });
     const S = (arr, f) => arr.reduce((t, x) => t + x[f], 0), w7 = L.slice(-7), p7 = L.slice(-14, -7);
     const drr = (arr) => (S(arr, 'sum') ? S(arr, 'spend') / S(arr, 'sum') : null);
     const chg = (a, b) => (b ? Math.round((a / b - 1) * 100) : null);
     const vs = (x) => (x == null ? '' : (x > 0 ? '+' : '') + x + '% к прошлой неделе');
     const acts = (A.mode === 'live' ? (A.history || []).filter((a) => a.result === 'ok') : (A.actions || [])).filter((a) => a.t && mskDay(a.t) === today);
     const n = (ks) => acts.filter((a) => ks.includes(a.action)).length, I = A.impact, d7 = drr(w7), dp = drr(p7);
-    return { days: L, kpis: [
+    return { days, kpis: [
+      ['Сегодня в WB' + (at ? ', к ' + at : ''), T.num(T0.orders) + ' зак. · ' + T.rub(T0.sum), 'расход ' + T.rub(T0.spend) + (T0.sum ? ' · ДРР ' + T.pct(T0.spend / T0.sum, 0) : ''), T0.sum ? T0.spend / T0.sum <= (d7 || 1) : null],
       ['ДРР за 7 дней', T.pct(d7, 0), dp != null ? 'неделей раньше ' + T.pct(dp, 0) : '', d7 != null && dp != null ? d7 <= dp : null],
-      ['Расход за 7 дней', T.rub(S(w7, 'spend')), vs(chg(S(w7, 'spend'), S(p7, 'spend'))), S(p7, 'spend') ? S(w7, 'spend') <= S(p7, 'spend') : null],
-      ['Заказы с рекламы', T.num(S(w7, 'orders')) + ' шт.', vs(chg(S(w7, 'orders'), S(p7, 'orders'))), S(p7, 'orders') ? S(w7, 'orders') >= S(p7, 'orders') : null],
+      ['Кампании агентов (' + mine.size + ')', T.num(own.orders) + ' зак. · ' + T.rub(own.sum), 'за 30 дн., расход ' + T.rub(own.spend) + (own.sum ? ' · ДРР ' + T.pct(own.spend / own.sum, 0) : ''), own.spend ? own.sum > own.spend * 4 : null],
       ['Агенты сегодня', T.num(acts.length) + ' действ.', 'ставки ' + n(['lower', 'raise', 'boost']) + ' · запросы ' + n(['minus']) + ' · новые РК ' + n(['launch']), null],
     ], footer: I && I.camps ? 'Вклад агентов в их ' + I.camps + ' кампаниях: расход ' + T.rub(I.spendBeforeDay) + ' → ' + T.rub(I.spendNowDay) + ' в день, ДРР ' + T.pct(I.drrBefore, 0) + ' → ' + T.pct(I.drrNow, 0) : '' };
   }
@@ -3744,7 +3752,7 @@ dash.loader('sales', {
       const fit = (txt, max, sz, wt) => { let z = sz; g.font = F(z, wt); while (g.measureText(txt).width > max && z > 14) { z -= 1; g.font = F(z, wt); } };
       const kf = (x) => (x >= 1000 ? Math.round(x / 100) / 10 + 'к' : String(Math.round(x)));
       const P = 70 * k;
-      g.textBaseline = 'alphabetic'; g.fillStyle = ink; g.font = F(56, 800); g.fillText('Реклама WB · последние 14 дней', P, 96 * k);
+      g.textBaseline = 'alphabetic'; g.fillStyle = ink; g.font = F(56, 800); g.fillText('Реклама WB · 14 дней и сегодня', P, 96 * k);
       g.fillStyle = mute; g.font = F(28, 500); g.textAlign = 'right'; g.fillText('обновлено ' + updated, w - P, 92 * k); g.textAlign = 'left';
       // chart: spend per day as bars, ДРР as a line
       const cx = P + 80 * k, cy = 160 * k, cw = w * 0.54, ch = h - cy - 175 * k, D = bd.days;
@@ -3759,8 +3767,8 @@ dash.loader('sales', {
         }
         D.forEach((x, q) => {
           const bh = (ch * x.spend) / maxS, bx = cx + q * bw + bw * 0.17, bwd = bw * 0.66;
-          g.fillStyle = blue; g.globalAlpha = 0.88; g.beginPath(); g.moveTo(bx, cy + ch); g.lineTo(bx, cy + ch - bh + 8 * k); g.quadraticCurveTo(bx, cy + ch - bh, bx + 8 * k, cy + ch - bh); g.lineTo(bx + bwd - 8 * k, cy + ch - bh); g.quadraticCurveTo(bx + bwd, cy + ch - bh, bx + bwd, cy + ch - bh + 8 * k); g.lineTo(bx + bwd, cy + ch); g.fill(); g.globalAlpha = 1;
-          if ((D.length - 1 - q) % 2 === 0) { g.fillStyle = mute; g.font = F(24, 500); g.textAlign = 'center'; g.fillText(x.d.slice(8, 10) + '.' + x.d.slice(5, 7), cx + q * bw + bw / 2, cy + ch + 38 * k); g.textAlign = 'left'; }
+          g.fillStyle = x.partial ? '#9db8f3' : blue; g.globalAlpha = 0.88; g.beginPath(); g.moveTo(bx, cy + ch); g.lineTo(bx, cy + ch - bh + 8 * k); g.quadraticCurveTo(bx, cy + ch - bh, bx + 8 * k, cy + ch - bh); g.lineTo(bx + bwd - 8 * k, cy + ch - bh); g.quadraticCurveTo(bx + bwd, cy + ch - bh, bx + bwd, cy + ch - bh + 8 * k); g.lineTo(bx + bwd, cy + ch); g.fill(); g.globalAlpha = 1;
+          if ((D.length - 1 - q) % 2 === 0) { g.fillStyle = x.partial ? ink : mute; g.font = F(24, x.partial ? 700 : 500); g.textAlign = 'center'; g.fillText(x.partial ? 'сег.' : x.d.slice(8, 10) + '.' + x.d.slice(5, 7), cx + q * bw + bw / 2, cy + ch + 38 * k); g.textAlign = 'left'; }
         });
         g.strokeStyle = red; g.lineWidth = 7 * k; g.lineJoin = 'round'; g.beginPath(); let on = false;
         D.forEach((x, q) => { if (x.drr == null) return; const X = cx + q * bw + bw / 2, Y = cy + ch - (ch * x.drr) / maxR; if (on) g.lineTo(X, Y); else { g.moveTo(X, Y); on = true; } }); g.stroke();
@@ -3793,14 +3801,14 @@ dash.loader('sales', {
   // HTML board (phones and no-WebGL)
   function roomBoardHtml(el, bd, updated) {
     el.replaceChildren(); if (!bd) return;
-    const h = T.el('h4'); h.append(document.createTextNode('Реклама WB · 14 дней'), T.el('small', null, 'обновлено ' + updated)); el.append(h);
+    const h = T.el('h4'); h.append(document.createTextNode('Доска: реклама WB · 14 дней и сегодня'), T.el('small', null, 'обновлено ' + updated)); el.append(h);
     const kp = T.el('div', 'rm-wb-kpis');
     bd.kpis.forEach(([l, v, sub, good]) => { const d = T.el('div'); d.append(T.el('small', null, l), T.el('b', null, v), T.el('i', good == null ? null : good ? 'up' : 'down', sub)); kp.append(d); });
     el.append(kp);
     if (bd.days.length) {
       const mx = Math.max(...bd.days.map((x) => x.spend), 1), bars = T.el('div', 'rm-wb-bars');
-      bd.days.forEach((x) => { const b = T.el('span'); b.style.height = Math.max(4, Math.round((x.spend / mx) * 100)) + '%'; b.title = x.d.slice(8, 10) + '.' + x.d.slice(5, 7) + ': ' + T.rub(x.spend) + (x.drr != null ? ', ДРР ' + T.pct(x.drr, 0) : ''); bars.append(b); });
-      el.append(bars, T.el('small', 'rm-wb-cap', 'Расход на рекламу по дням, ' + bd.days[0].d.slice(8, 10) + '.' + bd.days[0].d.slice(5, 7) + ' — ' + bd.days[bd.days.length - 1].d.slice(8, 10) + '.' + bd.days[bd.days.length - 1].d.slice(5, 7)));
+      bd.days.forEach((x) => { const b = T.el('span', x.partial ? 'today' : null); b.style.height = Math.max(4, Math.round((x.spend / mx) * 100)) + '%'; b.title = x.d.slice(8, 10) + '.' + x.d.slice(5, 7) + ': ' + T.rub(x.spend) + (x.drr != null ? ', ДРР ' + T.pct(x.drr, 0) : ''); bars.append(b); });
+      el.append(bars, T.el('small', 'rm-wb-cap', 'Расход на рекламу по дням с ' + bd.days[0].d.slice(8, 10) + '.' + bd.days[0].d.slice(5, 7) + '; светлый столбик — сегодня, день ещё идёт'));
     }
     if (bd.footer) el.append(T.el('p', 'rm-wb-foot', bd.footer));
   }
@@ -3869,7 +3877,7 @@ dash.loader('sales', {
       LA.forEach((h) => {
         const oz = rmPlat(h) === 'ozon', c = byKey.get(h.store + ':' + h.id), row = T.el('div', 'rm-made-row');
         const left = T.el('div'); left.append(T.mpChip(oz ? 'Ozon' : 'WB'), T.el('b', null, ' ' + String(h.name || '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ')), T.el('small', null, 'РК № ' + h.id + ' · создана ' + new Date(h.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })));
-        const mid = T.el('div', 'rm-made-num', c ? (ST[c.status] || 'статус ' + c.status) + ' · ' + T.rub(c.spend30 || 0) + ' за 30 дн. · заказов ' + (c.orders30 || 0) + (c.drr30 != null && c.drr30 !== 'inf' ? ' · ДРР ' + T.pct(c.drr30, 0) : '') : 'завершена или нет в кабинете');
+        const mid = T.el('div', 'rm-made-num', c ? (ST[c.status] || 'статус ' + c.status) + ' · ' + T.rub(c.spend30 || 0) + ' за 30 дн. · заказов ' + (c.orders30 || 0) + (c.drr30 != null && c.drr30 !== 'inf' ? ' · ДРР ' + T.pct(c.drr30, 0) : '') : (Date.now() - Date.parse(h.t) < 864e5 ? 'только что создана — цифры появятся со следующей проверки' : 'завершена или нет в кабинете'));
         const lk = T.el('a', 'rm-made-link', 'Статистика →'); lk.target = '_blank'; lk.rel = 'noopener';
         lk.href = rkUrl(h);
         row.append(left, mid, lk); RM.made.append(row);
