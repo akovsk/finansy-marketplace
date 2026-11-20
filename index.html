@@ -2783,7 +2783,7 @@ dash.loader('sales', {
     const sec = T.el('div', 'ts-bot-learn');
     sec.append(T.el('h4', null, 'План по кабинету'));
     if ((P.next || []).length) { const ul = T.el('ul'); P.next.forEach((x) => ul.append(T.el('li', null, x))); sec.append(ul); }
-    sec.append(T.el('p', 'ts-muted', 'Агенты меняют только ставки и работают с запросами. Включить, поставить на паузу или завершить кампанию можно только вручную в кабинете.'));
+    sec.append(T.el('p', 'ts-muted', 'Агенты меняют ставки, работают с запросами и каждый день создают одну новую кампанию. Поставить на паузу или завершить кампанию можно только вручную в кабинете.'));
     box.append(sec);
   }
   dash.draw('rk-plan', (box) => {
@@ -2878,7 +2878,9 @@ dash.loader('sales', {
   const rmWords = (c, names) => Object.entries(c).filter(([k]) => names[k]).map(([k, v]) => names[k] + ' — ' + v).join(', ');
   // next start of a schedule given in UTC minutes of the day → "15:17" Moscow time
   const rmNext = (mins) => { const now = new Date(), m = now.getUTCHours() * 60 + now.getUTCMinutes(), n = mins.find((x) => x > m) ?? mins[0] + 1440; return String(Math.floor(((n + 180) % 1440) / 60)).padStart(2, '0') + ':' + String((n + 180) % 60).padStart(2, '0'); };
-  const NEXT_ADS = () => rmNext([197, 737]);
+  // the agents' shift: a check every hour from 12:17 to 20:17 Moscow (9:17–17:17 UTC, ads-agent.yml)
+  const NEXT_ADS = () => rmNext([9, 10, 11, 12, 13, 14, 15, 16, 17].map((h) => h * 60 + 17));
+  const onShift = () => { const h = (new Date().getUTCHours() + 3) % 24; return h >= 12 && h < 20; };
   const wfOf = (r) => ROOM_WF[String(r.path || '').split('/').pop()] || null;
   const rmRunning = (wf) => (RL.runs || []).find((r) => wfOf(r) === wf && r.status !== 'completed') || null;
   const rmDone = (wf) => (RL.runs || []).find((r) => wfOf(r) === wf && r.status === 'completed') || null;
@@ -2962,6 +2964,10 @@ dash.loader('sales', {
   // ?roomday=N in the address shows the room of day N (to look ahead); otherwise today's day
   const roomDay = () => +(new URLSearchParams(location.search).get('roomday') || 0) || Math.floor((Date.parse(mskDay(new Date().toISOString()) + 'T00:00:00Z') - Date.parse(ROOM_START + 'T00:00:00Z')) / 864e5) + 1;
   const roomLevel = () => Math.max(1, Math.min(ROOM_STEPS.length, roomDay()));
+  // How each agent rests between checks: [kind, icon on the bubble, words in the status line]
+  const RM_REST = { 'Марк': 'book', 'Оскар': 'phone', 'Вера': 'tea', 'Пётр': 'game', 'Соня': 'nap', 'Ника': 'sketch', 'Лев': 'music', 'Ира': 'book', 'Гоша': 'game', 'Тая': 'music', 'Рома': 'sketch' };
+  const RM_REST_KIND = { tea: ['☕', 'пью чай'], book: ['📖', 'читаю книгу'], phone: ['📱', 'листаю новости в телефоне'], game: ['🎮', 'играю на приставке'], nap: ['💤', 'дремлю'], music: ['🎧', 'слушаю музыку'], sketch: ['✏️', 'рисую в скетчбуке'] };
+  const restOf = (name) => RM_REST[name] || 'tea';
   // Achievements board from the agents' own impact (ads-agent.json → impact): before their first action on a campaign → now
   function roomImpact(A) {
     const I = A.impact; if (!I || !I.camps) return null;
@@ -2980,7 +2986,7 @@ dash.loader('sales', {
       ['Из них прибавили прибыль', I.helped],
       ['Прибыль по проверкам, ₽ за неделю', I.checkedEffect],
       ['Навыков освоено', (((A.learned || {}).skills || {}).has || []).length],
-      ['Находок навыков в последней проверке', (A.insights || []).reduce((s, x) => s + x.items.length, 0)],
+      ['Кампаний создано агентами', I.launched || 0],
     ];
     return { money, items };
   }
@@ -3000,20 +3006,26 @@ dash.loader('sales', {
     const run = rmRunning('ads'), d = rmDone('ads');
     const nWB = (A.campaigns || []).filter((c) => rmPlat(c) === 'wb' && c.status === 9).length, nOz = (A.campaigns || []).filter((c) => rmPlat(c) === 'ozon' && c.status === 9).length;
     const team = A.engine === 'claude';
-    const on = !!run && (!ag.helper || team);
+    // on shift (12–20 Moscow) the WB and Ozon agents sit at their desks; a running check is the active part of it
+    const duty = onShift() && !ag.helper;
+    const on = (!!run && (!ag.helper || team)) || duty;
     const prep = on && RL.step && !/решени/i.test(RL.step);
     let lines;
     if (prep) lines = ['Самопроверка перед работой: ' + RL.step.toLowerCase()];
+    else if (on && !run) lines = ag.p === 'wb' ? ['На смене до 20:00 — проверяю кабинет WB каждый час, следующая проверка в ' + NEXT_ADS(), 'Смотрю, как ' + nWB + ' активных кампаний отработали за час: расход, клики, заказы', 'Слежу за ставками после прошлых изменений']
+      : ['На смене до 20:00 — проверяю кабинет Ozon каждый час, следующая проверка в ' + NEXT_ADS(), 'Смотрю ' + nOz + ' активных кампаний Ozon: расход и целевой ДРР'];
     else if (on) lines = ag.p === 'wb' ? ['Пересчитываю ДРР и ставки по ' + nWB + ' кампаниям WB', 'Сверяю ставки с маржой товаров до рекламы', 'Читаю поисковые кластеры и отсеиваю плохие запросы', 'Слежу за топ-запросами и их позициями', 'Сверяю статистику кампаний: показы, клики, заказы']
       : ag.p === 'ozon' ? ['Проверяю ' + nOz + ' кампаний Ozon', 'Сверяю целевой ДРР с маржой товаров', 'Считаю ставки по статистике кампаний']
       : /запрос|кластер/i.test(ag.role) ? ['Просматриваю поисковые кластеры кампаний', 'Ищу запросы, которые тратят бюджет без заказов', 'Докладываю ведущему о находках']
       : /товар|запуск|подбор/i.test(ag.role) ? ['Проверяю кандидатов на запуск рекламы', 'Смотрю, где расчёт прибыли надёжен, а где случайность', 'Докладываю ведущему о находках']
       : /ревиз|решени|итог|провер/i.test(ag.role) ? ['Сверяю прошлые решения с их результатом', 'Ищу повторяющиеся ошибки', 'Докладываю ведущему о находках']
       : ['Работаю над задачей ведущего: ' + short(ag.task, 90), 'Докладываю ведущему о находках'];
-    else if (ag.p === 'wb') { const w = rmWords(rmCount(rmToday(A, 'wb', ['lower', 'raise', 'pause', 'stop', 'resume', 'restart', 'launch'])), { lower: 'ставка ниже', raise: 'ставка выше', pause: 'пауза', stop: 'закрыто', resume: 'включено', restart: 'перезапуск', launch: 'запуск' }); lines = [(w ? 'Сегодня: ' + w + '.' : 'Ставки в норме.') + ' Снова за работу в ' + NEXT_ADS()]; }
-    else if (ag.p === 'ozon') { const n = rmToday(A, 'ozon').length; lines = [(A.ozonMode === 'live' ? (n ? 'Сегодня изменений: ' + n + '.' : 'Ozon в норме.') : 'Режим проверки' + (n ? ', в плане ' + n + ' изменений.' : '.')) + ' Снова за работу в ' + NEXT_ADS()]; }
+    else if (ag.p === 'wb') { const w = rmWords(rmCount(rmToday(A, 'wb', ['lower', 'raise', 'pause', 'stop', 'resume', 'restart', 'launch'])), { lower: 'ставка ниже', raise: 'ставка выше', pause: 'пауза', stop: 'закрыто', resume: 'включено', restart: 'перезапуск', launch: 'запуск' }); lines = [(w ? 'Сегодня: ' + w + '.' : 'Ставки в норме.') + ' Смена с 12:00 до 20:00, первая проверка в ' + NEXT_ADS()]; }
+    else if (ag.p === 'ozon') { const n = rmToday(A, 'ozon').length; lines = [(A.ozonMode === 'live' ? (n ? 'Сегодня изменений: ' + n + '.' : 'Ozon в норме.') : 'Режим проверки' + (n ? ', в плане ' + n + ' изменений.' : '.')) + ' Смена с 12:00 до 20:00, первая проверка в ' + NEXT_ADS()]; }
     else lines = [run ? 'Сегодня решения по правилам — команду не звали' : team ? 'Отдыхаю до запуска в ' + NEXT_ADS() : 'Отдыхаю: команда Claude в последних запусках не работала'];
-    return { on, lines, err: !run && d && d.conclusion === 'failure', since: on ? Date.parse(run.run_started_at || run.created_at) : null };
+    // at rest: what this agent is doing on the sofa, in front of the status
+    if (!on) { const rk = RM_REST_KIND[restOf(ag.name)]; lines = lines.map((x, k) => (k ? x : rk[0] + ' ' + rk[1].charAt(0).toUpperCase() + rk[1].slice(1) + '. ' + x)); }
+    return { on, lines, err: !run && d && d.conclusion === 'failure', since: run && on ? Date.parse(run.run_started_at || run.created_at) : null };
   }
 
   /* three.js loader shared with the monogram */
@@ -3373,6 +3385,42 @@ dash.loader('sales', {
       });
       if (LV >= 2) { const w = add(new THREE.TorusGeometry(0.066, 0.013, 6, 18), blackM, 0, -0.44, 0, arms[0].p, false); w.rotation.x = Math.PI / 2; add(new THREE.CylinderGeometry(0.026, 0.026, 0.01, 14), M('#d9dde8', { metalness: 0.7, roughness: 0.2 }), 0, -0.44, 0.07, arms[0].p, false).rotation.x = Math.PI / 2; }
       const cup = add(new THREE.CylinderGeometry(0.06, 0.05, 0.12, 14), cupM, 0, -0.5, 0.09, arms[1].p); cup.visible = false;
+      // props for the way this agent rests (RM_REST): a book with a turning page, a phone, a gamepad, a sketchbook with a pencil, headphones
+      const rest = restOf(a.name), props = {};
+      let page = null;
+      if (rest === 'book') {
+        const bk = new THREE.Group(); bk.position.set(0, 1.0, 0.36); bk.rotation.x = -1.0; body.add(bk);
+        add(B(0.3, 0.012, 0.21), M(a.c, { roughness: 0.6 }), 0, -0.012, 0, bk, false);
+        [-0.073, 0.073].forEach((x) => add(B(0.14, 0.02, 0.19), M('#f6f1e4', { roughness: 0.9 }), x, 0.006, 0, bk, false));
+        const pv = new THREE.Group(); pv.position.set(0, 0.018, 0); bk.add(pv);
+        add(B(0.14, 0.004, 0.19), M('#fffaf0', { roughness: 0.9, side: THREE.DoubleSide }), 0.07, 0, 0, pv, false); page = pv;
+        props.book = bk;
+      } else if (rest === 'phone') {
+        const ph = new THREE.Group(); ph.position.set(0.06, 1.12, 0.34); ph.rotation.set(-1.05, 0, -0.15); body.add(ph);
+        add(B(0.075, 0.012, 0.15), M('#1b1d29', { metalness: 0.5, roughness: 0.3 }), 0, 0, 0, ph, false);
+        add(new THREE.PlaneGeometry(0.066, 0.135), new THREE.MeshBasicMaterial({ color: '#8fb7ff' }), 0, 0.0065, 0, ph, false).rotation.x = -Math.PI / 2;
+        props.phone = ph;
+      } else if (rest === 'game') {
+        const gp = new THREE.Group(); gp.position.set(0, 0.98, 0.38); gp.rotation.x = -0.6; body.add(gp);
+        add(B(0.22, 0.045, 0.1), M('#2c3046', { roughness: 0.5 }), 0, 0, 0, gp, false);
+        [-1, 1].forEach((s) => { const gr = add(new THREE.CapsuleGeometry(0.035, 0.06, 4, 8), M('#2c3046', { roughness: 0.5 }), 0.1 * s, -0.01, 0.05, gp, false); gr.rotation.x = Math.PI / 2; });
+        [['#ef4444', 0.06, 0.0], ['#22c55e', 0.085, -0.02], ['#3b82f6', 0.035, -0.02], ['#eab308', 0.06, -0.04]].forEach(([c, x, z]) => add(new THREE.SphereGeometry(0.011, 8, 6), glowM(c, 0.6), x, 0.026, z, gp, false));
+        add(new THREE.CylinderGeometry(0.016, 0.016, 0.015, 10), M('#14161f'), -0.06, 0.028, -0.02, gp, false);
+        props.game = gp;
+      } else if (rest === 'sketch') {
+        const sk = new THREE.Group(); sk.position.set(0, 0.69, 0.32); sk.rotation.x = -0.25; body.add(sk);
+        add(B(0.3, 0.015, 0.22), M('#f4efe2', { roughness: 0.9 }), 0, 0, 0, sk, false);
+        add(B(0.3, 0.004, 0.012), M(a.c), 0, 0.009, -0.1, sk, false);
+        [0.03, -0.01, -0.05].forEach((z, k) => add(B(0.12 - k * 0.025, 0.002, 0.006), M('#5b6475'), -0.04 + k * 0.02, 0.009, z, sk, false));
+        props.sketch = sk;
+        const pen = add(new THREE.CylinderGeometry(0.008, 0.006, 0.15, 8), M('#e0a43a'), 0, -0.53, 0.06, arms[1].p, false); pen.rotation.x = 1.1; props.pen = pen;
+      } else if (rest === 'music' && !hp) {
+        const mh = new THREE.Group(); head.add(mh);
+        add(new THREE.TorusGeometry(0.245, 0.018, 8, 28, Math.PI), M('#1f2233', { roughness: 0.4 }), 0, 0.02, 0, mh, false);
+        [-1, 1].forEach((s) => { const c = add(new THREE.CylinderGeometry(0.065, 0.065, 0.05, 18), M(a.c, { roughness: 0.6 }), 0.24 * s, 0, 0, mh, false); c.rotation.z = Math.PI / 2; });
+        props.music = mh;
+      }
+      Object.values(props).forEach((o) => { o.visible = false; });
 
       // badge on a lanyard (step 3), scarf (step 7)
       if (LV >= 3) {
@@ -3396,7 +3444,7 @@ dash.loader('sales', {
         [-1, 1].forEach((s) => { const c = add(new THREE.CylinderGeometry(0.06, 0.06, 0.045, 18), padM, 0.15 * s, 0, 0.02, onNeck, false); c.rotation.x = Math.PI / 2; });
         hp = { head: onHead, neck: onNeck };
       }
-      return { g, body, head, eyes, arms, cup, hp, blinkAt: 2 + Math.random() * 4 };
+      return { g, body, head, eyes, arms, cup, hp, rest, props, page, blinkAt: 2 + Math.random() * 4 };
     }
 
     const team = new Map();   // id → { person, desk, label, target, state }
@@ -3414,7 +3462,7 @@ dash.loader('sales', {
         const d = makeDesk(x, z); desks.push(d);
         const p = person(a); scene.add(p.g);
         const label = document.createElement('div'); label.className = 'rm-bub'; label.style.setProperty('--c', a.c);
-        const who = document.createElement('div'); who.className = 'rm-who'; const dot = document.createElement('i'); const nm = document.createElement('span'); nm.textContent = a.name; const rl = document.createElement('small'), cup = document.createElement('span'); cup.className = 'rm-cup'; cup.textContent = '☕'; who.append(dot, nm, rl, cup);
+        const who = document.createElement('div'); who.className = 'rm-who'; const dot = document.createElement('i'); const nm = document.createElement('span'); nm.textContent = a.name; const rl = document.createElement('small'), cup = document.createElement('span'); cup.className = 'rm-cup'; cup.textContent = RM_REST_KIND[restOf(a.name)][0]; who.append(dot, nm, rl, cup);
         const tx = document.createElement('span'); tx.className = 'rm-tx'; label.append(who, tx); labels.append(label);
         team.set(a.id, { a, k: i, p, desk: d, label, rl, tx, on: null, seatIdx: 0, lines: [], li: 0, shown: '', typed: 0, nextLine: 0, seat: null, pos: null, blend: 0 });
       });
@@ -3481,16 +3529,46 @@ dash.loader('sales', {
           const ty = still ? 0 : 1;
           L.p.rotation.set(-1.02 + Math.sin(t * 13 + i) * 0.09 * ty, 0, 0.2); R.p.rotation.set(-1.02 + Math.sin(t * 13 + i + 1.7) * 0.09 * ty, 0, -0.2);
           m.p.head.rotation.set(0.12 + Math.sin(t * 0.8 + i) * 0.04 * ty, Math.sin(t * 0.5 + i) * 0.12 * ty, 0); m.p.cup.visible = false;
+          Object.values(m.p.props).forEach((o) => { o.visible = false; });
         } else {
-          // tea: the cup goes up for a sip now and then
-          const c = still ? 0 : Math.max(0, Math.sin(t * 0.7 + i * 1.9)); const sip = c * c * (3 - 2 * c);
-          L.p.rotation.set(-0.55, 0, 0.12); R.p.rotation.set(-0.8 - sip * 1.55, 0, -0.35 - sip * 0.25); m.p.cup.visible = true;
-          m.p.head.rotation.set(-0.12 * sip + Math.sin(t * 0.4 + i) * 0.03, Math.sin(t * 0.3 + i) * 0.15 * (1 - sip), 0);
+          // rest: each agent its own way (RM_REST); props show only while seated
+          const ty = still ? 0 : 1, kind = m.p.rest, seated = !walking;
+          Object.entries(m.p.props).forEach(([k, o]) => { o.visible = seated && (k === kind || (k === 'pen' && kind === 'sketch')); });
+          m.p.cup.visible = kind === 'tea';
+          if (kind === 'book') {
+            L.p.rotation.set(-0.98, 0, 0.3); R.p.rotation.set(-0.98, 0, -0.3);
+            m.p.head.rotation.set(0.38 + Math.sin(t * 0.3 + i) * 0.02 * ty, Math.sin(t * 0.22 + i) * 0.06 * ty, 0);
+            if (m.p.page) { const c = ((t * 0.09 + i * 0.37) % 1 + 1) % 1; m.p.page.rotation.z = ty && c > 0.88 ? Math.PI * (c - 0.88) / 0.12 : 0; }
+          } else if (kind === 'phone') {
+            L.p.rotation.set(-0.5, 0, 0.12); R.p.rotation.set(-1.18, 0, -0.12);
+            m.p.head.rotation.set(0.42, Math.sin(t * 0.25 + i) * 0.05 * ty, 0.04);
+            if (m.p.props.phone) m.p.props.phone.rotation.z = -0.15 + Math.sin(t * 2.6 + i) * 0.03 * ty;
+          } else if (kind === 'game') {
+            L.p.rotation.set(-1.0 + Math.sin(t * 11 + i) * 0.05 * ty, 0, 0.3); R.p.rotation.set(-1.0 + Math.sin(t * 13.5 + i) * 0.05 * ty, 0, -0.3);
+            m.p.head.rotation.set(0.22 + Math.sin(t * 0.7 + i) * 0.03 * ty, Math.sin(t * 0.9 + i) * 0.1 * ty, Math.sin(t * 1.3 + i) * 0.04 * ty);
+          } else if (kind === 'nap') {
+            L.p.rotation.set(-0.32, 0, 0.14); R.p.rotation.set(-0.32, 0, -0.14);
+            m.p.head.rotation.set(-0.2 + Math.sin(t * 0.8 + i) * 0.02 * ty, 0.1, 0.32);
+            m.p.body.position.y = Math.sin(t * 0.8 + i) * 0.006 * ty;   // slow breathing
+          } else if (kind === 'music') {
+            L.p.rotation.set(-0.45, 0, 0.12); R.p.rotation.set(-0.45 + Math.abs(Math.sin(t * 2.2 + i)) * 0.15 * ty, 0, -0.12);
+            m.p.head.rotation.set(0.05 + Math.abs(Math.sin(t * 4.4 + i)) * 0.12 * ty, Math.sin(t * 2.2 + i) * 0.1 * ty, 0);
+          } else if (kind === 'sketch') {
+            L.p.rotation.set(-0.72, 0, 0.22); R.p.rotation.set(-0.78 + Math.sin(t * 7 + i) * 0.05 * ty, Math.sin(t * 5 + i) * 0.08 * ty, -0.28);
+            m.p.head.rotation.set(0.5, Math.sin(t * 0.3 + i) * 0.05 * ty, 0);
+          } else {
+            // tea: the cup goes up for a sip now and then
+            const c = still ? 0 : Math.max(0, Math.sin(t * 0.7 + i * 1.9)); const sip = c * c * (3 - 2 * c);
+            L.p.rotation.set(-0.55, 0, 0.12); R.p.rotation.set(-0.8 - sip * 1.55, 0, -0.35 - sip * 0.25);
+            m.p.head.rotation.set(-0.12 * sip + Math.sin(t * 0.4 + i) * 0.03, Math.sin(t * 0.3 + i) * 0.15 * (1 - sip), 0);
+          }
+          if (kind !== 'nap') m.p.body.position.y = 0;
         }
-        // blink
+        // blink (a napping agent keeps the eyes closed)
         if (t > m.p.blinkAt) { m.p.blinkAt = t + 2.5 + Math.random() * 4; m.p.blinkEnd = t + 0.12; }
-        const sy = t < (m.p.blinkEnd || 0) ? 0.12 : 1; m.p.eyes.forEach((e) => { e.scale.y = sy; });
-        if (m.p.hp) { const work = m.on && !walking; m.p.hp.head.visible = work; m.p.hp.neck.visible = !work; }
+        const napping = !m.on && !walking && m.p.rest === 'nap';
+        const sy = napping || t < (m.p.blinkEnd || 0) ? 0.12 : 1; m.p.eyes.forEach((e) => { e.scale.y = sy; });
+        if (m.p.hp) { const work = m.on && !walking, tunes = !m.on && !walking && m.p.rest === 'music'; m.p.hp.head.visible = work || tunes; m.p.hp.neck.visible = !work && !tunes; }
         // the laptop opens for its owner at work
         const d = m.desk, want = m.on && !walking && dist < 0.4 ? 1 : 0;
         d.lidOpen += (want - d.lidOpen) * Math.min(dt * 3, 1);
@@ -3550,8 +3628,8 @@ dash.loader('sales', {
       const F = (s, wt) => (wt || 600) + ' ' + s + 'px "Inter", "Segoe UI", system-ui, sans-serif';
       g.fillStyle = '#ffffff'; g.font = F(132, 800); g.textAlign = 'center';
       g.fillText(new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }), w / 2, 150);
-      g.fillStyle = '#9fb4ff'; g.font = F(30, 600); g.fillText('Москва · агенты в 06:17 и 15:17', w / 2, 212);
-      g.fillStyle = '#7f8bb3'; g.font = F(28, 500); g.fillText('следующий запуск в ' + NEXT_ADS(), w / 2, 258);
+      g.fillStyle = '#9fb4ff'; g.font = F(30, 600); g.fillText('Москва · смена агентов 12:00–20:00', w / 2, 212);
+      g.fillStyle = '#7f8bb3'; g.font = F(28, 500); g.fillText('следующая проверка в ' + NEXT_ADS(), w / 2, 258);
     }
   }
 
@@ -3598,7 +3676,10 @@ dash.loader('sales', {
     const team = roomTeam(A), states = {};
     team.forEach((a) => { states[a.id] = roomState(a, A); });
     const working = team.filter((a) => states[a.id].on);
-    RM.status.textContent = RL.err ? RL.err : !RL.runs ? 'узнаю, кто сейчас работает…' : working.length ? 'сейчас работают: ' + working.map((a) => a.name).join(', ') : 'агентов: ' + team.length + ' · все отдыхают до запуска в ' + NEXT_ADS();
+    RM.status.textContent = RL.err ? RL.err : !RL.runs ? 'узнаю, кто сейчас работает…'
+      : rmRunning('ads') ? 'идёт проверка кабинета: ' + working.map((a) => a.name).join(', ')
+      : working.length ? 'на смене до 20:00: ' + working.map((a) => a.name).join(', ') + ' · следующая проверка в ' + NEXT_ADS()
+      : 'агентов: ' + team.length + ' · смена с 12:00 до 20:00, первая проверка в ' + NEXT_ADS();
     // the board shows what the agents changed (impact); the old cabinet totals only until the agent has written impact
     const imp = roomImpact(A);
     const money = imp ? imp.money : roomMoney(A), items = imp ? imp.items : roomBoard(A), grew = roomSeen(items);

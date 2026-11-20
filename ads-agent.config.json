@@ -53,9 +53,24 @@
   },
   "ozon": {
     "mode": "dry-run",
-    "maxCpcRub": 60
+    "maxCpcRub": 60,
+    "launch": {
+      "weeklyBudget": 3500
+    },
+    "launchLive": true
   },
   "plan": {
     "enabled": true
+  },
+  "launch": {
+    "enabled": true,
+    "perDay": 1,
+    "budget": 1000,
+    "source": 1,
+    "paymentType": "cpm",
+    "minMargin": 0.15,
+    "minHeadroom": 1.0,
+    "minStockDays": 30,
+    "minSales30": 5
   }
 }

@@ -116,7 +116,7 @@ export function planText(A) {
   const L = ['🧭 <b>План по рекламному кабинету</b>', ''];
   const d = P.done || {};
   const done = [d.lower && '🎯 ставок снижено — ' + d.lower, d.raise && '📈 ставок поднято — ' + d.raise,
-    d.minus && '🧹 плохих запросов исключено — ' + d.minus, d.transfer && '🔁 исключений перенесено из других РК — ' + d.transfer, d.boost && '🚀 ставка поднята на продающие запросы — ' + d.boost].filter(Boolean);
+    d.minus && '🧹 плохих запросов исключено — ' + d.minus, d.transfer && '🔁 исключений перенесено из других РК — ' + d.transfer, d.boost && '📈 ставка поднята на продающие запросы — ' + d.boost, d.launch && '🚀 создано новых кампаний — ' + d.launch].filter(Boolean);
   L.push('<b>Сделано за сутки</b>');
   L.push(...(done.length ? done.map((x) => '▫️ ' + x) : ['▫️ изменений не понадобилось']));
   if ((P.next || []).length) { L.push('', '<b>Что дальше</b>'); P.next.slice(0, 5).forEach((x) => L.push('▫️ ' + esc(x))); }
