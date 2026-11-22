@@ -26,9 +26,12 @@ function mockApi(calls) {
     minBids: async (c) => Object.fromEntries(c.nms.map((n) => [n.nm, { combined: 25000 }])),
     setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create'), drop: rec('drop') };
 }
+// The made-up campaigns below are treated as created by the agents; the managers' ones are tested in section 30
+const OWN = [...[101, 102, 103, 104, 105, 106, 107, 201, 301, 555].map((id) => ({ store: 'wb1', id })), ...[77, 78, 79].map((id) => ({ store: 'oz1', id }))];
+const withOwn = (s = {}) => ({ ...s, own: [...OWN, ...(s.own || [])] });
 const noLaunch = (o) => mergeConfig({ ...o, launch: { enabled: false } });
 // launches are switched off here unless a test turns them on, so the bid checks stay about bids
-const go = async (over = {}, extra = {}) => { const calls = []; const out = await run({ cfg: mergeConfig({ ...over, launch: { enabled: false, ...(over.launch || {}) } }), data, market, state: extra.state || {}, memory: extra.memory, apis: { wb1: { ...mockApi(calls), ...(extra.api || {}) } }, now: extra.now || NOW, brain: extra.brain }); return { out, calls, by: Object.fromEntries(out.campaigns.map((c) => [c.id, c])) }; };
+const go = async (over = {}, extra = {}) => { const calls = []; const out = await run({ cfg: mergeConfig({ ...over, launch: { enabled: false, ...(over.launch || {}) } }), data, market, state: withOwn(extra.state), memory: extra.memory, apis: { wb1: { ...mockApi(calls), ...(extra.api || {}) } }, now: extra.now || NOW, brain: extra.brain }); return { out, calls, by: Object.fromEntries(out.campaigns.map((c) => [c.id, c])) }; };
 const control = (calls) => calls.filter((c) => CAMPAIGN_CONTROL.includes(c[0]));
 
 // 1. Rules on their own: bids only — a loss-maker gets the largest bid cut, never a pause or a close
@@ -114,7 +117,7 @@ console.log('ads-agent: all checks passed');
   const camp = { id: 301, status: 9, bid_type: 'unified', settings: { name: 'Убыточная', payment_type: 'cpm', placements: { search: true, recommendations: true } }, nm_settings: [{ nm_id: 3, bids_kopecks: { search: 25000, recommendations: 25000 } }] };
   const calls = [], rec = (name) => async (...a) => { calls.push([name, ...a]); };
   const api = { list: async () => [normCampaign(camp)], minBids: async () => ({ 3: { combined: 25000 } }), setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop') };
-  const r = await run({ cfg: noLaunch({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: {}, apis: { wb1: api }, now: NOW });
+  const r = await run({ cfg: noLaunch({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: withOwn(), apis: { wb1: api }, now: NOW });
   assert.equal(calls.length, 0, 'ставка уже минимальная — ни ставки, ни паузы');
   assert.equal(r.campaigns[0].action, 'keep'); assert.equal(r.campaigns[0].blocked, 'ставка уже минимальная'); assert.ok(r.campaigns[0].attention);
   assert.deepEqual(r.attention.map((x) => x.id), [301]);
@@ -193,7 +196,7 @@ console.log('ads-agent: all checks passed');
   const calls = [], rec = (name) => async (...a) => { calls.push([name, ...a]); };
   const api = { list: async () => [normCampaign(camp(201))], minBids: async () => ({}), clusters: async (items) => items.map((i) => ({ ...i, stats: [] })), getMinus: async (items) => items.map((i) => ({ ...i, norm_queries: [] })),
     setMinus: rec('setMinus'), setBids: rec('setBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create') };
-  const r1 = await run({ cfg: noLaunch({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: { camp: { 201: { pausedByAgent: true, pausedFor: 'stock', pausedAt: NOW - 30 * 864e5 } } }, apis: { wb1: api }, now: NOW });
+  const r1 = await run({ cfg: noLaunch({ stores: ['wb1'], mode: 'live' }), data, market: m2, state: withOwn({ camp: { 201: { pausedByAgent: true, pausedFor: 'stock', pausedAt: NOW - 30 * 864e5 } } }), apis: { wb1: api }, now: NOW });
   assert.equal(r1.campaigns[0].action, 'keep'); assert.match(r1.campaigns[0].reason, /включать и выключать кампании агент не может/);
   assert.equal(calls.length, 0, 'сам не включает и ставку на паузе не меняет');
   assert.deepEqual(r1.plan.variants, []);
@@ -247,7 +250,7 @@ console.log('ads-agent: all checks passed');
   const stats = new Map([[77, oad(9000, 30, 30000, {})], [78, oad(1500, 40, 40000, {})], [79, oad(9000, 30, 30000, { 902: { spend: 5000, clicks: 300, orders: 0, sales: 0 }, 903: { spend: 4000, clicks: 300, orders: 30, sales: 30000 } })]]);
   const calls = [], rec = (n) => async (...a) => { calls.push([n, ...a]); };
   const api = { platform: 'ozon', list: async () => camps, stats: async () => stats, minBid: async () => 10, setBids: rec('setBids'), setCir: rec('setCir'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), drop: rec('drop') };
-  const goOz = (ozon) => run({ cfg: noLaunch({ stores: ['wb1', 'oz1'], mode: 'live', ozon }), data: d2, market: mk, state: {}, apis: { oz1: api }, now: NOW });
+  const goOz = (ozon) => run({ cfg: noLaunch({ stores: ['wb1', 'oz1'], mode: 'live', ozon }), data: d2, market: mk, state: withOwn(), apis: { oz1: api }, now: NOW });
   const dry = await goOz({});
   assert.equal(calls.length, 0, 'Ozon в режиме проверки, даже когда WB в боевом');
   assert.match(dry.summary, /Режим проверки \(Ozon\)/); assert.ok(dry.actions.every((a) => a.result === 'planned'));
@@ -264,14 +267,14 @@ console.log('ads-agent: all checks passed');
     const mk3 = { ...mk, stocks: { ...mk.stocks, 'Озон|904': { q: 500 } } };
     const oc = [], orec = (n) => async (...a) => { oc.push([n, ...a]); return n === 'create' ? 555 : null; };
     const api3 = { ...api, setBids: orec('setBids'), setCir: orec('setCir'), create: orec('create'), start: orec('start'), pause: orec('pause'), stop: orec('stop'), drop: orec('drop') };
-    const r = await run({ cfg: mergeConfig({ stores: ['oz1'], mode: 'live' }), data: d3, market: mk3, state: {}, apis: { oz1: api3 }, now: NOW });
+    const r = await run({ cfg: mergeConfig({ stores: ['oz1'], mode: 'live' }), data: d3, market: mk3, state: withOwn(), apis: { oz1: api3 }, now: NOW });
     const la = r.actions.find((a) => a.action === 'launch');
     assert.equal(la.sku, '904'); assert.equal(la.result, 'ok'); assert.equal(la.id, 555);
     assert.deepEqual(oc.map((x) => x[0]), ['create'], 'создана одна кампания Ozon; ставки Ozon не тронуты (режим проверки)');
-    const manual = await run({ cfg: mergeConfig({ stores: ['oz1'], mode: 'dry-run' }), data: d3, market: mk3, state: {}, apis: { oz1: api3 }, now: NOW });
+    const manual = await run({ cfg: mergeConfig({ stores: ['oz1'], mode: 'dry-run' }), data: d3, market: mk3, state: withOwn(), apis: { oz1: api3 }, now: NOW });
     assert.equal(manual.actions.find((a) => a.action === 'launch').result, 'planned', 'ручной режим проверки ничего не создаёт');
   }
-  const none = await run({ cfg: noLaunch({ stores: ['oz1'] }), data: d2, market: mk, state: {}, apis: {}, now: NOW });
+  const none = await run({ cfg: noLaunch({ stores: ['oz1'] }), data: d2, market: mk, state: withOwn(), apis: {}, now: NOW });
   assert.match(none.notes[0], /нет ключа Performance API/);
 }
 // 12. WB campaign info, current v3 shape
@@ -411,4 +414,44 @@ console.log('ads-agent: duplicate-campaign checks passed');
   const A = { generated: '2026-11-18T09:00:00Z', mode: 'live', campaigns: [{ id: 7, store: 'wb1', status: 9, spend30: 1000 }], history: [], actions: [], top };
   const txt = messageText(dayReport(A, Date.parse('2026-11-18T12:00:00Z')), 'wb');
   assert.match(txt, /🔝 Топ-запросы/); assert.match(txt, /«тушенка говяжья» — позиция 6 → 18/);
+}
+
+// 30. Owner's rule 22.11.2026: the agents touch only the campaigns they created themselves
+{
+  const { ownOnly, ownRegistry } = await import('./ads-agent.mjs');
+  // 101 was launched by the agents; 102 and 103 are the managers'; 104 is a manager's copy named like an agent one
+  const camp = (id, nm, name) => ({ id, status: 9, bid_type: 'unified', settings: { name: name || 'РК ' + id, payment_type: 'cpm', placements: { search: true, recommendations: true } }, nm_settings: [{ nm_id: nm, bids_kopecks: { search: 30000, recommendations: 30000 } }] });
+  const calls = [], rec = (name) => async (...a) => { calls.push([name, ...a]); return name === 'create' ? 999 : null; };
+  const api = { list: async () => [camp(101, 1), camp(102, 2), camp(103, 6), camp(104, 4, 'AI 4 копия менеджера')].map(normCampaign),
+    minBids: async (c) => Object.fromEntries(c.nms.map((n) => [n.nm, { combined: 10000 }])), clusters: async (items) => items.map((i) => ({ ...i, stats: [] })), getMinus: async (items) => items.map((i) => ({ ...i, norm_queries: [] })),
+    setBids: rec('setBids'), setMinus: rec('setMinus'), setClusterBids: rec('setClusterBids'), start: rec('start'), pause: rec('pause'), stop: rec('stop'), deposit: rec('deposit'), create: rec('create'), drop: rec('drop') };
+  const state = { history: [{ t: '2026-11-10T05:00:00Z', store: 'wb1', id: 101, action: 'launch', result: 'ok', sku: '1' }] };
+  const m3 = { ...market, ads: [ad(101, 1, 9000, 30, 30000), ad(102, 2, 9000, 30, 30000), ad(103, 6, 9000, 30, 30000), ad(104, 4, 9000, 30, 30000)] };
+  const r = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live', launch: { enabled: true } }), data, market: m3, state, apis: { wb1: api }, now: NOW });
+  assert.deepEqual(r.campaigns.map((c) => c.id), [101], 'в решениях только кампания агентов, копия «AI …» менеджера тоже чужая');
+  assert.ok(calls.every((c) => c[0] === 'create' || [101, 999].includes(c[1])), 'в кампании менеджеров ничего не отправлено');
+  assert.ok(!calls.some((c) => c[0] === 'setBids' && c[1] !== 101));
+  assert.ok(!r.actions.some((a) => a.action === 'launch' && ['2', '6'].includes(a.sku)), 'на товар, который рекламируют менеджеры, новую кампанию не создаёт');
+  assert.equal(r.actions.filter((a) => a.action === 'launch').length, 0, 'единственный подходящий товар (6) уже у менеджера');
+  assert.deepEqual(r.managed, { own: 1, others: 3 });
+  // without the manager's campaign on product 6 the agents launch it, and the new campaign is theirs at once
+  const api2 = { ...api, list: async () => [camp(101, 1), camp(102, 2)].map(normCampaign) };
+  const r2 = await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live', launch: { enabled: true } }), data, market: { ...m3, ads: [ad(101, 1, 1500, 30, 30000), ad(102, 2, 1500, 30, 30000)] }, state, apis: { wb1: api2 }, now: NOW });
+  assert.equal(r2.actions.find((a) => a.action === 'launch').sku, '6');
+  assert.ok(r2.own.some((o) => o.id === 999 && o.src === 'agent'), 'созданная кампания сразу становится своей');
+  // the list of own campaigns survives the history being cut
+  const later = ownRegistry({ own: r2.own, history: [] });
+  assert.ok(later.has('wb1', 101) && later.has('wb1', 999) && !later.has('wb1', 102));
+  // a direct write to someone else's campaign is refused whatever asks for it
+  const guarded = ownOnly(api, 'wb1', later.has);
+  await assert.rejects(() => guarded.setBids(102, []), /создана не агентами/);
+  await assert.rejects(() => guarded.setMinus(103, 6, ['x']), /создана не агентами/);
+  await assert.rejects(() => guarded.setClusterBids([{ advertId: 101, nmId: 1 }, { advertId: 104, nmId: 4 }]), /создана не агентами/);
+  await guarded.setBids(101, []);
+  // a brain asking to change a manager's campaign gets nothing: it never sees it
+  const seen = [];
+  await run({ cfg: mergeConfig({ stores: ['wb1'], mode: 'live', launch: { enabled: false } }), data, market: m3, state, apis: { wb1: api }, now: NOW,
+    brain: async ({ rows }) => { seen.push(...rows.map((x) => x.uid)); return { summary: '', decisions: [{ uid: 'wb1:102', action: 'lower', bidPct: 20, reason: 'чужая' }] }; } });
+  assert.deepEqual(seen, ['wb1:101'], 'Claude видит только кампании агентов');
+  console.log('ads-agent: own-campaigns-only checks passed');
 }

@@ -113,7 +113,7 @@ const k = (x) => (Math.abs(x) >= 1000 ? (Math.round(x / 100) / 10).toString().re
 export function planText(A) {
   const P = A.plan;
   if (!P) return '';
-  const L = ['🧭 <b>План по рекламному кабинету</b>', ''];
+  const L = ['🧭 <b>План по кампаниям агентов</b>', ''];
   const d = P.done || {};
   const done = [d.lower && '🎯 ставок снижено — ' + d.lower, d.raise && '📈 ставок поднято — ' + d.raise,
     d.minus && '🧹 плохих запросов исключено — ' + d.minus, d.transfer && '🔁 исключений перенесено из других РК — ' + d.transfer, d.boost && '📈 ставка поднята на продающие запросы — ' + d.boost, d.launch && '🚀 создано новых кампаний — ' + d.launch].filter(Boolean);
