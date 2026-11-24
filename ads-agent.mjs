@@ -517,7 +517,7 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     const st = stOf(m), api = apis[m.store];
     const dec = guard(proposed.get(m.uid), m, cfg, st, now);
     const loss = m.status === 9 ? stopReason(m, cfg) : null;
-    const row = { id: m.id, store: m.store, platform: m.platform, name: m.name, status: m.status, payType: m.payType, spend30: R(m.w30.spend), orders30: m.w30.orders, ordSum30: R(m.w30.ordSum), drr30: fin(m.drr30), drr14: fin(m.drr14), margin: r3(m.margin), target: r3(m.target), stock: m.stock, action: dec.action, bidPct: dec.bidPct || 0, reason: dec.reason, blocked: dec.blocked };
+    const row = { id: m.id, store: m.store, platform: m.platform, name: m.name, status: m.status, payType: m.payType, spend30: R(m.w30.spend), orders30: m.w30.orders, ordSum30: R(m.w30.ordSum), days: m.days.filter((d) => d[0] >= new Date(Date.parse(today) - 14 * DAY).toISOString().slice(0, 10)).map((d) => [d[0], R(d[1]), R(d[2]), R(d[3])]), drr30: fin(m.drr30), drr14: fin(m.drr14), margin: r3(m.margin), target: r3(m.target), stock: m.stock, action: dec.action, bidPct: dec.bidPct || 0, reason: dec.reason, blocked: dec.blocked };
     out.campaigns.push(row); rowOf.set(m.uid, row);
     if (dec.action !== 'lower' && dec.action !== 'raise') continue;
 

@@ -3021,19 +3021,26 @@ dash.loader('sales', {
     const L = [...by.entries()].filter(([d]) => d < today).sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(-14).map(([d, x]) => ({ d, ...x, drr: x.sum ? x.spend / x.sum : null }));
     const T0 = by.get(today) || { spend: 0, orders: 0, sum: 0 };
     const days = L.concat(by.has(today) ? [{ d: today, ...T0, drr: T0.sum ? T0.spend / T0.sum : null, partial: true }] : []);
-    const at = MK && MK.generated ? new Date(MK.generated).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }) : '';
     // campaigns the agents created: what they brought over the last 30 days (WB and Ozon rows of the last check)
     const mine = new Set((A.history || []).filter((h) => h.action === 'launch' && h.result === 'ok' && h.id).map((h) => h.store + ':' + h.id));
     const own = (A.campaigns || []).filter((c) => mine.has(c.store + ':' + c.id)).reduce((t, c) => ({ n: t.n + 1, orders: t.orders + (c.orders30 || 0), sum: t.sum + (c.ordSum30 || 0), spend: t.spend + (c.spend30 || 0) }), { n: 0, orders: 0, sum: 0, spend: 0 });
-    const S = (arr, f) => arr.reduce((t, x) => t + x[f], 0), w7 = L.slice(-7), p7 = L.slice(-14, -7);
-    const drr = (arr) => (S(arr, 'sum') ? S(arr, 'spend') / S(arr, 'sum') : null);
-    const chg = (a, b) => (b ? Math.round((a / b - 1) * 100) : null);
-    const vs = (x) => (x == null ? '' : (x > 0 ? '+' : '') + x + '% к прошлой неделе');
+    // today and the last 7 days of the agents' own campaigns, WB and Ozon: daily rows from the agent's last check;
+    // a WB campaign takes the fresher market.json rows when the data refresh ran after the agent
+    const fresher = MK && MK.generated && (!A.generated || MK.generated > A.generated);
+    const ownDays = new Map(), day0 = new Date(Date.parse(today) - 7 * 864e5).toISOString().slice(0, 10);
+    (A.campaigns || []).filter((c) => mine.has(c.store + ':' + c.id)).forEach((c) => {
+      const mk = fresher && c.platform !== 'ozon' ? ((MK && MK.ads) || []).find((a) => a.s === c.store && a.id === c.id) : null;
+      ((mk && mk.days) || c.days || []).forEach(([d, sp, o, os]) => { const x = ownDays.get(d) || { spend: 0, orders: 0, sum: 0 }; x.spend += +sp || 0; x.orders += +o || 0; x.sum += +os || 0; ownDays.set(d, x); });
+    });
+    const O0 = ownDays.get(today) || { spend: 0, orders: 0, sum: 0 };
+    const O7 = [...ownDays.entries()].filter(([d]) => d >= day0 && d < today).reduce((t, [, x]) => ({ spend: t.spend + x.spend, sum: t.sum + x.sum }), { spend: 0, sum: 0 });
+    const oDrr = O0.sum ? O0.spend / O0.sum : null, o7 = O7.sum ? O7.spend / O7.sum : null;
+    const ownAt = new Date(fresher && !(A.campaigns || []).some((c) => c.platform === 'ozon' && mine.has(c.store + ':' + c.id)) ? MK.generated : A.generated).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
     const acts = (A.mode === 'live' ? (A.history || []).filter((a) => a.result === 'ok') : (A.actions || [])).filter((a) => a.t && mskDay(a.t) === today);
-    const n = (ks) => acts.filter((a) => ks.includes(a.action)).length, I = A.impact, d7 = drr(w7), dp = drr(p7);
+    const n = (ks) => acts.filter((a) => ks.includes(a.action)).length, I = A.impact;
     return { days, kpis: [
-      ['Сегодня в WB' + (at ? ', к ' + at : ''), T.num(T0.orders) + ' зак. · ' + T.rub(T0.sum), 'расход ' + T.rub(T0.spend) + (T0.sum ? ' · ДРР ' + T.pct(T0.spend / T0.sum, 0) : ''), T0.sum ? T0.spend / T0.sum <= (d7 || 1) : null],
-      ['ДРР за 7 дней', T.pct(d7, 0), dp != null ? 'неделей раньше ' + T.pct(dp, 0) : '', d7 != null && dp != null ? d7 <= dp : null],
+      ['Сегодня: РК агентов, к ' + ownAt, T.num(O0.orders) + ' зак. · ' + T.rub(O0.sum), 'расход ' + T.rub(O0.spend), null],
+      ['ДРР РК агентов сегодня', O0.sum ? T.pct(oDrr, 0) : (O0.spend ? 'нет заказов' : '—'), o7 != null ? 'за 7 дней ' + T.pct(o7, 0) : '', O0.spend ? (oDrr != null && oDrr <= (o7 || 0.25)) : null],
       ['Кампании агентов (' + mine.size + ')', T.num(own.orders) + ' зак. · ' + T.rub(own.sum), 'за 30 дн., расход ' + T.rub(own.spend) + (own.sum ? ' · ДРР ' + T.pct(own.spend / own.sum, 0) : ''), own.spend ? own.sum > own.spend * 4 : null],
       ['Агенты сегодня', T.num(acts.length) + ' действ.', 'ставки ' + n(['lower', 'raise', 'boost']) + ' · запросы ' + n(['minus']) + ' · новые РК ' + n(['launch']), null],
     ], footer: I && I.camps ? 'Вклад агентов в их ' + I.camps + ' кампаниях: расход ' + T.rub(I.spendBeforeDay) + ' → ' + T.rub(I.spendNowDay) + ' в день, ДРР ' + T.pct(I.drrBefore, 0) + ' → ' + T.pct(I.drrNow, 0) : '' };
@@ -3808,7 +3815,7 @@ dash.loader('sales', {
     if (bd.days.length) {
       const mx = Math.max(...bd.days.map((x) => x.spend), 1), bars = T.el('div', 'rm-wb-bars');
       bd.days.forEach((x) => { const b = T.el('span', x.partial ? 'today' : null); b.style.height = Math.max(4, Math.round((x.spend / mx) * 100)) + '%'; b.title = x.d.slice(8, 10) + '.' + x.d.slice(5, 7) + ': ' + T.rub(x.spend) + (x.drr != null ? ', ДРР ' + T.pct(x.drr, 0) : ''); bars.append(b); });
-      el.append(bars, T.el('small', 'rm-wb-cap', 'Расход на рекламу по дням с ' + bd.days[0].d.slice(8, 10) + '.' + bd.days[0].d.slice(5, 7) + '; светлый столбик — сегодня, день ещё идёт'));
+      el.append(bars, T.el('small', 'rm-wb-cap', 'Расход всего кабинета WB по дням с ' + bd.days[0].d.slice(8, 10) + '.' + bd.days[0].d.slice(5, 7) + '; светлый столбик — сегодня, день ещё идёт'));
     }
     if (bd.footer) el.append(T.el('p', 'rm-wb-foot', bd.footer));
   }
