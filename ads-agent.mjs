@@ -4,6 +4,9 @@
 //
 // Owner's rules (20.11.2026): the agents never pause or stop (finish) a campaign and never take products out of one.
 // They work with bids, ad statistics, metrics and search queries, and they create one new campaign a day.
+// Owner's rule (22.11.2026): the agents touch ONLY campaigns they created themselves. The managers' campaigns are not
+// read for decisions, not changed, not counted in the agents' lessons; ownOnly() refuses any write to them. The rest of
+// the account is used only to avoid launching a product that the managers already advertise.
 // bidsOnly() strips start / pause / stop / create / deposit / drop from every API client; launchOnly() gives back only
 // create, plus deposit and start for a campaign it has just created itself. So nothing can pause, finish or restart
 // an existing campaign, whatever the config or Claude says.
@@ -77,6 +80,29 @@ export function launchOnly(api) {
     deposit: async (id, ...a) => { own(id); return api.deposit(id, ...a); },
     start: async (id) => { own(id); return api.start(id); },
   };
+}
+// Campaigns the agents created: every launch that got a campaign number, kept in ads-agent.json (state.own) for good,
+// because the action history is cut to the last 400 entries. A name starting with «AI» proves nothing — managers copy them.
+export function ownRegistry(state = {}) {
+  const list = (state.own || []).slice();
+  const has = (sid, id) => list.some((o) => o.store === sid && +o.id === +id);
+  const add = (sid, id, extra = {}) => { if (id && !has(sid, id)) list.push({ store: sid, id: +id, ...extra }); };
+  (state.history || []).forEach((a) => { if (a.action === 'launch' && a.id) add(a.store, a.id, { t: a.t, sku: a.sku != null ? String(a.sku) : undefined, src: a.owner ? 'owner' : 'agent' }); });
+  return { list, has, add };
+}
+// Writes allowed only into the agents' own campaigns, whatever the rules, Claude or a bug ask for
+const WRITES = ['setBids', 'setCir', 'setMinus', 'setClusterBids'];
+export function ownOnly(api, sid, isOwn) {
+  if (!api) return api;
+  const out = { ...api };
+  const check = (id) => { if (!isOwn(sid, id)) throw new Error('кампания ' + id + ' создана не агентами — агенты её не трогают'); };
+  WRITES.forEach((k) => {
+    if (typeof api[k] !== 'function') return;
+    out[k] = k === 'setClusterBids'
+      ? async (bids) => { (bids || []).forEach((b) => check(b.advertId ?? b.advert_id)); return api[k](bids); }
+      : async (id, ...a) => { check(id); return api[k](id, ...a); };
+  });
+  return out;
 }
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 const deepMerge = (base, over) => { for (const [k, v] of Object.entries(over || {})) { if (isObj(v) && isObj(base[k])) deepMerge(base[k], v); else base[k] = v; } return base; };
@@ -404,7 +430,8 @@ export function launchCandidates(storeName, storeId, campaigns, econ, market, cf
 
 /* ------------------------------ Run ------------------------------ */
 export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = null, apis: apis0, now = Date.now(), brain = null }) {
-  const apis = Object.fromEntries(Object.entries(apis0 || {}).map(([k, a]) => [k, bidsOnly(a)]));   // no start / pause / stop / create / deposit / drop
+  const own = ownRegistry(state);              // campaigns the agents created; nothing else is touched (owner, 22.11.2026)
+  const apis = Object.fromEntries(Object.entries(apis0 || {}).map(([k, a]) => [k, ownOnly(bidsOnly(a), k, own.has)]));   // no start / pause / stop / create / deposit / drop, writes only to own
   const launchers = Object.fromEntries(Object.entries(apis0 || {}).map(([k, a]) => [k, launchOnly(a)]));   // create + its own new campaign only
   const memory = loadMemory(mem0);
   const cfg = applyTuning(cfg0, memory);       // the owner's limits with the agent's own tuned thresholds on top
@@ -418,12 +445,13 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   const stOf = (m) => ({ ...(camp[ck(m)] || {}), recent: hist.filter((h) => h.id === m.id && h.store === m.store).slice(-4) });
   const mark = (m, patch) => { camp[ck(m)] = { ...(camp[ck(m)] || {}), ...patch }; };
   const metrics = [], byUid = new Map(), views = [], storeName = {}, pool = [];
+  const others = [];      // the managers' campaigns: only to see which products they already advertise
   // products whose agent-made campaign was closed are not launched again; Ozon takes its own weekly budget
   const closedSkus = new Set(hist.filter((a) => a.action === 'launch' && a.result === 'ok' && hist.some((h) => h.action === 'stop' && h.result === 'ok' && h.id === a.id)).map((a) => String(a.sku)));
   const launchCfg = (p) => (p === 'ozon' ? { ...cfg.launch, ...(cfg.ozon.launch || {}) } : cfg.launch);
   // Campaigns that were closed earlier (by the owner or, before 20.11.2026, by the agent): for 30 days, while WB still
   // has their statistics, their excluded queries are read into the knowledge base and carried into the product's live campaigns
-  const closedByAgent = hist.filter((h, i, all) => h.action === 'stop' && h.result === 'ok' && h.platform !== 'ozon' && !String(h.store).startsWith('oz') && h.key && Date.parse(h.t) >= now - 30 * DAY && all.findIndex((x) => x.action === 'stop' && x.result === 'ok' && x.id === h.id) === i);
+  const closedByAgent = hist.filter((h, i, all) => own.has(h.store, h.id) && h.action === 'stop' && h.result === 'ok' && h.platform !== 'ozon' && !String(h.store).startsWith('oz') && h.key && Date.parse(h.t) >= now - 30 * DAY && all.findIndex((x) => x.action === 'stop' && x.result === 'ok' && x.id === h.id) === i);
 
   // 1. Read every ad account
   const noOzonKey = [];
@@ -436,8 +464,12 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
     try { list = await api.list(); if (api.stats) stats = await api.stats(list, today); } catch (e) { out.errors.push(store.name + ': ' + e.message); continue; }
     const ctx = { cfg, econ, market, today, storeId: sid, storeName: store.name };
     const adOf = (id) => (stats ? stats.get(id) : (market.ads || []).find((a) => a.s === sid && a.id === id));
-    const mine = list.map((c) => campaignMetrics(c, adOf(c.id), ctx));
-    mine.forEach((m) => { metrics.push(m); byUid.set(m.uid, m); });
+    const mine = [];
+    list.forEach((c) => {
+      if (!own.has(sid, c.id)) { others.push({ store: sid, id: c.id, status: c.status, nms: c.nms }); return; }
+      const m = campaignMetrics(c, adOf(c.id), ctx);
+      mine.push(m); metrics.push(m); byUid.set(m.uid, m);
+    });
     if (cfg.launch.enabled && launchers[sid]) {
       const L = launchCfg(platOf(sid));
       launchCandidates(store.name, sid, list, econ, market, { ...cfg, launch: L }, closedSkus, accountAvg(stats ? [...stats.values()] : (market.ads || []).filter((a) => a.s === sid))).slice(0, 3).forEach((c) => pool.push({ ...c, store: sid, platform: platOf(sid) }));
@@ -567,7 +599,8 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   const liveLaunch = (sid) => live(sid) || (platOf(sid) === 'ozon' && cfg.ozon.launchLive && cfg.mode === 'live');
   const doneLaunch = async (act, sid, fn) => { if (!liveLaunch(sid)) { act.result = 'planned'; return; } try { await fn(); act.result = 'ok'; } catch (e) { act.result = 'error'; act.error = e.message; } };
   if (cfg.launch.enabled && launchedToday < cfg.launch.perDay) {
-    const busy = new Set(metrics.filter((m) => m.status === 9 || m.status === 4 || m.status === 11).flatMap((m) => m.nms.map((n) => m.store + '|' + n.nm)));
+    // a product already in any running, ready or paused campaign — the agents' or the managers' — gets no new one
+    const busy = new Set([...metrics, ...others].filter((m) => m.status === 9 || m.status === 4 || m.status === 11).flatMap((m) => m.nms.map((n) => m.store + '|' + n.nm)));
     const order = pool.filter((c) => !busy.has(c.store + '|' + c.sku)).sort((a, b) => (liveLaunch(b.store) - liveLaunch(a.store)) || ((b.per1000 ?? -Infinity) - (a.per1000 ?? -Infinity)) || b.profit - a.profit);
     for (const cand of order.slice(0, cfg.launch.perDay - launchedToday)) {
       const L = launchCfg(cand.platform), api = launchers[cand.store], goal = Math.min(cfg.maxDrr, cfg.targetShare * cand.margin);
@@ -577,10 +610,11 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
           ' Бюджет ' + (cand.platform === 'ozon' ? rub(L.weeklyBudget) + ' в неделю' : rub(L.budget)) + ', целевой ДРР до ' + pct(goal) + '. Через две недели проверю, окупилась ли она, и подстрою отбор.' };
       await doneLaunch(act, cand.store, async () => {
         const title = ('AI ' + cand.sku + ' ' + cand.name).slice(0, 60);
-        if (cand.platform === 'ozon') { act.id = +(await api.create(title, cand.sku, clamp(Math.round(goal * 100), 5, 50), L.weeklyBudget)) || null; return; }
+        if (cand.platform === 'ozon') { act.id = +(await api.create(title, cand.sku, clamp(Math.round(goal * 100), 5, 50), L.weeklyBudget)) || null; own.add(cand.store, act.id, { t: act.t, sku: String(cand.sku), src: 'agent' }); return; }
         const id = await api.create(title, [+cand.sku], L.paymentType);
         act.id = +id || (id && (id.id || id.advertId)) || null;
         if (!act.id) throw new Error('WB не вернул номер кампании');
+        own.add(cand.store, act.id, { t: act.t, sku: String(cand.sku), src: 'agent' });      // ours from this moment, even if starting it fails
         await sleep(3000);
         // the product's excluded queries go into the new campaign right away (minus phrases work in CPM campaigns)
         if (L.paymentType !== 'cpc') { const list = kbBad(memory, cand.key); if (list.length) await apis[cand.store].setMinus(act.id, +cand.sku, list.slice(0, 1000)); }
@@ -633,12 +667,13 @@ export async function run({ cfg: cfg0, data, market, state = {}, memory: mem0 = 
   const dry = [!live('wb1') && metrics.some((m) => m.platform === 'wb') && 'WB', hasOz && cfg.ozon.mode !== 'live' && 'Ozon'].filter(Boolean);
   const dryNote = dry.length ? ' Режим проверки (' + dry.join(', ') + '): в кабинете ничего не менялось.' : '';
   const qn = out.actions.filter((x) => x.action === 'minus' && x.result !== 'error').reduce((s, x) => s + x.n, 0);
-  const auto = 'Кампаний под управлением: WB — ' + cnt('wb', 9) + ' активных, ' + cnt('wb', 11) + ' на паузе' + (hasOz ? '; Ozon — ' + cnt('ozon', 9) + ' активных, ' + cnt('ozon', 11) + ' выключенных' : '') + '. ' +
+  const auto = 'Кампаний агентов (чужие не трогаем, у менеджеров ' + others.length + '): WB — ' + cnt('wb', 9) + ' активных, ' + cnt('wb', 11) + ' на паузе' + (hasOz ? '; Ozon — ' + cnt('ozon', 9) + ' активных, ' + cnt('ozon', 11) + ' выключенных' : '') + '. ' +
     (out.actions.length ? 'Решения: ставка снижена — ' + n('lower') + ', повышена — ' + n('raise') + ', убрано запросов — ' + qn + ', поднята ставка на продающие запросы — ' + n('boost') + ', создано кампаний — ' + n('launch') + '.' : 'Изменений не требуется.');
   out.summary = (out.summary || auto) + dryNote +
     (failed.length ? ' Не выполнено из-за ошибок площадки: ' + failed.length + (failed.some((x) => /read-only/i.test(x.error || '')) ? ' — токен WB только на чтение, нужен токен «Продвижение» с правом записи.' : '.') : '');
   out.campaigns.sort((a, b) => (a.action === 'keep') - (b.action === 'keep') || b.spend30 - a.spend30);
-  return { ...out, history: hist.slice(-400), camp, memory };
+  out.managed = { own: own.list.length, others: others.length };
+  return { ...out, history: hist.slice(-400), camp, memory, own: own.list };
 }
 const cleanTitle = (s) => String(s || '').replace(/^\d{5,}\s*/, '').replace(/_/g, ' ').trim();
 
